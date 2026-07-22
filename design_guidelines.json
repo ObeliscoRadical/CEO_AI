@@ -1,0 +1,134 @@
+{
+  "theme_strategy": {
+    "concept": "Digital Executive / Living Company",
+    "vibe": "Luxury, Private Banking, Living Organism, Trust",
+    "theme": "Dark-first (Obsidian) with Light mode toggle",
+    "core_metaphor": "The UI is not software; it is a breathing, intelligent executive suite that talks to you."
+  },
+  "typography": {
+    "headings": {
+      "family": "Cormorant Garamond",
+      "fallback": "Playfair Display, serif",
+      "usage": "Used for main greetings (e.g., Daily Briefing), large metrics, and section titles. Evokes a 'private banking' and luxury feel.",
+      "weights": "Light (300) to Medium (500). Avoid ultra-bold for elegance.",
+      "tracking": "tracking-tight for large headings"
+    },
+    "body": {
+      "family": "Satoshi",
+      "fallback": "Manrope, sans-serif",
+      "usage": "Used for all dashboard data, conversational chat bubbles, labels, and small UI text.",
+      "weights": "Regular (400), Medium (500)",
+      "tracking": "Normal. Overlines should be tracking-[0.2em] uppercase."
+    },
+    "hierarchy_rules": "Maximum heading size is text-5xl or text-6xl for the Daily Briefing entry. Use fluid scales. Never jump more than 2 tailwind steps between heading and subtitle."
+  },
+  "colors": {
+    "archetype": "LUXURY (Premium, Depth, Mystery)",
+    "base_dark": {
+      "background": "#0B0C10",
+      "surface": "#1F2833",
+      "border": "rgba(255, 255, 255, 0.1)"
+    },
+    "base_light": {
+      "background": "#F9F9F9",
+      "surface": "#FFFFFF",
+      "border": "rgba(0, 0, 0, 0.08)"
+    },
+    "accents": {
+      "gold": "#D4AF37",
+      "emerald": "#10B981",
+      "ruby": "#EF4444",
+      "amber": "#F59E0B"
+    },
+    "text": {
+      "dark_theme": {
+        "primary": "#EDEDED",
+        "secondary": "#A1A1AA",
+        "disabled": "#52525B"
+      },
+      "light_theme": {
+        "primary": "#18181B",
+        "secondary": "#71717A",
+        "disabled": "#A1A1AA"
+      }
+    },
+    "rules": "Never use pure #000000. Tint neutrals with blue/charcoal. Use Emerald/Ruby/Amber strictly for Vital Signs (Green/Yellow/Red statuses) and Health Scores. Use Gold for gamification, company value, and premium 'CEO DNA' moments."
+  },
+  "visual_enhancers": {
+    "glassmorphism": {
+      "name": "Crystal Glass",
+      "usage": "Use for the Daily Briefing chat overlay, sticky headers, and specific high-value widget cards.",
+      "classes_dark": "bg-black/40 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]",
+      "classes_light": "bg-white/60 backdrop-blur-2xl border border-black/5 shadow-sm"
+    },
+    "ambient_glow": {
+      "usage": "Cinematic depth behind the 'Living Orb' and key Health metrics.",
+      "classes": "shadow-[0_0_40px_rgba(212,175,55,0.15)] (adjust color based on context)"
+    },
+    "surfaces": "Dashboard vital cards should NOT be fully glass to ensure data readability. Use flat surfaces (e.g., bg-[#121318] in dark mode) with a subtle 1px border. No muddy gray transparency."
+  },
+  "component_usage": {
+    "shadcn": ["Card", "Progress", "Badge", "HoverCard", "Tabs", "Select", "Dialog", "Input", "Button"],
+    "modifications": {
+      "Card": "Remove default borders if using grids. Apply custom border-white/5 for dark mode. Do not overuse Cards; allow bento grid structures to act as boundaries.",
+      "Progress": "Use circular SVGs or Recharts for the 'Health Score Ring' and 'Goal Ring'. Shadcn default progress is linear.",
+      "Button": "Pill-shaped (rounded-full). Hover state must slightly lift (-translate-y-0.5) and increase glow."
+    }
+  },
+  "grids_and_layouts": {
+    "dashboard_mode": "High Density Grid (Bento style). Base grid: grid-cols-1 md:grid-cols-3 lg:grid-cols-4. Gap: gap-6. Mix 1x1, 2x1, and 2x2 spans. Ensure full height stretch on cards.",
+    "conversational_mode": "Full-height focus layout. The CEO Orb sits centrally or top-center. Chat bubbles flow elegantly from bottom-up or within a central column (max-w-3xl).",
+    "spacing": "Generous. Use p-6 or p-8 inside metric cards to prevent data collision. Use massive padding (py-24) for the CEO DNA onboarding."
+  },
+  "motion_and_interactions": {
+    "living_orb": "The CEO presence must be animated. A CSS/Framer Motion glowing sphere that 'breathes' (scales 1 to 1.05 over 4 seconds, ease-in-out, infinite). It changes color based on mood or company health (Gold = default, Emerald = excellent, Amber = caution).",
+    "transitions": "Use Framer Motion for page routes and staggered entry of dashboard cards. Do NOT use 'transition-all'. Target specific properties.",
+    "hover_states": "All interactive elements must lighten on hover and clearly indicate interactivity. Use micro-animations."
+  },
+  "3d_and_creative_libraries": {
+    "framer_motion": "Mandatory for the CEO Orb breathing animation, chat message staggering, and bento card reveals.",
+    "recharts": "Mandatory for the 8-Dimension CEO Score (Radar Chart), Future Engine (Line/Area charts with gradient fills), and Vital Signs mini-sparklines."
+  },
+  "accessibility": {
+    "contrast": "Ensure text over glassmorphism passes WCAG AA. Use off-white text, not dark gray on black.",
+    "data_testid": "ALL interactive elements, form inputs, buttons, and key metrics (health score, company value) MUST have a data-testid attribute in kebab-case."
+  },
+  "media_and_assets": {
+    "icons": "Use 'lucide-react' (default) or 'phosphor-icons' for thin, elegant strokes fitting the luxury vibe.",
+    "image_urls": {
+      "abstract_obsidian_gold": {
+        "url": "https://images.unsplash.com/photo-1747673002516-f11a48cb0ce2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwzfHxhYnN0cmFjdCUyMG9ic2lkaWFuJTIwZ29sZCUyMHRleHR1cmV8ZW58MHx8fHwxNzg0NzYxODk3fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Fluid obsidian and gold texture. Use as a subtle, very low opacity (10-20%) background overlay for the 'CEO DNA Onboarding' or entry screen."
+      },
+      "executive_portrait_1": {
+        "url": "https://images.pexels.com/photos/28446973/pexels-photo-28446973.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Professional confident businessman in a grey suit. Use for 'Conservative' or 'Investor' CEO personality avatars."
+      },
+      "executive_portrait_2": {
+        "url": "https://images.unsplash.com/photo-1770452603217-89b4f03e8271?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjV8MHwxfHNlYXJjaHw0fHxleGVjdXRpdmUlMjBwb3J0cmFpdCUyMGRhcmslMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc4NDc2MTg5N3ww&ixlib=rb-4.1.0&q=85",
+        "description": "Smiling man in black suit. Use for 'Growth' or 'Familiar' CEO personality avatars."
+      }
+    }
+  },
+  "instructions_to_main_agent": [
+    "Build the dashboard using React, Tailwind CSS, and Shadcn UI.",
+    "Start by implementing the 'Daily Intelligent Briefing' as a conversational overlay, featuring the breathing animated Orb (Framer Motion).",
+    "Create the 'Living Company Dashboard' bento grid with specific RAG (Red/Amber/Green) colored vital signs. Use circular progress for Health (0-100).",
+    "Integrate Recharts for the CEO Score Gamification (Radar chart) and Future Engine (Forecast line chart).",
+    "Ensure 'Cormorant Garamond' is applied to large UI headings to maintain the private banking aesthetic.",
+    "Do NOT use pure black backgrounds or pure white text. Use #0B0C10 for base and #EDEDED for primary text.",
+    "Apply data-testid to every interactive and data-bearing element."
+  ],
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Create depth through layered design elements with z-index hierarchy and glassmorphism effects (12-24px blur).",
+    "You MUST NOT apply universal transition (e.g., transition: all). Always add transitions for specific interactive elements.",
+    "You MUST NOT center align the app container in App.css.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "NEVER use placeholder text or placeholder image URLs for assets. Always use the provided image URLs.",
+    "Prioritize using pre-existing Shadcn components from src/components/ui.",
+    "Use sonner for toast notifications."
+  ]
+}
