@@ -16,6 +16,9 @@ import Settings from "@/pages/Settings";
 import Pricing from "@/pages/Pricing";
 import Subscription from "@/pages/Subscription";
 import PaymentResult from "@/pages/PaymentResult";
+import Terms from "@/pages/legal/Terms";
+import Privacy from "@/pages/legal/Privacy";
+import Contact from "@/pages/legal/Contact";
 import { AppLayout } from "@/components/AppLayout";
 import { Loader2 } from "lucide-react";
 
@@ -39,6 +42,9 @@ function App() {
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/termos" element={<Terms />} />
+              <Route path="/privacidade" element={<Privacy />} />
+              <Route path="/contacto" element={<Contact />} />
               <Route path="/onboarding" element={<Protected><Onboarding /></Protected>} />
               <Route path="/payment/success" element={<Protected><AppDataProvider><PaymentResult /></AppDataProvider></Protected>} />
               <Route path="/payment/cancel" element={<Protected><PaymentResult /></Protected>} />

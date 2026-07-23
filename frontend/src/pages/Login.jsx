@@ -126,6 +126,13 @@ export default function Login() {
               {mode === "login" ? "Criar conta" : "Entrar"}
             </button>
           </p>
+          <div className="flex items-center justify-center gap-4 mt-8 text-xs text-muted-foreground">
+            <a href="/termos" data-testid="footer-terms" className="hover:text-[#D4AF37] transition-colors">Termos</a>
+            <span>·</span>
+            <a href="/privacidade" data-testid="footer-privacy" className="hover:text-[#D4AF37] transition-colors">Privacidade</a>
+            <span>·</span>
+            <a href="/contacto" data-testid="footer-contact" className="hover:text-[#D4AF37] transition-colors">Contacto</a>
+          </div>
         </motion.div>
       </div>
     </div>

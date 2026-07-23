@@ -181,6 +181,11 @@ class CheckoutRequest(BaseModel):
 class OriginRequest(BaseModel):
     origin_url: str = ""
 
+class ContactInput(BaseModel):
+    name: str
+    email: EmailStr
+    message: str
+
 # ---------------------------------------------------------------- storage
 storage_key = None
 def init_storage():
@@ -853,8 +858,8 @@ async def investment_grade(user: dict = Depends(get_current_user)):
 
 # ---------------------------------------------------------------- subscription / Stripe
 PLANS = {
-    "premium_monthly": {"label": "Premium Mensal", "price": "€19", "period": "/mês"},
-    "premium_yearly": {"label": "Premium Anual", "price": "€190", "period": "/ano"},
+    "premium_monthly": {"label": "Premium Mensal", "price": "€29", "period": "/mês"},
+    "premium_yearly": {"label": "Premium Anual", "price": "€290", "period": "/ano"},
 }
 
 @api_router.get("/subscription")
@@ -1029,6 +1034,14 @@ async def list_docs(user: dict = Depends(get_current_user)):
 @api_router.delete("/documents/{doc_id}")
 async def delete_doc(doc_id: str, user: dict = Depends(get_current_user)):
     await db.documents.update_one({"_id": ObjectId(doc_id), "user_id": user["id"]}, {"$set": {"is_deleted": True}})
+    return {"ok": True}
+
+@api_router.post("/contact")
+async def contact(inp: ContactInput):
+    await db.contact_messages.insert_one({
+        "name": inp.name, "email": inp.email.lower(), "message": inp.message,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
     return {"ok": True}
 
 @api_router.get("/")

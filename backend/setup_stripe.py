@@ -12,8 +12,8 @@ CATALOG = [
         "name": "CEO AI Premium",
         "tax_code": "txcd_10103001",  # SaaS
         "prices": [
-            {"lookup_key": "premium_monthly", "amount": 1900, "currency": "eur", "interval": "month"},
-            {"lookup_key": "premium_yearly", "amount": 19000, "currency": "eur", "interval": "year"},
+            {"lookup_key": "premium_monthly", "amount": 2900, "currency": "eur", "interval": "month"},
+            {"lookup_key": "premium_yearly", "amount": 29000, "currency": "eur", "interval": "year"},
         ],
     },
 ]
