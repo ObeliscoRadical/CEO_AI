@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useAppData } from "@/context/AppDataContext";
-import { LayoutDashboard, MessageSquare, Wallet, Trophy, TrendingUp, Settings as SettingsIcon, LogOut, Sun, Moon, Building2, Plus, Crown, ChevronsUpDown, Check, Gem, Menu } from "lucide-react";
+import { Home, Lightbulb, HeartPulse, Coins, MessageSquare, Wallet, TrendingUp, FileText, Settings as SettingsIcon, LogOut, Sun, Moon, Building2, Plus, Crown, ChevronsUpDown, Check, Menu } from "lucide-react";
 import { motion } from "framer-motion";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -15,13 +15,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 
 const NAV = [
-  { to: "/", label: "Empresa Viva", icon: LayoutDashboard, end: true, testid: "nav-dashboard" },
-  { to: "/ceo", label: "CEO AI", icon: MessageSquare, testid: "nav-ceo" },
+  { to: "/", label: "Painel do CEO", icon: Home, end: true, testid: "nav-painel" },
+  { to: "/conselhos", label: "Conselhos", icon: Lightbulb, testid: "nav-conselhos" },
+  { to: "/saude", label: "Saúde Empresarial", icon: HeartPulse, testid: "nav-saude" },
+  { to: "/valor", label: "Valor da Empresa", icon: Coins, testid: "nav-valor" },
+  { to: "/futuro", label: "Futuro", icon: TrendingUp, testid: "nav-futuro", premium: true },
+  { to: "/ceo", label: "Conversar com o CEO", icon: MessageSquare, testid: "nav-ceo" },
   { to: "/financas", label: "Finanças", icon: Wallet, testid: "nav-financas" },
-  { to: "/futuro", label: "Motor de Futuro", icon: TrendingUp, testid: "nav-futuro" },
-  { to: "/relatorio", label: "Relatório de Investimento", icon: Gem, testid: "nav-relatorio", premium: true },
-  { to: "/score", label: "CEO Score", icon: Trophy, testid: "nav-score" },
-  { to: "/definicoes", label: "Personalização", icon: SettingsIcon, testid: "nav-definicoes" },
+  { to: "/relatorios", label: "Relatórios", icon: FileText, testid: "nav-relatorios" },
+  { to: "/definicoes", label: "Empresa", icon: SettingsIcon, testid: "nav-empresa" },
 ];
 
 export function AppLayout() {

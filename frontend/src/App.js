@@ -6,6 +6,11 @@ import { AppDataProvider } from "@/context/AppDataContext";
 import { Toaster } from "sonner";
 import Login from "@/pages/Login";
 import Onboarding from "@/pages/Onboarding";
+import PainelCEO from "@/pages/PainelCEO";
+import Conselhos from "@/pages/Conselhos";
+import Saude from "@/pages/Saude";
+import Valor from "@/pages/Valor";
+import Relatorios from "@/pages/Relatorios";
 import Dashboard from "@/pages/Dashboard";
 import Chat from "@/pages/Chat";
 import Finances from "@/pages/Finances";
@@ -49,15 +54,20 @@ function App() {
               <Route path="/payment/success" element={<Protected><AppDataProvider><PaymentResult /></AppDataProvider></Protected>} />
               <Route path="/payment/cancel" element={<Protected><PaymentResult /></Protected>} />
               <Route element={<Protected><AppDataProvider><AppLayout /></AppDataProvider></Protected>}>
-                <Route path="/" element={<Dashboard />} />
+                <Route path="/" element={<PainelCEO />} />
+                <Route path="/conselhos" element={<Conselhos />} />
+                <Route path="/saude" element={<Saude />} />
+                <Route path="/valor" element={<Valor />} />
+                <Route path="/relatorios" element={<Relatorios />} />
                 <Route path="/ceo" element={<Chat />} />
                 <Route path="/financas" element={<Finances />} />
-                <Route path="/score" element={<Score />} />
                 <Route path="/futuro" element={<Future />} />
-                <Route path="/relatorio" element={<InvestmentGrade />} />
+                <Route path="/definicoes" element={<Settings />} />
                 <Route path="/planos" element={<Pricing />} />
                 <Route path="/subscricao" element={<Subscription />} />
-                <Route path="/definicoes" element={<Settings />} />
+                <Route path="/empresa-viva" element={<Dashboard />} />
+                <Route path="/score" element={<Score />} />
+                <Route path="/relatorio" element={<InvestmentGrade />} />
               </Route>
             </Routes>
           </BrowserRouter>

@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 7 — Premium CEO AI menu (9 items) + new decision-first pages (Painel do CEO, Conselhos, Saúde, Valor, Futuro, Relatórios) validated end-to-end. Backend: 7/7 pytest passed for /api/decisions, /api/decisions/act, /api/health-index (9 dims), /api/valuation (factors+actions), /api/report (all sections), /api/future (12 months), /api/future/simulate (5 metrics: lucro, fluxo_caixa, risco, valuation, saude). Frontend UI validated with owner login (obeliscoradical@gmail.com / CeoAI2026!, premium=true). Painel renders verdict (data-testid='verdict'), tile-saude, tile-valor, and decision cards. Decision actions (Fazer isto, Adiar, Explica-me melhor) work: 'Fazer isto' and 'Adiar' fire POST /api/decisions/act and remove the card optimistically; 'Explica-me melhor' navigates to /ceo, auto-sends the question, and streams the AI answer (visually confirmed in screenshot). Saúde loads radar chart, 9 dim-btn buttons, and dim-detail updates on selection. Valor shows valuation-value (€0 for sparse-data owner), 7 factors, 5 actions, investment-grade-cta with 'open-investment-grade' button navigating to /relatorio. Relatórios renders all report sections and 9 plan-N action cards with print-btn export. Futuro (premium unlocked) renders 12-month projection chart; simulator with default 'contratar' scenario returns sim-result with all 5 metrics (sim-metric-lucro, sim-metric-caixa, sim-metric-risco, sim-metric-valor, sim-metric-saúde), recommendation and timeline. Sidebar shows exactly the 9 premium nav items with the correct Portuguese labels, no forbidden legacy words. All routes reachable via nav links.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Futuro > Projeção de Caixa", "issues": ["All Y-axis values render as '€0k' because the owner's cash flow is 0 (sparse data). Not a bug, but visually the chart looks empty. Consider showing an 'add data to see your projection' empty-state hint when monthly_net==0 AND cash_balance==0 to avoid confusing new/empty accounts."]},
+      {"screen": "Painel do CEO > Valor tile", "issues": ["Valuation shows €0 for this account (sparse financial data). Card still renders correctly, just non-informative. Consider a friendlier zero-state message."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_decisions_pages.py",
+    "/app/test_reports/pytest/iteration7_decisions_pages.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Metric data-testid='sim-metric-saúde' uses a non-ASCII character (ú). Playwright/CSS handle it, but it may complicate CI/query tooling. Consider 'sim-metric-saude' (already used for other metrics: lucro, caixa, risco, valor).",
+    "GET /api/decisions on Painel & Conselhos fires TWO parallel Claude Opus 4.7 calls (one per page load). Each takes 15-25s. Consider caching the response for the day (per user+company+date) to avoid re-hitting the LLM when navigating between Painel and Conselhos, saving cost and latency.",
+    "PainelCEO.jsx: `act()` calls `api.post('/decisions/act', ...).catch(() => {})` — swallowing errors silently. If the mutation fails the card is already gone from UI; user has no idea. Consider surfacing a toast on error and reverting the optimistic removal.",
+    "Chat.jsx auto-send from location.state.ask depends on message index 0/1 being fresh. If a user opens /ceo while a previous session is loaded, the auto-send would append to that session. Minor UX ambiguity — consider calling newChat() first when incoming state.ask is present.",
+    "Recharts <PolarAngleAxis> in Saude.jsx doesn't rotate long labels; 'Dependência do Fundador' can overflow on the radar. Consider using PolarAngleAxis tickFormatter to shorten to 'Dependência' visually.",
+    "server.py is ~1600 lines. Modularization into routers/{decisions,health,valuation,report,future}.py is overdue.",
+    "Consider adding a small in-memory or Mongo cache for /api/valuation and /api/report (24h TTL) — both are pure functions of snapshot+DNA and take 20-30s per call."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_decisions_pages.py (new)"
+  ],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100% (all decision-first pages, nav, simulator, radar, valuation, report render + interactive)"},
+  "test_credentials": "obeliscoradical@gmail.com / CeoAI2026! (owner, is_premium=true).",
+  "seed_data_creation": "None. decision_feedback rows may have been upserted by 2 act() calls (done/snoozed) — trivial, cleared automatically the next day (per-date keying).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 7 (premium menu + decision-first pages) is validated. Test file: /app/backend/tests/test_decisions_pages.py (7 tests, ~50s incl. multiple Claude Opus 4.7 calls). Owner obeliscoradical has premium=true and sparse financial data (bank_balance=0, monthly_net=0), so /futuro chart and /valor show €0 — this is expected per problem statement and pages render without crashing. If retesting for AI-quality content, budget 30-60s per page load. sim-metric-saúde uses non-ASCII data-testid — kept as-is because the review request specifies this exact selector.",
+  "rca_of_the_issue": "N/A — no bugs found."
+}

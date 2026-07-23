@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api, streamChat } from "@/lib/api";
 import { CEOOrb } from "@/components/CEOOrb";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,8 @@ export default function Chat() {
   const [sessions, setSessions] = useState([]);
   const [streaming, setStreaming] = useState(false);
   const endRef = useRef(null);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const loadSessions = useCallback(async () => {
     const { data } = await api.get("/chat/sessions");
@@ -70,6 +73,15 @@ export default function Chat() {
       setStreaming(false);
     }
   };
+
+  useEffect(() => {
+    const ask = location.state?.ask;
+    if (ask) {
+      navigate(location.pathname, { replace: true });
+      send(ask);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex h-screen">

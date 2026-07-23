@@ -13,9 +13,11 @@ import { motion } from "framer-motion";
 
 const SCENARIOS = [
   { key: "contratar", label: "Contratar alguém" },
-  { key: "comprar", label: "Fazer uma compra grande" },
-  { key: "perder_cliente", label: "Perder um cliente importante" },
   { key: "subir_precos", label: "Subir os preços" },
+  { key: "perder_cliente", label: "Perder um cliente importante" },
+  { key: "comprar", label: "Fazer uma compra grande (ex: carrinha)" },
+  { key: "emprestimo", label: "Pedir um empréstimo" },
+  { key: "abrir_empresa", label: "Abrir outra empresa" },
   { key: "ferias", label: "Tirar férias" },
 ];
 
@@ -125,15 +127,31 @@ export default function Future() {
               {VERDICT[result.verdict]?.label || result.verdict}
             </div>
             <p className="text-lg leading-relaxed">{result.summary}</p>
+            {result.metrics && (
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <Metric label="Lucro" value={result.metrics.lucro} />
+                <Metric label="Caixa" value={result.metrics.fluxo_caixa} />
+                <Metric label="Risco" value={result.metrics.risco} />
+                <Metric label="Valor" value={result.metrics.valuation} />
+                <Metric label="Saúde" value={result.metrics.saude} />
+              </div>
+            )}
             <div className="grid md:grid-cols-2 gap-4">
-              <Info label="Impacto no caixa" value={result.impact_cash} />
-              <Info label="Impacto no lucro" value={result.impact_profit} />
               <Info label="Horizonte" value={result.timeline} />
               <Info label="Recomendação" value={result.recommendation} highlight />
             </div>
           </motion.div>
         )}
       </div>
+    </div>
+  );
+}
+
+function Metric({ label, value }) {
+  return (
+    <div className="rounded-xl p-4 border border-border text-center" data-testid={`sim-metric-${label.toLowerCase()}`}>
+      <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{label}</p>
+      <p className="text-sm font-medium text-[#D4AF37] leading-tight">{value}</p>
     </div>
   );
 }
