@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api, streamChat } from "@/lib/api";
-import { CEOOrb } from "@/components/CEOOrb";
+import { VoiceSphere } from "@/components/VoiceSphere";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
@@ -108,7 +108,7 @@ export default function Chat() {
       <div className="flex-1 flex flex-col max-w-3xl mx-auto px-6 w-full">
         {messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center">
-            <CEOOrb size={150} mood="gold" />
+            <VoiceSphere size={170} />
             <h1 className="font-serif-lux text-4xl mt-8 mb-3">Fala comigo.</h1>
             <p className="text-muted-foreground mb-10 max-w-md">Pergunta o que quiseres, como falarias com um CEO ao teu lado. Sem termos técnicos.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
