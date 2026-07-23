@@ -127,6 +127,11 @@ export function AppLayout() {
           )}
         </nav>
         <div className="mt-6 pt-6 border-t border-border">
+          <NavLink to="/subscricao" data-testid="nav-subscricao" className={({ isActive }) => `flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs mb-4 transition-colors ${isActive ? "bg-[#D4AF37]/12 text-[#D4AF37]" : "text-muted-foreground hover:bg-accent"}`}>
+            <Crown className={`w-4 h-4 ${isPremium ? "text-[#D4AF37]" : ""}`} />
+            <span className="flex-1">{isPremium ? "Subscrição Premium" : "Plano Grátis"}</span>
+            <span className="text-[10px] uppercase tracking-wider">{isPremium ? "Gerir" : "Upgrade"}</span>
+          </NavLink>
           <div className="flex items-center gap-3 mb-4">
             <div className="w-9 h-9 rounded-full bg-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37] font-medium">
               {(user?.name || "?")[0].toUpperCase()}

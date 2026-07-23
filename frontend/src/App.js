@@ -14,6 +14,7 @@ import Future from "@/pages/Future";
 import InvestmentGrade from "@/pages/InvestmentGrade";
 import Settings from "@/pages/Settings";
 import Pricing from "@/pages/Pricing";
+import Subscription from "@/pages/Subscription";
 import PaymentResult from "@/pages/PaymentResult";
 import { AppLayout } from "@/components/AppLayout";
 import { Loader2 } from "lucide-react";
@@ -49,6 +50,7 @@ function App() {
                 <Route path="/futuro" element={<Future />} />
                 <Route path="/relatorio" element={<InvestmentGrade />} />
                 <Route path="/planos" element={<Pricing />} />
+                <Route path="/subscricao" element={<Subscription />} />
                 <Route path="/definicoes" element={<Settings />} />
               </Route>
             </Routes>

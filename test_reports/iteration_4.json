@@ -1,0 +1,34 @@
+{
+  "summary": "Phase 4 (Gestão de Subscrição) end-to-end validated. Backend: 7/7 pytest tests pass covering GET /api/subscription (auth-gated, admin premium shape with plans+subscription+has_billing, free-user shape), POST /api/payments/portal (admin -> billing.stripe.com URL, free-user -> 400), POST /api/payments/cancel-subscription (admin -> cancel_at_period_end=true persisted + is_premium stays True, free-user -> 400). Frontend: full UI flow verified — admin sees sub-active with 'Premium Mensal' + status 'Ativa', clicks portal-btn -> redirects to https://billing.stripe.com/p/session/..., clicks cancel-btn -> status becomes 'Cancela no fim do período', cancel-btn hidden, toast shown, sidebar shows 'Subscrição Premium / GERIR'. Free user sees sub-free with upgrade-btn -> navigates to /planos; sidebar shows 'Plano Grátis / Upgrade'. All 7 data-testids present and functional (nav-subscricao, sub-active, sub-status, portal-btn, cancel-btn, sub-free, upgrade-btn). Admin's Stripe subscription was restored (cancel_at_period_end=false) after tests; is_premium and stripe ids intact.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_subscription.py",
+    "/app/test_reports/pytest/phase4_subscription.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "GET /api/subscription correctly handles the new Stripe API shape where current_period_end lives on the subscription item (fallback item.current_period_end when top-level is missing). Confirmed via live admin subscription retrieve.",
+    "_get_portal_config lazily creates a default billing portal Configuration when none exists on the Stripe account — good self-healing. Configuration includes subscription_cancel with mode='at_period_end', matching product intent.",
+    "cancel-subscription only sets cancel_at_period_end=True (does NOT delete). is_premium remains True until Stripe webhook customer.subscription.deleted fires at period end — verified in test_admin_cancel_sets_cancel_at_period_end. Webhook handler (server.py:1002-1006) correctly flips is_premium=false on 'deleted' or on 'updated' with status in {canceled, unpaid, incomplete_expired}.",
+    "_activate_premium persists stripe_customer_id + stripe_subscription_id, enabling has_billing and cancel-subscription later. Verified admin doc has both fields.",
+    "has_billing is derived from stripe_customer_id (bool coercion), so users who paid but whose subscription was already deleted still see the portal button — intentional and correct so they can view invoices.",
+    "Subscription.jsx uses window.location.href for portal redirect (correct for Stripe portal); cancel path calls loadSubscription() before showing toast, so UI is consistent.",
+    "Minor duplication: dashboard/subscription NAV entry logic in AppLayout.jsx uses inline conditionals for label + testid; extracting a small SidebarSubscriptionLink helper would reduce noise but not required.",
+    "server.py is now ~1050 lines with subscription block ~150 lines — continues to warrant modularization (auth, payments, ai, etc.), still not urgent."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_subscription.py (new)"
+  ],
+  "success_rate": {"backend": "100% (7/7 phase 4)", "frontend": "100% (premium + free flows end-to-end)"},
+  "test_credentials": "obeliscoradical@gmail.com / CeoAI2026! (premium, is_premium=true; Stripe test subscription sub_1TwAPl7HEB3n9mFtfkab3nSu on customer cus_Uw2UBvcTgk3Vxy — cancel_at_period_end restored to false after tests).",
+  "seed_data_creation": "3 transient test users (test_sub_* + test_ui_sub_*) were created for free-plan scenarios and DELETED at end of run. No seed data persisted. Admin Stripe subscription was toggled cancel_at_period_end=true during cancel test and then restored to false (verified via stripe.Subscription.list).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Admin left with is_premium=true, stripe_customer_id + stripe_subscription_id intact, cancel_at_period_end=false. All 4 phases now fully validated (phase 1: 21/21, phase 2: 13/13, phase 3: 11/11, phase 4: 7/7). Test files in /app/backend/tests/: test_ceo_ai.py, test_phase2.py, test_investment_grade.py, test_subscription.py. If retesting subscription, run only test_subscription.py — its restore fixture will undo cancel_at_period_end automatically.",
+  "rca_of_the_issue": "No bug found in Phase 4."
+}
