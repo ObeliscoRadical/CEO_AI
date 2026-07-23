@@ -86,9 +86,12 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ **Reposicionamento de copy**: "Diretor Executivo Digital" no Login, meta description, manifest e sidebar; removida linguagem de ERP/software de gestão como descrição principal.
 - ✅ Testado E2E (iteration_8): backend 3/3, frontend 100% (Painel, vitais+navegação, ações, Explica-me→chat, Conselhos, personalidade do chat). Zero bugs.
 
+## Implemented — Fase 9: Análise de Documentos com IA + Modularização (2026-07-23)
+- ✅ **Análise de documentos com IA** (Investment Grade): no upload, o backend extrai texto (PDF/xlsx/docx/csv/txt) e o CEO AI analisa o conteúdo — extrai números reais (receita, EBITDA, lucro, ativos, passivos, receita recorrente), qualidade e resumo. A avaliação passa a ser fundamentada nos números reais dos documentos; a confiança só sobe para "Nível Profissional" quando há documentos financeiros verificados (≥75% + financeiros reais). Frontend mostra "Documentos analisados pela IA" com resumo e badge de qualidade por documento.
+- ✅ **Modularização do backend**: server.py (~1500 linhas) dividido em `core.py` (infra partilhada: db, auth, snapshot, ai, storage), `models.py` (Pydantic) e `routers/` (auth, companies, finance, ceo, documents, billing, misc). Zero mudança de comportamento — 51 rotas mantidas.
+- ✅ Testado E2E (iteration_9): backend 32/32 (regressão completa + análise de documentos), frontend 100%. Zero bugs.
+
 ## Backlog atualizado
-- P1: Empty-state amigável quando valuation/projeção = €0 (conta sem dados financeiros).
-- P1: Modularizar server.py (~1600 linhas) em routers.
-- P2: Analisar conteúdo dos documentos com IA para elevar Investment Grade de "Fundamentada" a "Profissional" real.
 - P2: Open banking real por região (UE/PT, BR).
-- Produção: reclamar conta Stripe live + payouts antes de vender; redeploy necessário para publicar esta fase.
+- P2 (opcional): usar figuras extraídas dos documentos para recalcular o valuation base (atualmente alimentam o rationale/rating, não o valor base do snapshot).
+- Produção: reclamar conta Stripe live + payouts antes de vender; redeploy necessário para publicar estas fases.
