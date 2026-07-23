@@ -66,3 +66,22 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 
 ## Next Tasks
 - Recolher feedback do utilizador sobre o MVP e priorizar histórico de chat + multi-empresa.
+
+## Implemented — Fase 7: Transformação "Diretor Executivo Digital" (2026-07-23)
+- ✅ Nova experiência decision-first. Menu premium (9 itens, sem vocabulário ERP): Painel do CEO, Conselhos, Saúde Empresarial, Valor da Empresa, Futuro (premium), Conversar com o CEO, Finanças, Relatórios, Empresa.
+- ✅ **Painel do CEO** (/, substitui o dashboard): veredicto do dia + 1-3 decisões acionáveis (Fazer/Explicar/Adiar) + tiles de Saúde e Valor. Backend GET /api/decisions, POST /api/decisions/act (feedback por dia).
+- ✅ **Conselhos** (/conselhos): lista de recomendações do CEO com estado vazio.
+- ✅ **Saúde Empresarial** (/saude): índice 0-100 com roda interativa de 9 dimensões (Financeiro, Clientes, Equipa, Dependência do Fundador, Marca, Liquidez, Margem, Crescimento, Risco), cada uma com porquê/como melhorar/potencial. GET /api/health-index.
+- ✅ **Valor da Empresa** (/valor): valuation explicado por 7 fatores (positivo/negativo) + ações com uplift em €; CTA para o Relatório de Investimento formal. GET /api/valuation.
+- ✅ **Relatórios** (/relatorios): relatório estratégico estilo consultora (situação atual, pontos fortes/fracos, riscos, oportunidades, valor, projeção 12m, plano de ação, recomendações) + exportar/imprimir. GET /api/report.
+- ✅ **Motor de Futuro** simulador atualizado: 5 métricas por cenário (lucro, caixa, risco, valor, saúde) + 7 cenários (contratar, subir preços, perder cliente, comprar, empréstimo, abrir empresa, férias). POST /api/future/simulate.
+- ✅ "Explica-me melhor" numa decisão abre o chat do CEO e envia a pergunta automaticamente (Chat.jsx consome location.state.ask).
+- ✅ **Cache diário de IA** (coleção ai_cache) para decisions/health/valuation/report — reduz latência de ~10-25s para ~0.2s e evita chamadas Claude duplicadas; invalidado ao alterar dados financeiros (entries/CSV/banco demo).
+- ✅ Testado E2E (iteration_7): backend 7/7, frontend 100% (páginas, nav, simulador, roda, valuation, relatório). Zero bugs.
+
+## Backlog atualizado
+- P1: Empty-state amigável quando valuation/projeção = €0 (conta sem dados financeiros).
+- P1: Modularizar server.py (~1600 linhas) em routers.
+- P2: Analisar conteúdo dos documentos com IA para elevar Investment Grade de "Fundamentada" a "Profissional" real.
+- P2: Open banking real por região (UE/PT, BR).
+- Produção: reclamar conta Stripe live + payouts antes de vender; redeploy necessário para publicar esta fase.

@@ -373,11 +373,13 @@ async def create_entry(inp: EntryInput, user: dict = Depends(get_current_user)):
     data = inp.model_dump()
     data.update({"user_id": user["id"], "company_id": cid, "created_at": datetime.now(timezone.utc).isoformat()})
     res = await db.entries.insert_one(data)
+    await invalidate_ai_cache(user["id"])
     return {"id": str(res.inserted_id), **inp.model_dump()}
 
 @api_router.delete("/entries/{entry_id}")
 async def delete_entry(entry_id: str, user: dict = Depends(get_current_user)):
     await db.entries.delete_one({"_id": ObjectId(entry_id), "user_id": user["id"]})
+    await invalidate_ai_cache(user["id"])
     return {"ok": True}
 
 @api_router.post("/entries/import")
@@ -410,6 +412,7 @@ async def import_csv(file: UploadFile = File(...), user: dict = Depends(get_curr
             inserted += 1
         except Exception:
             continue
+    await invalidate_ai_cache(user["id"])
     return {"imported": inserted}
 
 # ---------------------------------------------------------------- mock bank connect
@@ -437,6 +440,7 @@ async def bank_connect(user: dict = Depends(get_current_user)):
                 "description": "Movimento bancário (demo)", "created_at": now.isoformat()})
             created += 1
     await db.companies.update_one({"_id": ObjectId(cid)}, {"$set": {"bank_connected": True}})
+    await invalidate_ai_cache(user["id"])
     return {"connected": True, "imported": created}
 
 # ---------------------------------------------------------------- snapshot / dashboard
@@ -803,6 +807,20 @@ async def ai_json(system: str, prompt: str, model=("openai", "gpt-5.4")):
         logger.error(f"ai_json error: {e}")
         return None
 
+async def cached_ai(kind: str, uid: str, cid, system: str, prompt: str):
+    today = datetime.now(timezone.utc).date().isoformat()
+    q = {"kind": kind, "user_id": uid, "company_id": cid, "date": today}
+    hit = await db.ai_cache.find_one(q)
+    if hit and hit.get("payload"):
+        return hit["payload"]
+    payload = await ai_json(system, prompt)
+    if payload:
+        await db.ai_cache.update_one(q, {"$set": {"payload": payload, "created_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
+    return payload
+
+async def invalidate_ai_cache(uid: str):
+    await db.ai_cache.delete_many({"user_id": uid})
+
 async def _growth_score(uid: str, cid: str):
     entries = await db.entries.find({"user_id": uid, "company_id": cid}, {"type": 1, "amount": 1, "date": 1}).to_list(5000) if cid else []
     inc = {}
@@ -823,6 +841,7 @@ async def _growth_score(uid: str, cid: str):
 @api_router.get("/decisions")
 async def decisions(user: dict = Depends(get_current_user)):
     uid = user["id"]
+    cid = await active_company_id(uid)
     snap = await build_snapshot(uid)
     sysmsg = await build_system_prompt(uid, user.get("name", ""))
     prompt = (
@@ -833,8 +852,7 @@ async def decisions(user: dict = Depends(get_current_user)):
         "cada uma com o porquê, o impacto estimado (em € quando possível) e a acção. Em 'vitals_phrases', 1 frase-decisão curta por sinal vital. "
         "Português europeu, tom de executivo de confiança. Sem texto fora do JSON."
     )
-    data = await ai_json(sysmsg, prompt) or {"verdict": f"Olá {user.get('name','')}. Vamos focar no essencial hoje.", "decisions": [], "vitals_phrases": {}}
-    cid = await active_company_id(uid)
+    data = await cached_ai("decisions", uid, cid, sysmsg, prompt) or {"verdict": f"Olá {user.get('name','')}. Vamos focar no essencial hoje.", "decisions": [], "vitals_phrases": {}}
     today = datetime.now(timezone.utc).date().isoformat()
     fb = await db.decision_feedback.find({"user_id": uid, "company_id": cid, "date": today}).to_list(200)
     hidden = {f["key"] for f in fb}
@@ -889,7 +907,7 @@ async def health_index(user: dict = Depends(get_current_user)):
         "'summary': 1-2 frases sobre a saúde global. Por dimensão: 'why' (porque tem esta nota, 1 frase), 'improve' (o que fazer, 1 frase), "
         "'potential' (quanto pode subir, ex '+15 pontos'). Português europeu. Sem texto fora do JSON."
     )
-    ai = await ai_json(sysmsg, prompt) or {}
+    ai = await cached_ai("health", uid, cid, sysmsg, prompt) or {}
     notes = ai.get("dimensions", {})
     out = [{"dimension": k, "score": v, "why": notes.get(k, {}).get("why", ""),
             "improve": notes.get(k, {}).get("improve", ""), "potential": notes.get(k, {}).get("potential", "")} for k, v in dims.items()]
@@ -898,6 +916,7 @@ async def health_index(user: dict = Depends(get_current_user)):
 @api_router.get("/valuation")
 async def valuation(user: dict = Depends(get_current_user)):
     uid = user["id"]
+    cid = await active_company_id(uid)
     snap = await build_snapshot(uid)
     sym = snap["currency_symbol"]; value = snap["company_value"]
     sysmsg = await build_system_prompt(uid, user.get("name", ""))
@@ -910,13 +929,14 @@ async def valuation(user: dict = Depends(get_current_user)):
         "'actions': 3 a 5 formas concretas de aumentar o valuation (ex: contratar gestor operacional, criar contratos recorrentes, "
         "reduzir dependência do fundador, melhorar margem), cada uma com 'uplift' (ex '+45.000 €') e 'note'. Português europeu. Sem texto fora do JSON."
     )
-    ai = await ai_json(sysmsg, prompt) or {"factors": [], "actions": []}
+    ai = await cached_ai("valuation", uid, cid, sysmsg, prompt) or {"factors": [], "actions": []}
     return {"company_value": value, "currency_symbol": sym, "goal_value": snap["goal_value"], "progress": snap["progress"],
             "factors": ai.get("factors", []), "actions": ai.get("actions", [])}
 
 @api_router.get("/report")
 async def strategic_report(user: dict = Depends(get_current_user)):
     uid = user["id"]
+    cid = await active_company_id(uid)
     snap = await build_snapshot(uid)
     sysmsg = await build_system_prompt(uid, user.get("name", ""))
     prompt = (
@@ -925,7 +945,8 @@ async def strategic_report(user: dict = Depends(get_current_user)):
         '"valor":{"atual":str,"comentario":str},"projecao_12m":str,"plano_acao":[{"acao":str,"prazo":str,"impacto":str}],"recomendacoes":[str]}. '
         "Profundo mas conciso, orientado a decisões e ao futuro, com linguagem executiva. Português europeu. Sem texto fora do JSON."
     )
-    ai = await ai_json(sysmsg, prompt) or {}
+    ai = await cached_ai("report", uid, cid, sysmsg, prompt) or {}
+    ai = dict(ai)
     ai["company_name"] = snap["company_name"]; ai["health"] = snap["health"]
     ai["company_value"] = snap["company_value"]; ai["currency_symbol"] = snap["currency_symbol"]
     ai["generated_at"] = datetime.now(timezone.utc).isoformat()
