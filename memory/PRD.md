@@ -47,6 +47,12 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 ## Backlog (próximas fases)
 - P1: Persistência/lista de sessões de chat no UI (histórico); mobile React Native.
 - P1: Multi-empresa por conta; dedup de memórias.
+## Implemented — Fase 4/5 (2026-07-23)
+- ✅ Gestão de Subscrição (/subscricao): estado do plano, portal de faturação Stripe (billing portal), cancelar (cancel_at_period_end), CTA de upgrade no plano grátis; webhooks refletem cancelamentos. Guarda stripe_customer_id/subscription_id. Link na sidebar.
+- ✅ Checklist de confiança clicável no Relatório de Investimento: upload de documentos com doc_type (financials/assets/contracts) via POST /api/upload; GET/DELETE /api/documents; carregar documentos sobe o nível de confiança (Inteligente→Fundamentada→Profissional) e estreita o intervalo de valor.
+- ✅ Testado E2E: subscrição 7/7; upload/checklist 10/10; zero bugs.
+
+
 - P2: Integrações bancárias/faturação (open banking) por região.
 - P2: Modelo de subscrição (Stripe) e gating do Motor de Futuro como premium.
 - P2: Widgets configuráveis por drag-and-drop no dashboard.
