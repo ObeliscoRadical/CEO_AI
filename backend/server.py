@@ -441,7 +441,7 @@ def rag(value, good, warn, reverse=False):
 async def build_snapshot(user_id: str):
     company = await resolve_company(user_id) or {}
     cid = str(company["_id"]) if company.get("_id") else None
-    entries = await db.entries.find({"user_id": user_id, "company_id": cid}).to_list(5000) if cid else []
+    entries = await db.entries.find({"user_id": user_id, "company_id": cid}, {"type": 1, "amount": 1, "date": 1, "category": 1}).to_list(5000) if cid else []
     now = datetime.now(timezone.utc)
     month_key = now.strftime("%Y-%m")
     income = sum(e["amount"] for e in entries if e["type"] == "income")
@@ -749,7 +749,7 @@ async def investment_grade(user: dict = Depends(get_current_user)):
     snap = await build_snapshot(user["id"])
     company = await resolve_company(user["id"]) or {}
     cid = str(company["_id"]) if company.get("_id") else None
-    entries = await db.entries.find({"user_id": user["id"], "company_id": cid}).to_list(5000) if cid else []
+    entries = await db.entries.find({"user_id": user["id"], "company_id": cid}, {"type": 1, "amount": 1, "date": 1}).to_list(5000) if cid else []
     dna = await db.ceo_dna.find_one({"user_id": user["id"]}) or {}
     docs = await db.documents.find({"user_id": user["id"], "is_deleted": False}).to_list(500)
     doc_types = set(d.get("doc_type", "other") for d in docs)
@@ -1050,13 +1050,23 @@ async def root():
 
 app.include_router(api_router)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=[os.environ.get("FRONTEND_URL", "http://localhost:3000"), "http://localhost:3000"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+cors_env = os.environ.get("CORS_ORIGINS", "*").strip()
+if cors_env == "*":
+    app.add_middleware(
+        CORSMiddleware,
+        allow_credentials=True,
+        allow_origin_regex=".*",
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_credentials=True,
+        allow_origins=[o.strip() for o in cors_env.split(",") if o.strip()],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 @app.on_event("startup")
 async def startup():
