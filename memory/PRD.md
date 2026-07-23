@@ -56,6 +56,13 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - P2: Integrações bancárias/faturação (open banking) por região.
 - P2: Modelo de subscrição (Stripe) e gating do Motor de Futuro como premium.
 - P2: Widgets configuráveis por drag-and-drop no dashboard.
+## Implemented — Fase 6 (2026-07-23)
+- ✅ Briefing diário por email (Resend gerido): toggle opt-in nas Definições + "Enviar-me agora" (POST /api/briefing/email), email HTML com tema CEO AI. Scheduler diário (07:00 UTC) com dedupe por data (seguro para múltiplas réplicas).
+- ✅ Preços atualizados para €29/mês e €290/ano; páginas legais (/termos, /privacidade RGPD, /contacto) + formulário de contacto (POST /api/contact).
+- ✅ Deployment readiness: PASS (CORS lê CORS_ORIGINS com echo de origem para cookies; queries com projeções).
+- ✅ Testado E2E: briefing email 6/6; zero bugs.
+
+
 
 ## Next Tasks
 - Recolher feedback do utilizador sobre o MVP e priorizar histórico de chat + multi-empresa.
