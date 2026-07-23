@@ -59,7 +59,7 @@ export function AppLayout() {
           <span className="font-serif-lux text-2xl tracking-tight">CEO AI</span>
           {isPremium && <Crown className="w-4 h-4 text-[#D4AF37] ml-auto" />}
         </div>
-        <p className="text-xs text-muted-foreground mt-1 tracking-[0.15em] uppercase">Executivo Digital</p>
+        <p className="text-xs text-muted-foreground mt-1 tracking-[0.15em] uppercase">Diretor Executivo Digital</p>
       </div>
 
       <DropdownMenu>

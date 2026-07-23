@@ -1,0 +1,35 @@
+{
+  "summary": "Iteration 8 — CEO Diário (/api/ceo-daily) + executive personality + redesigned Painel do CEO fully validated end-to-end. Backend: 3/3 pytest passed. GET /api/ceo-daily returns the exact spec shape (user_name, company_name, conclusao{estado_geral,oportunidades,problemas,prioridades}, recomendacoes[3-6]{title,why,priority,key} with priorities in {urgente,importante,oportunidade}, vitals{saude,valor,crescimento,tesouraria,fluxo} each with label/value/unit/status, currency_symbol, has_data). Per-day caching works: first cold call ~15s, second call <1s and payload keys are identical, confirming ai_cache collection reuse. Executive CEO chat personality validated: 'Posso contratar mais um técnico?' returned a firm streamed answer taking a position (verbs like 'não contrat…', 'recomendo', 'faria'), with reasoning + risks + alternatives markers. Frontend Painel do CEO (owner login obeliscoradical@gmail.com / CeoAI2026!, premium): data-testid='ceo-greeting' renders 'Boa tarde, Diego' (browser-time-aware); 5 vital cards (vital-0..vital-4) with correct labels (Saúde 46/100, Valor €0, Crescimento 50%, Tesouraria Crítica, Fluxo Equilibrado — sparse-data expected); 4 conclusion cards (conc-estado, conc-oportunidades, conc-problemas, conc-prioridades) render AI text; 6 recommendation cards (decision-0..decision-5) render with correct priority tags/colors (Urgente red, Importante amber, Oportunidade green). Vital navigation works exactly: vital-0→/saude, vital-1→/valor, vital-2→/futuro, vital-3→/financas, vital-4→/financas. Recommendation actions: 'Fazer isto' (decision-do-0) fires POST /api/decisions/act and removes the card (6→5 confirmed, 1 POST captured); 'Explica-me melhor' (decision-explain-0) navigates to /ceo, auto-sends the templated question (user msg 'Sobre \"...\": ... — o que me recomendas fazer?') and the assistant streaming div is created (streaming underway). Conselhos (/conselhos) loads decision cards from /ceo-daily (5 items after the 'done' from Painel — persistence via decision_feedback verified across pages). Regression: iteration 7 pages (/saude, /valor, /relatorios, /futuro, sidebar 9 items) still reachable via the sidebar visible in screenshots.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Painel do CEO > Vitals", "issues": ["Valor estimado shows €0 and Tesouraria='Crítica' due to sparse-data owner (bank=0, income=0). Not a bug per problem statement, but a friendlier zero-state 'liga o teu banco' hint on the vital-1 card would be gentler for new accounts."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ceo_daily.py",
+    "/app/test_reports/pytest/iteration8_ceo_daily.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PainelCEO.jsx computes 'greet' from `new Date().getHours()` at browser-time; if the user's device timezone drifts (e.g. traveling) the greeting can mismatch the AI-generated conclusion. Consider deriving from the same server clock as /api/ceo-daily to stay in sync.",
+    "PainelCEO.jsx `act()` and Conselhos.jsx `act()` are duplicated verbatim (~5 lines each) and swallow errors with `.catch(() => {})`. Extract into a shared hook `useDecisionAct(setData)` and surface a toast + optimistic revert on failure.",
+    "server.py `cached_ai` keys cache by (kind, user_id, company_id, date). If the user manually adds/deletes an entry the same day (invalidate_ai_cache is called on entry mutations at lines 376/382/415/443), that also flushes ALL kinds (chat/decisions/ceo_daily/health/valuation/report). Consider selective invalidation by kind to avoid re-hitting Claude on unrelated pages.",
+    "The `/api/ceo-daily` fallback (when Claude returns invalid JSON) hard-codes an empty conclusion with 0 recomendacoes — the has_data==false case is handled OK, but if AI parsing fails on a data-rich account the user sees the same 'liga o teu banco' text. Add a distinct fallback for parse errors ('Análise indisponível de momento — tenta novamente').",
+    "PainelCEO.jsx guards `data.recomendacoes.length > 0` before rendering the 'O que eu faria hoje' section but Conselhos.jsx uses ternary with the CEOOrb empty state. Consider aligning both experiences (either both show orb, or both hide) for consistency between pages that consume /api/ceo-daily.",
+    "recomendacoes[].key is `md5(title + today)[:10]` — good, per-day stable. But if the AI regenerates the exact same title tomorrow the key changes (because 'today' is embedded), which correctly resets the 'done/snoozed' feedback — worth documenting in a code comment so future maintainers don't 'optimize' it.",
+    "build_system_prompt (server.py:584) now embeds a 4-step response contract (O QUE EU FARIA / PORQUÊ / RISCOS / ALTERNATIVAS). Backend test confirms the chat takes a position and includes ≥2 of {porquê, risco, alternativa}. Consider adding a soft evaluator that flags any answer containing the standalone word 'depende' for observability."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_ceo_daily.py (new)"
+  ],
+  "success_rate": {"backend": "100% (3/3)", "frontend": "100% (Painel + vitals nav + decision actions + Explica-me integration with /ceo + Conselhos)"},
+  "test_credentials": "obeliscoradical@gmail.com / CeoAI2026! (owner, is_premium=true, sparse financial data).",
+  "seed_data_creation": "One decision_feedback row was upserted by clicking 'Fazer isto' on decision-0 during frontend testing. It is per-date keyed and will clear naturally the next day.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 8 (CEO Diário + executive personality + Painel redesign) validated. Test file: /app/backend/tests/test_ceo_daily.py (3 tests, ~15s incl. one cold Claude Opus 4.7 call + one cached call + one streamed chat). Owner obeliscoradical is premium with sparse data — Valor=€0 and Tesouraria='Crítica' are EXPECTED. AI cold-start budget: 15-30s per new-day /ceo-daily call, <1s cached. Greeting time is browser-local — script must handle Bom dia/Boa tarde/Boa noite variations. The 'Explica-me melhor' flow navigates to /ceo and streams the AI answer; assistant div is created immediately, but full text may take 10-25s to arrive.",
+  "rca_of_the_issue": "N/A — no bugs found."
+}

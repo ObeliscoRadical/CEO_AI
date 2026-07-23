@@ -591,10 +591,17 @@ async def build_system_prompt(user_id: str, user_name: str):
     mem_txt = "\n".join(f"- {m['content']}" for m in memories) or "- (ainda sem memórias registadas)"
     vitals_txt = "\n".join(f"- {v['label']}: {v['value']}{v['unit']} [{v['status']}]" for v in snap["vitals"])
     return (
-        f"És o CEO AI — o executivo digital de {user_name}. Falas português de forma humana, calorosa e confiante, "
-        f"como um CEO experiente e mentor de confiança. {MODE_PROMPTS.get(mode, MODE_PROMPTS['crescimento'])} "
-        f"Tom: {tone}. NUNCA fales como um chatbot técnico. Foca-te no FUTURO e nas decisões, não no passado. "
-        f"Liga sempre os conselhos aos objetivos pessoais do empresário. Sê conciso e prático.\n\n"
+        f"És o CEO AI — o Diretor Executivo Digital de {user_name}. NÃO és um chatbot nem um assistente técnico: "
+        f"és um CEO experiente que já geriu centenas de empresas e que agora toma decisões LADO A LADO com este empresário. "
+        f"A tua personalidade é experiente, calma, objectiva e confiante. {MODE_PROMPTS.get(mode, MODE_PROMPTS['crescimento'])} Tom: {tone}.\n\n"
+        f"### COMO RESPONDES (obrigatório)\n"
+        f"NUNCA respondas apenas com teoria e NUNCA digas 'depende'. Respondes sempre como um consultor executivo de topo, "
+        f"tomando posição. Estrutura natural de cada resposta (sem cabeçalhos rígidos, de forma fluida e humana):\n"
+        f"1) O QUE EU FARIA — a decisão concreta, na primeira pessoa e directa.\n"
+        f"2) PORQUÊ — o raciocínio ligado aos números reais e aos objectivos pessoais do empresário.\n"
+        f"3) RISCOS — o que pode correr mal.\n"
+        f"4) ALTERNATIVAS — 1 ou 2 caminhos possíveis.\n"
+        f"Foca-te no FUTURO e nas decisões, não no passado. Sê conciso, calmo e confiante. Fala português europeu.\n\n"
         f"### PERFIL (CEO DNA)\n"
         f"Sonho: {dna.get('dream', 'n/d')}\nFaturação desejada: {dna.get('target_revenue', 'n/d')}\n"
         f"Horas de trabalho: {dna.get('work_hours', 'n/d')}\nPlano de saída: {dna.get('exit_plan', 'n/d')}\n"
@@ -878,6 +885,59 @@ async def decisions_act(inp: DecisionActInput, user: dict = Depends(get_current_
         {"user_id": user["id"], "company_id": cid, "date": today, "key": inp.key},
         {"$set": {"status": inp.status, "title": inp.title, "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
     return {"ok": True}
+
+@api_router.get("/ceo-daily")
+async def ceo_daily(user: dict = Depends(get_current_user)):
+    uid = user["id"]
+    cid = await active_company_id(uid)
+    snap = await build_snapshot(uid)
+    growth = await _growth_score(uid, cid)
+    runway = snap["runway"]; m_net = snap["monthly_net"]
+    treasury = ("Confortável", "green") if runway >= 6 else ("Apertada", "amber") if runway >= 3 else ("Crítica", "red")
+    cashflow = ("Positivo", "green") if m_net > 0 else ("Equilibrado", "amber") if m_net == 0 else ("Negativo", "red")
+    sysmsg = await build_system_prompt(uid, user.get("name", ""))
+    today = datetime.now(timezone.utc).date().isoformat()
+    prompt = (
+        f"Hoje é {today}. Como Diretor Executivo Digital, analisaste toda a empresa. Devolve APENAS JSON: "
+        '{"conclusao":{"estado_geral":str,"oportunidades":str,"problemas":str,"prioridades":str},'
+        '"recomendacoes":[{"title":str,"why":str,"priority":"urgente"|"importante"|"oportunidade"}]}. '
+        "Em 'conclusao', cada campo tem 1-2 frases directas e humanas. Em 'recomendacoes', dá ENTRE 3 e 6 acções concretas "
+        "e personalizadas para hoje (ex: 'Cobrar o cliente X', 'Não contratar este mês', 'Aumentar o preço médio', "
+        "'Negociar com o fornecedor', 'Adiar a compra de equipamento 30 dias'), cada uma com o motivo ('why', 1 frase) "
+        "e a prioridade. Varia a linguagem — a análise de hoje nunca deve ser igual à de outro dia. "
+        "Português europeu, tom de CEO experiente, calmo e confiante. Sem texto fora do JSON."
+    )
+    data = await cached_ai("ceo_daily", uid, cid, sysmsg, prompt) or {
+        "conclusao": {"estado_geral": "Ainda estou a conhecer a tua empresa. Adiciona dados financeiros para uma leitura completa.",
+                      "oportunidades": "—", "problemas": "—", "prioridades": "Liga o teu banco ou importa um CSV."},
+        "recomendacoes": []}
+    fb = await db.decision_feedback.find({"user_id": uid, "company_id": cid, "date": today}).to_list(200)
+    hidden = {f["key"] for f in fb}
+    recs = []
+    for r in data.get("recomendacoes", []):
+        key = hashlib.md5((r.get("title", "") + today).encode()).hexdigest()[:10]
+        if key in hidden:
+            continue
+        r["key"] = key
+        recs.append(r)
+    return {
+        "user_name": user.get("name", ""),
+        "company_name": snap["company_name"],
+        "conclusao": data.get("conclusao", {}),
+        "recomendacoes": recs,
+        "vitals": {
+            "saude": {"label": "Saúde Empresarial", "value": snap["health"], "unit": "/100",
+                      "status": "green" if snap["health"] >= 70 else "amber" if snap["health"] >= 45 else "red"},
+            "valor": {"label": "Valor estimado", "value": snap["company_value"], "unit": snap["currency_symbol"], "status": "gold"},
+            "crescimento": {"label": "Probabilidade de crescimento", "value": growth, "unit": "%",
+                            "status": "green" if growth >= 65 else "amber" if growth >= 45 else "red"},
+            "tesouraria": {"label": "Tesouraria", "value": treasury[0], "unit": "", "status": treasury[1]},
+            "fluxo": {"label": "Fluxo de caixa", "value": cashflow[0], "unit": "", "status": cashflow[1]},
+        },
+        "currency_symbol": snap["currency_symbol"],
+        "has_data": snap["total_income"] > 0 or snap["total_expense"] > 0,
+    }
+
 
 @api_router.get("/health-index")
 async def health_index(user: dict = Depends(get_current_user)):

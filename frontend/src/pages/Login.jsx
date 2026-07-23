@@ -76,7 +76,7 @@ export default function Login() {
           O CEO que trabalha<br />24 horas pela sua empresa
         </h1>
         <p className="text-muted-foreground mt-6 max-w-md text-center">
-          Não é um ERP. Não é um Excel. É o seu executivo digital — que entende os seus objetivos e diz exatamente o que decidir hoje.
+          Não é um ERP nem um software de gestão. É o seu Diretor Executivo Digital — analisa a empresa consigo e decide, lado a lado, o que fazer hoje.
         </p>
       </div>
 
@@ -86,7 +86,7 @@ export default function Login() {
           <div className="lg:hidden flex justify-center mb-8"><CEOOrb size={110} /></div>
           <h2 className="font-serif-lux text-4xl mb-2">{mode === "login" ? "Bem-vindo de volta" : "Comece agora"}</h2>
           <p className="text-muted-foreground text-sm mb-8">
-            {mode === "login" ? "Entre para falar com o seu CEO AI." : "Crie a sua conta e conheça o seu executivo digital."}
+            {mode === "login" ? "Entre para falar com o seu CEO AI." : "Crie a sua conta e conheça o seu Diretor Executivo Digital."}
           </p>
 
           <button onClick={googleLogin} data-testid="google-login-btn" disabled={loading}
