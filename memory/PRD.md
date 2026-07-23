@@ -91,6 +91,12 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ **Modularização do backend**: server.py (~1500 linhas) dividido em `core.py` (infra partilhada: db, auth, snapshot, ai, storage), `models.py` (Pydantic) e `routers/` (auth, companies, finance, ceo, documents, billing, misc). Zero mudança de comportamento — 51 rotas mantidas.
 - ✅ Testado E2E (iteration_9): backend 32/32 (regressão completa + análise de documentos), frontend 100%. Zero bugs.
 
+## Implemented — Fase 10: Modo de Voz (estilo Siri) + Esfera de Fumo (2026-07-23)
+- ✅ **Modo de Voz do CEO** em "Conversar com o CEO": botão "Falar com o CEO" (ecrã inteiro) + micro na caixa de texto. Fluxo: gravação (MediaRecorder) → transcrição (OpenAI Whisper `whisper-1`, pt) → resposta do CEO (personalidade executiva) → leitura em voz alta (OpenAI TTS `tts-1`, voz `alloy`). Endpoint POST /api/voice/chat devolve {session_id, user_text, reply_text, audio_base64} e persiste na mesma conversa do chat de texto.
+- ✅ **Esfera dourada "gasosa"** (VoiceSphere): fumo real a fluir via turbulência SVG animada + deslocamento (2 camadas), halo ambiente pulsante. Substituiu o antigo orb no chat.
+- ✅ **Reatividade estilo Siri**: a esfera pulsa/ilumina em tempo real conforme a amplitude do áudio (Web Audio API AnalyserNode) enquanto ouves e enquanto o CEO fala.
+- ✅ Testado (iteration_10): backend 11/11 (transcrição + resposta + TTS + persistência de sessão + erros + regressão). Frontend verificado por screenshot (mic não automatizável). Zero bugs.
+
 ## Backlog atualizado
 - P2: Open banking real por região (UE/PT, BR).
 - P2 (opcional): usar figuras extraídas dos documentos para recalcular o valuation base (atualmente alimentam o rationale/rating, não o valor base do snapshot).
