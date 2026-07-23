@@ -5,7 +5,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { useAppData } from "@/context/AppDataContext";
 import { LayoutDashboard, MessageSquare, Wallet, Trophy, TrendingUp, Settings as SettingsIcon, LogOut, Sun, Moon, Building2, Plus, Crown, ChevronsUpDown, Check } from "lucide-react";
 import { motion } from "framer-motion";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -82,7 +82,9 @@ export function AppLayout() {
 
         <Dialog open={newOpen} onOpenChange={setNewOpen}>
           <DialogContent className="surface">
-            <DialogHeader><DialogTitle className="font-serif-lux text-2xl">Nova empresa</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle className="font-serif-lux text-2xl">Nova empresa</DialogTitle>
+              <DialogDescription className="text-muted-foreground text-sm">Adiciona outra empresa à tua conta. Podes trocar entre elas a qualquer momento.</DialogDescription>
+            </DialogHeader>
             <form onSubmit={addCompany} className="space-y-4">
               <div><Label className="text-xs text-muted-foreground">Nome</Label><Input data-testid="new-company-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="mt-1 bg-transparent" /></div>
               <div className="grid grid-cols-2 gap-4">

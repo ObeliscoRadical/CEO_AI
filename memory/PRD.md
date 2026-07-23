@@ -30,6 +30,15 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ CEO Memory + Centro de Personalização (modo, modelo, tom, tema, nº assuntos).
 - ✅ Testado E2E: backend 21/21, frontend 17/17.
 
+## Implemented — Fase 2 (2026-07-22)
+- ✅ Multi-empresa por conta: seletor na sidebar, criar/trocar empresa, isolamento por company_id (migração automática de entries órfãs).
+- ✅ Histórico de conversas do CEO AI: lista de sessões, retomar, nova conversa, apagar.
+- ✅ Freemium com Stripe: Motor de Futuro Premium (403 gate). Planos premium_monthly (€19/mês) e premium_yearly (€190/ano). Checkout + status polling + webhook ativam is_premium. Páginas /planos e /payment/success|cancel.
+- ✅ "Ligar banco" demo/mock: gera ~40-50 movimentos na empresa ativa (open banking real depois).
+- ✅ Stripe Flow A (claimable sandbox), tax mode managed payments (SMP), catálogo em setup_stripe.py.
+- ✅ Testado E2E: backend 13/13 (fase 2) + 21/21 (fase 1); frontend 100%.
+
+
 ## Backlog (próximas fases)
 - P1: Persistência/lista de sessões de chat no UI (histórico); mobile React Native.
 - P1: Multi-empresa por conta; dedup de memórias.

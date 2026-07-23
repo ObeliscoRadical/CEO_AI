@@ -740,7 +740,7 @@ async def subscription(user: dict = Depends(get_current_user)):
 async def create_checkout(req: CheckoutRequest, user: dict = Depends(get_current_user)):
     prices = stripe.Price.list(lookup_keys=[req.lookup_key], active=True, limit=1).data
     if not prices:
-        raise HTTPException(500, f"Preço não encontrado: {req.lookup_key}")
+        raise HTTPException(400, f"Preço não encontrado: {req.lookup_key}")
     price = prices[0]
     kwargs = dict(
         line_items=[{"price": price.id, "quantity": 1}],

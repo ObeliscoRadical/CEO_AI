@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Upload, Trash2, Loader2, ArrowUpRight, ArrowDownRight, Landmark } from "lucide-react";
 import { motion } from "framer-motion";
@@ -81,7 +81,9 @@ export default function Finances() {
               <Button data-testid="add-entry-btn" className="rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431]"><Plus className="w-4 h-4 mr-2" />Novo registo</Button>
             </DialogTrigger>
             <DialogContent className="surface">
-              <DialogHeader><DialogTitle className="font-serif-lux text-2xl">Novo registo financeiro</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle className="font-serif-lux text-2xl">Novo registo financeiro</DialogTitle>
+                <DialogDescription className="text-muted-foreground text-sm">Regista uma receita ou despesa. O CEO AI usa estes dados para analisar a saúde da empresa.</DialogDescription>
+              </DialogHeader>
               <form onSubmit={add} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div><Label className="text-xs text-muted-foreground">Tipo</Label>
