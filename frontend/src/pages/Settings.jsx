@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Brain } from "lucide-react";
+import { Loader2, Plus, Trash2, Brain, Mail, Send } from "lucide-react";
 
 const MODES = ["conservador", "crescimento", "agressivo", "familiar", "startup", "investidor"];
 const MODELS = [
@@ -22,6 +22,7 @@ export default function Settings() {
   const [memories, setMemories] = useState([]);
   const [newMem, setNewMem] = useState("");
   const [saving, setSaving] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     api.get("/settings").then(({ data }) => setSettings(data));
@@ -48,6 +49,19 @@ export default function Settings() {
     toast.success("O CEO AI vai lembrar-se disto.");
   };
   const delMem = async (id) => { await api.delete(`/memories/${id}`); setMemories((m) => m.filter((x) => x.id !== id)); };
+
+  const toggleEmail = async (val) => {
+    update({ email_briefing: val });
+    try { await api.put("/settings", { ...settings, email_briefing: val }); toast.success(val ? "Briefing por email ativado" : "Briefing por email desativado"); }
+    catch { toast.error("Erro ao guardar"); }
+  };
+
+  const sendNow = async () => {
+    setSendingEmail(true);
+    try { const { data } = await api.post("/briefing/email"); toast.success(`Briefing enviado para ${data.to}`); }
+    catch { toast.error("Não foi possível enviar o email"); }
+    finally { setSendingEmail(false); }
+  };
 
   if (!settings) return <div className="flex justify-center py-32"><Loader2 className="w-6 h-6 animate-spin text-[#D4AF37]" /></div>;
 
@@ -94,6 +108,24 @@ export default function Settings() {
         </div>
         <Button data-testid="save-settings-btn" onClick={save} disabled={saving} className="rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431]">
           {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null} Guardar
+        </Button>
+      </div>
+
+      <div className="surface rounded-3xl p-8 mb-6">
+        <div className="flex items-center gap-2 mb-2"><Mail className="w-5 h-5 text-[#D4AF37]" /><h2 className="font-serif-lux text-2xl">Briefing por email</h2></div>
+        <p className="text-muted-foreground text-sm mb-6">O CEO AI acorda contigo: recebe o briefing diário no email às 07:00 (UTC), mesmo sem abrir a app.</p>
+        <div className="flex items-center justify-between p-4 rounded-xl border border-border mb-4">
+          <div>
+            <div className="text-sm font-medium">Enviar briefing diário por email</div>
+            <div className="text-xs text-muted-foreground mt-0.5">Enviado para a tua conta de email</div>
+          </div>
+          <button data-testid="email-briefing-toggle" onClick={() => toggleEmail(!settings.email_briefing)}
+            className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${settings.email_briefing ? "bg-[#D4AF37]" : "bg-border"}`}>
+            <span className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all ${settings.email_briefing ? "left-6" : "left-1"}`} />
+          </button>
+        </div>
+        <Button data-testid="send-email-now-btn" onClick={sendNow} disabled={sendingEmail} variant="outline" className="rounded-full">
+          {sendingEmail ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />} Enviar-me o briefing agora
         </Button>
       </div>
 

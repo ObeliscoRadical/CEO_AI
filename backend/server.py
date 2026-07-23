@@ -13,7 +13,9 @@ from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
-import logging, uuid, jwt, bcrypt, io, json, requests, random, stripe
+import logging, uuid, jwt, bcrypt, io, json, requests, random, stripe, httpx
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 
@@ -35,6 +37,9 @@ STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
 APP_NAME = "ceo-ai"
 stripe.api_key = os.environ.get("STRIPE_SECRET_KEY") or "sk_test_emergent"
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+EMAIL_BASE_URL = "https://integrations.emergentagent.com"
+EMAIL_KEY = os.environ.get("EMERGENT_EMAIL_KEY")
+EMAIL_FROM_NAME = os.environ.get("EMAIL_FROM_NAME", "CEO AI")
 
 MODEL_MAP = {
     "claude": ("anthropic", "claude-opus-4-7"),
@@ -162,6 +167,7 @@ class SettingsInput(BaseModel):
     briefing_tone: Optional[str] = None
     model: Optional[str] = None
     monitored_widgets: Optional[List[str]] = None
+    email_briefing: Optional[bool] = None
 
 class ChatInput(BaseModel):
     session_id: Optional[str] = None
@@ -539,7 +545,7 @@ async def del_memory(mem_id: str, user: dict = Depends(get_current_user)):
     return {"ok": True}
 
 DEFAULT_SETTINGS = {"ceo_mode": "crescimento", "theme": "dark", "briefing_count": 4,
-                    "briefing_tone": "direto", "model": "claude",
+                    "briefing_tone": "direto", "model": "claude", "email_briefing": False,
                     "monitored_widgets": ["cashflow", "profit", "clients", "tax", "employees", "bank", "risk"]}
 
 @api_router.get("/settings")
@@ -658,12 +664,11 @@ async def chat(inp: ChatInput, user: dict = Depends(get_current_user)):
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 # ---------------------------------------------------------------- briefing
-@api_router.get("/briefing")
-async def briefing(user: dict = Depends(get_current_user)):
-    settings = await db.settings.find_one({"user_id": user["id"]}) or {}
+async def make_briefing(user_id: str, user_name: str):
+    settings = await db.settings.find_one({"user_id": user_id}) or {}
     count = settings.get("briefing_count", 4)
-    snap = await build_snapshot(user["id"])
-    sysmsg = await build_system_prompt(user["id"], user.get("name", ""))
+    snap = await build_snapshot(user_id)
+    sysmsg = await build_system_prompt(user_id, user_name)
     hour = datetime.now(timezone.utc).hour
     greeting = "Bom dia" if hour < 12 else ("Boa tarde" if hour < 19 else "Boa noite")
     prompt = (
@@ -681,11 +686,104 @@ async def briefing(user: dict = Depends(get_current_user)):
         data = json.loads(text)
     except Exception as e:
         logger.error(f"briefing error: {e}")
-        data = {"greeting": f"{greeting}, {user.get('name','')}. Aqui está o que precisa da sua atenção hoje.",
+        data = {"greeting": f"{greeting}, {user_name}. Aqui está o que precisa da sua atenção hoje.",
                 "items": [{"title": "Ligue os seus dados", "detail": "Registe receitas e despesas para eu analisar a saúde da sua empresa.",
                            "priority": "alta", "icon": "opportunity"}]}
     data["health"] = snap["health"]
     return data
+
+@api_router.get("/briefing")
+async def briefing(user: dict = Depends(get_current_user)):
+    return await make_briefing(user["id"], user.get("name", ""))
+
+# ---------------------------------------------------------------- briefing email
+PRIORITY_COLOR = {"alta": "#EF4444", "media": "#F59E0B", "baixa": "#10B981"}
+
+def build_briefing_html(name: str, data: dict, app_url: str):
+    rows = ""
+    for it in data.get("items", []):
+        pc = PRIORITY_COLOR.get(it.get("priority", "media"), "#F59E0B")
+        rows += f"""
+        <tr><td style="padding:0 0 14px 0;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#faf9f6;border:1px solid #eee;border-radius:12px;">
+            <tr>
+              <td width="6" style="background:{pc};border-radius:12px 0 0 12px;">&nbsp;</td>
+              <td style="padding:14px 18px;">
+                <div style="font-size:15px;font-weight:700;color:#18181b;">{it.get('title','')}</div>
+                <div style="font-size:14px;color:#52525b;margin-top:4px;line-height:1.5;">{it.get('detail','')}</div>
+              </td>
+            </tr>
+          </table>
+        </td></tr>"""
+    return f"""<!DOCTYPE html><html><body style="margin:0;background:#0b0c10;font-family:Arial,Helvetica,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#0b0c10;padding:32px 0;">
+      <tr><td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:18px;overflow:hidden;">
+          <tr><td style="background:#0b0c10;padding:28px 32px;">
+            <div style="color:#D4AF37;font-size:22px;font-weight:700;letter-spacing:1px;">CEO&nbsp;AI</div>
+            <div style="color:#a1a1aa;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-top:2px;">Executivo Digital · Briefing Diário</div>
+          </td></tr>
+          <tr><td style="padding:32px;">
+            <div style="font-size:22px;color:#18181b;font-weight:700;line-height:1.35;margin-bottom:8px;">{data.get('greeting','Bom dia')}</div>
+            <div style="font-size:13px;color:#71717a;margin-bottom:22px;">Saúde da empresa: <strong style="color:#D4AF37;">{data.get('health',0)}/100</strong></div>
+            <table width="100%" cellpadding="0" cellspacing="0">{rows}</table>
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:22px;"><tr><td align="center">
+              <a href="{app_url}" style="display:inline-block;background:#D4AF37;color:#0b0c10;text-decoration:none;font-weight:700;font-size:14px;padding:13px 28px;border-radius:999px;">Abrir o meu CEO AI</a>
+            </td></tr></table>
+          </td></tr>
+          <tr><td style="padding:20px 32px;background:#faf9f6;border-top:1px solid #eee;">
+            <div style="font-size:11px;color:#a1a1aa;">Recebes este email porque ativaste o briefing diário. Podes desativar em Personalização.</div>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table></body></html>"""
+
+async def send_email_raw(to_email: str, subject: str, html: str):
+    if not EMAIL_KEY:
+        logger.error("EMERGENT_EMAIL_KEY not set")
+        return False
+    payload = {"to": [to_email], "subject": subject, "html": html, "from_name": EMAIL_FROM_NAME}
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(f"{EMAIL_BASE_URL}/api/v1/email/send",
+                                     headers={"X-Email-Key": EMAIL_KEY}, json=payload)
+        resp.raise_for_status()
+        return True
+    except Exception as e:
+        logger.error(f"email send error: {e}")
+        return False
+
+@api_router.post("/briefing/email")
+async def send_briefing_email(request: Request, user: dict = Depends(get_current_user)):
+    data = await make_briefing(user["id"], user.get("name", ""))
+    app_url = request.headers.get("origin") or os.environ.get("FRONTEND_URL", "")
+    html = build_briefing_html(user.get("name", ""), data, app_url)
+    ok = await send_email_raw(user["email"], "O teu briefing diário — CEO AI", html)
+    if not ok:
+        raise HTTPException(502, "Não foi possível enviar o email")
+    return {"sent": True, "to": user["email"]}
+
+async def send_daily_briefings():
+    today = datetime.now(timezone.utc).date().isoformat()
+    cursor = db.settings.find({"email_briefing": True})
+    async for s in cursor:
+        uid = s.get("user_id")
+        if not uid:
+            continue
+        claim = await db.settings.update_one(
+            {"user_id": uid, "email_briefing": True, "last_briefing_email_date": {"$ne": today}},
+            {"$set": {"last_briefing_email_date": today}})
+        if claim.modified_count != 1:
+            continue
+        try:
+            u = await db.users.find_one({"_id": ObjectId(uid)})
+            if not u:
+                continue
+            data = await make_briefing(uid, u.get("name", ""))
+            html = build_briefing_html(u.get("name", ""), data, os.environ.get("FRONTEND_URL", ""))
+            await send_email_raw(u["email"], "O teu briefing diário — CEO AI", html)
+        except Exception as e:
+            logger.error(f"daily briefing error for {uid}: {e}")
 
 # ---------------------------------------------------------------- Future Engine (PREMIUM)
 @api_router.get("/future")
@@ -1085,6 +1183,13 @@ async def startup():
         logger.info("Storage initialized")
     except Exception as e:
         logger.error(f"Storage init failed: {e}")
+    try:
+        scheduler = AsyncIOScheduler(timezone="UTC")
+        scheduler.add_job(send_daily_briefings, CronTrigger(hour=7, minute=0), id="daily_briefings", replace_existing=True)
+        scheduler.start()
+        logger.info("Briefing scheduler started")
+    except Exception as e:
+        logger.error(f"Scheduler start failed: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
