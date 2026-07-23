@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useAppData } from "@/context/AppDataContext";
 import { CEOOrb } from "@/components/CEOOrb";
 import { Button } from "@/components/ui/button";
-import { Loader2, Crown, Check, ShieldCheck, Info, TrendingUp, ArrowUpRight, Circle, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
+import { Loader2, Crown, Check, ShieldCheck, Info, TrendingUp, ArrowUpRight, Circle, CheckCircle2, Upload } from "lucide-react";
 import { motion } from "framer-motion";
 
 const gradeColor = (g) => {
@@ -34,11 +35,42 @@ export default function InvestmentGrade() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [uploadingType, setUploadingType] = useState(null);
+  const fileRef = useRef(null);
+  const pendingType = useRef(null);
+
+  const load = useCallback(async () => {
+    const { data } = await api.get("/investment-grade");
+    setData(data);
+  }, []);
 
   useEffect(() => {
-    if (isPremium) api.get("/investment-grade").then(({ data }) => setData(data)).catch(() => {}).finally(() => setLoading(false));
+    if (isPremium) load().catch(() => {}).finally(() => setLoading(false));
     else setLoading(false);
-  }, [isPremium]);
+  }, [isPremium, load]);
+
+  const pickFile = (type) => { pendingType.current = type; fileRef.current?.click(); };
+
+  const onFile = async (e) => {
+    const file = e.target.files?.[0];
+    const type = pendingType.current;
+    if (!file || !type) return;
+    setUploadingType(type);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("doc_type", type);
+    try {
+      await api.post("/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      await load();
+      toast.success("Documento carregado — avaliação atualizada.");
+    } catch {
+      toast.error("Não foi possível carregar o documento");
+    } finally {
+      setUploadingType(null);
+      pendingType.current = null;
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
 
   if (!isPremium) {
     return (
@@ -135,12 +167,20 @@ export default function InvestmentGrade() {
         {/* Confidence checklist */}
         <div className="surface rounded-3xl p-8">
           <div className="flex items-center gap-2 mb-1"><ShieldCheck className="w-5 h-5 text-[#D4AF37]" /><h2 className="font-serif-lux text-2xl">Subir para avaliação profissional</h2></div>
-          <p className="text-muted-foreground text-sm mb-6">Fornece estes elementos para uma avaliação de nível profissional.</p>
+          <p className="text-muted-foreground text-sm mb-6">Carrega estes documentos para uma avaliação de nível profissional.</p>
+          <input ref={fileRef} type="file" accept=".pdf,.csv,.xlsx,.png,.jpg,.jpeg" onChange={onFile} className="hidden" data-testid="doc-file-input" />
           <div className="space-y-3">
             {data.confidence.checklist.map((c, i) => (
               <div key={i} className="flex items-center gap-3" data-testid={`checklist-${i}`}>
                 {c.done ? <CheckCircle2 className="w-5 h-5 text-[#10B981] shrink-0" /> : <Circle className="w-5 h-5 text-muted-foreground shrink-0" />}
-                <span className={`text-sm ${c.done ? "" : "text-muted-foreground"}`}>{c.item}</span>
+                <span className={`text-sm flex-1 ${c.done ? "" : "text-muted-foreground"}`}>{c.item}</span>
+                {c.upload_type && !c.done && (
+                  <button onClick={() => pickFile(c.upload_type)} disabled={uploadingType === c.upload_type}
+                    data-testid={`upload-${c.upload_type}`}
+                    className="flex items-center gap-1.5 text-xs text-[#D4AF37] hover:gap-2 transition-all disabled:opacity-50">
+                    {uploadingType === c.upload_type ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} Carregar
+                  </button>
+                )}
               </div>
             ))}
           </div>

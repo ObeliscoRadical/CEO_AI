@@ -1,0 +1,32 @@
+{
+  "summary": "Phase 5 (Investment Grade v2 - clickable checklist with uploads) fully validated. Backend: 10/10 pytest tests pass covering POST /api/upload with doc_type Form field, GET /api/documents (auth-gated, excludes soft-deleted), DELETE /api/documents/{id} (soft delete removes item from list AND flips checklist done back to false), /investment-grade checklist wires upload_type only on 3 doc items (financials/assets/contracts) and correctly excludes EBITDA + dependency items, confidence.score rises when docs are uploaded (0% -> higher), tier upgrades (Estimativa Inteligente -> Fundamentada -> Nível Profissional) and value_range narrows (35% -> 20% -> 10% margin). Frontend: end-to-end at /relatorio for premium admin. checklist-0..4 rendered; upload-financials/upload-assets/upload-contracts buttons present on the 3 document-backed items, and NOT rendered on items 1 (EBITDA) and 4 (dependency). Clicking Carregar opens file picker via doc-file-input; after upload, page reloads report, checklist-0 flips to green check (CheckCircle2 / #10B981), upload-financials button disappears, confidence banner updates from '0% dos dados formais' to '20% dos dados formais'. Toast 'Documento carregado — avaliação atualizada.' shown. Admin's Stripe/premium state untouched; all test documents were soft-deleted via DELETE /api/documents/{id} at end of run (0 docs remaining, admin report back to clean 0% baseline).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_documents_upload.py",
+    "/app/test_reports/pytest/phase5_docs.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "POST /api/upload accepts doc_type: str = Form('other') - default 'other' is sensible; validated in test_upload_default_doc_type_is_other. No server-side allowlist for doc_type values (financials|assets|contracts|other) - any string is accepted and stored. Non-breaking since checklist only checks membership of the three known types, but consider validating to avoid pollution of the documents collection with typos.",
+    "GET /api/documents excludes _id properly (returns id as str). DELETE uses ObjectId(doc_id) but does not verify the ObjectId is valid - a malformed id would raise bson.errors.InvalidId (500) rather than 404. Minor; not blocking.",
+    "Investment-grade checklist item 'Contratos e qualidade da carteira de clientes' has done=True if EITHER a 'contracts' doc exists OR company.clients_count>0. This dual-source logic is documented via the checklist item alone and is intentional (contracts OR client base), verified functionally.",
+    "InvestmentGrade.jsx load() is now a reusable useCallback - onFile reloads the report inline. Good pattern. The upload flow uses a single hidden <input type=file> with a ref + pendingType ref to route the file to the right doc_type - clean, no per-item duplication.",
+    "After upload, frontend calls /api/upload then /api/investment-grade in sequence; total UX latency ~6-10s due to LLM call inside grade endpoint. Toast fires on success; button becomes CheckCircle2 (green) and its testid is unmounted (verified via wait_for_selector state='detached').",
+    "server.py still ~1068 lines - modularization (auth / payments / ai / uploads) remains desirable but not urgent."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_documents_upload.py (new)"
+  ],
+  "success_rate": {"backend": "100% (10/10 phase 5)", "frontend": "100% (upload + reload + checklist flow end-to-end)"},
+  "test_credentials": "obeliscoradical@gmail.com / CeoAI2026! (admin, is_premium=true; Stripe subscription unchanged).",
+  "seed_data_creation": "Transient TEST_*.txt documents uploaded via /api/upload during tests were all soft-deleted at the end. Admin's /api/documents returns [] (0 docs). Admin's investment-grade report is back to 0% confidence baseline. No persistent seed data left behind.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase 5 (clickable checklist + document uploads) validated end-to-end. Test file: /app/backend/tests/test_documents_upload.py (10 tests, ~33s incl. LLM calls). To re-run: pytest backend/tests/test_documents_upload.py. Runtime hits /api/investment-grade twice per checklist test (LLM ~5-9s each). Cleanup happens via module + class fixtures. All prior phases still validated (phase 1: 21/21, phase 2: 13/13, phase 3: 11/11, phase 4: 7/7, phase 5: 10/10). If you need to test with a company that has real data, note that Obelisco Radical currently has no entries/company data - grades stay F and value=0 (this is expected per user's note).",
+  "rca_of_the_issue": "N/A - no bugs found."
+}

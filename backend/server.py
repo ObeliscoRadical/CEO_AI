@@ -5,7 +5,7 @@ import os
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, UploadFile, File, Header, Query
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, UploadFile, File, Form, Header, Query
 from fastapi.responses import StreamingResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -746,7 +746,9 @@ async def investment_grade(user: dict = Depends(get_current_user)):
     cid = str(company["_id"]) if company.get("_id") else None
     entries = await db.entries.find({"user_id": user["id"], "company_id": cid}).to_list(5000) if cid else []
     dna = await db.ceo_dna.find_one({"user_id": user["id"]}) or {}
-    n_docs = await db.documents.count_documents({"user_id": user["id"], "is_deleted": False})
+    docs = await db.documents.find({"user_id": user["id"], "is_deleted": False}).to_list(500)
+    doc_types = set(d.get("doc_type", "other") for d in docs)
+    n_docs = len(docs)
 
     inc, months_set = {}, set()
     for e in entries:
@@ -784,10 +786,10 @@ async def investment_grade(user: dict = Depends(get_current_user)):
     overall_grade = to_grade(overall_score)
 
     checklist = [
-        {"item": "Demonstrações financeiras completas", "done": n_docs > 0},
+        {"item": "Demonstrações financeiras completas", "upload_type": "financials", "done": "financials" in doc_types},
         {"item": "Histórico de EBITDA e fluxo de caixa (6+ meses)", "done": coverage >= 6},
-        {"item": "Composição de ativos e passivos", "done": float(company.get("bank_balance", 0)) > 0 and n_docs > 0},
-        {"item": "Contratos e qualidade da carteira de clientes", "done": cli > 0},
+        {"item": "Composição de ativos e passivos", "upload_type": "assets", "done": "assets" in doc_types},
+        {"item": "Contratos e qualidade da carteira de clientes", "upload_type": "contracts", "done": ("contracts" in doc_types) or cli > 0},
         {"item": "Avaliação de dependência do fundador", "done": bool(dna.get("completed")) and emp > 0},
     ]
     done = sum(1 for c in checklist if c["done"])
@@ -1008,15 +1010,26 @@ async def stripe_webhook(request: Request):
 
 # ---------------------------------------------------------------- docs
 @api_router.post("/upload")
-async def upload(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+async def upload(file: UploadFile = File(...), doc_type: str = Form("other"), user: dict = Depends(get_current_user)):
     ext = file.filename.split(".")[-1] if "." in file.filename else "bin"
     path = f"{APP_NAME}/uploads/{user['id']}/{uuid.uuid4()}.{ext}"
     data = await file.read()
     result = put_object(path, data, file.content_type or "application/octet-stream")
     res = await db.documents.insert_one({"user_id": user["id"], "storage_path": result["path"],
-        "original_filename": file.filename, "content_type": file.content_type,
+        "original_filename": file.filename, "content_type": file.content_type, "doc_type": doc_type,
         "size": result.get("size", len(data)), "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()})
-    return {"id": str(res.inserted_id), "filename": file.filename, "size": result.get("size", len(data))}
+    return {"id": str(res.inserted_id), "filename": file.filename, "doc_type": doc_type, "size": result.get("size", len(data))}
+
+@api_router.get("/documents")
+async def list_docs(user: dict = Depends(get_current_user)):
+    docs = await db.documents.find({"user_id": user["id"], "is_deleted": False}).sort("created_at", -1).to_list(500)
+    return [{"id": str(d["_id"]), "filename": d.get("original_filename"), "doc_type": d.get("doc_type", "other"),
+             "size": d.get("size", 0), "created_at": d.get("created_at")} for d in docs]
+
+@api_router.delete("/documents/{doc_id}")
+async def delete_doc(doc_id: str, user: dict = Depends(get_current_user)):
+    await db.documents.update_one({"_id": ObjectId(doc_id), "user_id": user["id"]}, {"$set": {"is_deleted": True}})
+    return {"ok": True}
 
 @api_router.get("/")
 async def root():
