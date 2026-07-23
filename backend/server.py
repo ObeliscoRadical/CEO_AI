@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
-import logging, uuid, jwt, bcrypt, io, json, requests, random, stripe, httpx
+import logging, uuid, jwt, bcrypt, io, json, requests, random, stripe, httpx, hashlib
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
@@ -191,6 +191,11 @@ class ContactInput(BaseModel):
     name: str
     email: EmailStr
     message: str
+
+class DecisionActInput(BaseModel):
+    key: str
+    title: str = ""
+    status: str  # done | snoozed
 
 # ---------------------------------------------------------------- storage
 storage_key = None
@@ -785,6 +790,147 @@ async def send_daily_briefings():
         except Exception as e:
             logger.error(f"daily briefing error for {uid}: {e}")
 
+# ---------------------------------------------------------------- executive intelligence
+async def ai_json(system: str, prompt: str, model=("openai", "gpt-5.4")):
+    chat = LlmChat(api_key=EMERGENT_KEY, session_id=f"j-{uuid.uuid4()}", system_message=system).with_model(*model)
+    try:
+        resp = await chat.send_message(UserMessage(text=prompt))
+        t = resp.strip()
+        if "```" in t:
+            t = t.split("```")[1].replace("json", "", 1).strip()
+        return json.loads(t)
+    except Exception as e:
+        logger.error(f"ai_json error: {e}")
+        return None
+
+async def _growth_score(uid: str, cid: str):
+    entries = await db.entries.find({"user_id": uid, "company_id": cid}, {"type": 1, "amount": 1, "date": 1}).to_list(5000) if cid else []
+    inc = {}
+    for e in entries:
+        mk = str(e.get("date", ""))[:7]
+        if len(mk) == 7 and e["type"] == "income":
+            inc[mk] = inc.get(mk, 0) + e["amount"]
+    sm = sorted(inc)
+    g = 50
+    if len(sm) >= 2:
+        recent = sum(inc[m] for m in sm[-3:]); prior = sum(inc[m] for m in sm[-6:-3])
+        if prior > 0:
+            g = max(5, min(100, int(60 + ((recent - prior) / prior) * 100)))
+        elif recent > 0:
+            g = 72
+    return g
+
+@api_router.get("/decisions")
+async def decisions(user: dict = Depends(get_current_user)):
+    uid = user["id"]
+    snap = await build_snapshot(uid)
+    sysmsg = await build_system_prompt(uid, user.get("name", ""))
+    prompt = (
+        "Como CEO, define o veredicto de hoje e as decisões prioritárias. Devolve APENAS JSON: "
+        '{"verdict":str,"decisions":[{"title":str,"why":str,"impact":str,"action":str,"urgency":"alta"|"media"|"baixa"}],'
+        '"vitals_phrases":{"cashflow":str,"profit":str,"clients":str,"tax":str,"employees":str,"bank":str,"risk":str}}. '
+        "O 'verdict' é 1 frase humana e directa sobre o estado hoje (sem números crus). 1 a 3 decisões concretas orientadas ao futuro, "
+        "cada uma com o porquê, o impacto estimado (em € quando possível) e a acção. Em 'vitals_phrases', 1 frase-decisão curta por sinal vital. "
+        "Português europeu, tom de executivo de confiança. Sem texto fora do JSON."
+    )
+    data = await ai_json(sysmsg, prompt) or {"verdict": f"Olá {user.get('name','')}. Vamos focar no essencial hoje.", "decisions": [], "vitals_phrases": {}}
+    cid = await active_company_id(uid)
+    today = datetime.now(timezone.utc).date().isoformat()
+    fb = await db.decision_feedback.find({"user_id": uid, "company_id": cid, "date": today}).to_list(200)
+    hidden = {f["key"] for f in fb}
+    out = []
+    for d in data.get("decisions", []):
+        key = hashlib.md5(d.get("title", "").encode()).hexdigest()[:10]
+        if key in hidden:
+            continue
+        d["key"] = key
+        out.append(d)
+    ph = data.get("vitals_phrases", {})
+    for v in snap["vitals"]:
+        v["phrase"] = ph.get(v["key"], v.get("hint", ""))
+    return {"verdict": data.get("verdict"), "decisions": out, "vitals": snap["vitals"], "health": snap["health"],
+            "company_value": snap["company_value"], "goal_value": snap["goal_value"], "progress": snap["progress"],
+            "currency_symbol": snap["currency_symbol"], "company_name": snap["company_name"]}
+
+@api_router.post("/decisions/act")
+async def decisions_act(inp: DecisionActInput, user: dict = Depends(get_current_user)):
+    cid = await active_company_id(user["id"])
+    today = datetime.now(timezone.utc).date().isoformat()
+    await db.decision_feedback.update_one(
+        {"user_id": user["id"], "company_id": cid, "date": today, "key": inp.key},
+        {"$set": {"status": inp.status, "title": inp.title, "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
+    return {"ok": True}
+
+@api_router.get("/health-index")
+async def health_index(user: dict = Depends(get_current_user)):
+    uid = user["id"]
+    snap = await build_snapshot(uid)
+    company = await resolve_company(uid) or {}
+    cid = str(company["_id"]) if company.get("_id") else None
+    emp = int(company.get("employees_count", 0)); cli = int(company.get("clients_count", 0))
+    g = await _growth_score(uid, cid)
+    margin = snap["profit_margin"]; runway = snap["runway"]
+    dims = {
+        "Financeiro": snap["health"],
+        "Clientes": min(100, 40 + cli * 5),
+        "Equipa": min(100, 50 + emp * 6),
+        "Dependência do Fundador": min(100, 28 + emp * 12 + (12 if cli > 5 else 0)),
+        "Marca": min(100, 30 + cli * 4),
+        "Liquidez": min(100, int(runway * 14)),
+        "Margem": max(0, min(100, int(margin * 4) + 40)),
+        "Crescimento": g,
+        "Risco": min(100, int(runway * 12 + (20 if margin > 0 else 0))),
+    }
+    overall = round(sum(dims.values()) / len(dims))
+    sysmsg = await build_system_prompt(uid, user.get("name", ""))
+    prompt = (
+        "Explica o índice de Saúde Empresarial. Notas actuais (0-100): " + json.dumps(dims, ensure_ascii=False) +
+        '. Devolve APENAS JSON: {"summary":str,"dimensions":{"<nome exacto>":{"why":str,"improve":str,"potential":str}}}. '
+        "'summary': 1-2 frases sobre a saúde global. Por dimensão: 'why' (porque tem esta nota, 1 frase), 'improve' (o que fazer, 1 frase), "
+        "'potential' (quanto pode subir, ex '+15 pontos'). Português europeu. Sem texto fora do JSON."
+    )
+    ai = await ai_json(sysmsg, prompt) or {}
+    notes = ai.get("dimensions", {})
+    out = [{"dimension": k, "score": v, "why": notes.get(k, {}).get("why", ""),
+            "improve": notes.get(k, {}).get("improve", ""), "potential": notes.get(k, {}).get("potential", "")} for k, v in dims.items()]
+    return {"overall": overall, "summary": ai.get("summary", ""), "dimensions": out}
+
+@api_router.get("/valuation")
+async def valuation(user: dict = Depends(get_current_user)):
+    uid = user["id"]
+    snap = await build_snapshot(uid)
+    sym = snap["currency_symbol"]; value = snap["company_value"]
+    sysmsg = await build_system_prompt(uid, user.get("name", ""))
+    prompt = (
+        f"Decompõe o valor da empresa (valor actual estimado {sym}{value}). Devolve APENAS JSON: "
+        '{"factors":[{"name":str,"influence":"positiva"|"negativa"|"neutra","weight":str,"note":str}],'
+        '"actions":[{"action":str,"uplift":str,"note":str}]}. '
+        "'factors' DEVE incluir exactamente: Ativos, Marca, Carteira de Clientes, Capacidade de gerar lucro, Know-how, "
+        "Potencial de crescimento, Dependência do Fundador — cada um com 'influence', 'weight' (ex '+18%' ou '-12%') e 'note' (1 frase). "
+        "'actions': 3 a 5 formas concretas de aumentar o valuation (ex: contratar gestor operacional, criar contratos recorrentes, "
+        "reduzir dependência do fundador, melhorar margem), cada uma com 'uplift' (ex '+45.000 €') e 'note'. Português europeu. Sem texto fora do JSON."
+    )
+    ai = await ai_json(sysmsg, prompt) or {"factors": [], "actions": []}
+    return {"company_value": value, "currency_symbol": sym, "goal_value": snap["goal_value"], "progress": snap["progress"],
+            "factors": ai.get("factors", []), "actions": ai.get("actions", [])}
+
+@api_router.get("/report")
+async def strategic_report(user: dict = Depends(get_current_user)):
+    uid = user["id"]
+    snap = await build_snapshot(uid)
+    sysmsg = await build_system_prompt(uid, user.get("name", ""))
+    prompt = (
+        "Prepara um Relatório Estratégico da Empresa ao nível de uma consultora de topo (McKinsey/Deloitte). Devolve APENAS JSON: "
+        '{"situacao_atual":str,"riscos":[str],"oportunidades":[str],"pontos_fortes":[str],"pontos_fracos":[str],'
+        '"valor":{"atual":str,"comentario":str},"projecao_12m":str,"plano_acao":[{"acao":str,"prazo":str,"impacto":str}],"recomendacoes":[str]}. '
+        "Profundo mas conciso, orientado a decisões e ao futuro, com linguagem executiva. Português europeu. Sem texto fora do JSON."
+    )
+    ai = await ai_json(sysmsg, prompt) or {}
+    ai["company_name"] = snap["company_name"]; ai["health"] = snap["health"]
+    ai["company_value"] = snap["company_value"]; ai["currency_symbol"] = snap["currency_symbol"]
+    ai["generated_at"] = datetime.now(timezone.utc).isoformat()
+    return ai
+
 # ---------------------------------------------------------------- Future Engine (PREMIUM)
 @api_router.get("/future")
 async def future_projection(user: dict = Depends(get_current_user)):
@@ -817,20 +963,17 @@ async def simulate(inp: SimInput, user: dict = Depends(get_current_user)):
     sysmsg = await build_system_prompt(user["id"], user.get("name", ""))
     prompt = (
         f"O empresário quer simular esta decisão: '{inp.scenario}'. Detalhe: '{inp.detail}'. "
-        f"Analisa o impacto FUTURO com base no estado atual da empresa. Devolve APENAS JSON: "
-        f'{{"verdict":"favoravel"|"cautela"|"desaconselhado","summary":str,"impact_cash":str,"impact_profit":str,"recommendation":str,"timeline":str}}. '
-        f"Sê concreto com números estimados quando possível. Sem texto fora do JSON."
+        f"Analisa o impacto FUTURO com base no estado actual. Devolve APENAS JSON: "
+        f'{{"verdict":"favoravel"|"cautela"|"desaconselhado","summary":str,'
+        f'"metrics":{{"lucro":str,"fluxo_caixa":str,"risco":str,"valuation":str,"saude":str}},'
+        f'"recommendation":str,"timeline":str}}. '
+        f"Em 'metrics' indica o impacto em cada eixo (ex: '+28.000 €/ano', '-2 meses de autonomia', 'sobe para 78/100'). "
+        f"Sê concreto com números estimados. Português europeu. Sem texto fora do JSON."
     )
-    chat = LlmChat(api_key=EMERGENT_KEY, session_id=f"sim-{uuid.uuid4()}", system_message=sysmsg).with_model("openai", "gpt-5.4")
-    try:
-        resp = await chat.send_message(UserMessage(text=prompt))
-        text = resp.strip()
-        if "```" in text:
-            text = text.split("```")[1].replace("json", "", 1).strip()
-        return json.loads(text)
-    except Exception as e:
-        logger.error(f"simulate error: {e}")
+    ai = await ai_json(sysmsg, prompt)
+    if not ai:
         raise HTTPException(status_code=500, detail="Não foi possível simular agora")
+    return ai
 
 # ---------------------------------------------------------------- Investment Grade (PREMIUM)
 def to_grade(score: float) -> str:
