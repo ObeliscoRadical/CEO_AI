@@ -2,10 +2,11 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api, streamChat } from "@/lib/api";
 import { VoiceSphere } from "@/components/VoiceSphere";
+import { VoiceMode } from "@/components/VoiceMode";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { Send, Loader2, Plus, MessageSquare, Trash2 } from "lucide-react";
+import { Send, Loader2, Plus, MessageSquare, Trash2, Mic } from "lucide-react";
 
 const SUGGESTIONS = [
   "Posso tirar férias este mês?",
@@ -20,6 +21,7 @@ export default function Chat() {
   const [sessionId, setSessionId] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [streaming, setStreaming] = useState(false);
+  const [voiceOpen, setVoiceOpen] = useState(false);
   const endRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -110,7 +112,11 @@ export default function Chat() {
           <div className="flex-1 flex flex-col items-center justify-center text-center">
             <VoiceSphere size={170} />
             <h1 className="font-serif-lux text-4xl mt-8 mb-3">Fala comigo.</h1>
-            <p className="text-muted-foreground mb-10 max-w-md">Pergunta o que quiseres, como falarias com um CEO ao teu lado. Sem termos técnicos.</p>
+            <p className="text-muted-foreground mb-8 max-w-md">Pergunta o que quiseres, como falarias com um CEO ao teu lado. Sem termos técnicos.</p>
+            <Button data-testid="open-voice-btn" onClick={() => setVoiceOpen(true)}
+              className="rounded-full mb-10 h-12 px-7 bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431] text-base">
+              <Mic className="w-5 h-5 mr-2" /> Falar com o CEO
+            </Button>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
               {SUGGESTIONS.map((s, i) => (
                 <button key={i} data-testid={`suggestion-${i}`} onClick={() => send(s)}
@@ -136,9 +142,13 @@ export default function Chat() {
         )}
 
         <div className="py-6 sticky bottom-0 bg-background">
-          <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex gap-3 glass rounded-full p-2 pl-6 items-center">
+          <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex gap-2 glass rounded-full p-2 pl-6 items-center">
             <Input data-testid="chat-input" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Escreve a tua pergunta..."
               className="border-0 bg-transparent focus-visible:ring-0 shadow-none" />
+            <Button data-testid="voice-mic-inline" type="button" onClick={() => setVoiceOpen(true)} variant="ghost"
+              className="rounded-full w-11 h-11 p-0 text-[#D4AF37] hover:bg-[#D4AF37]/10" title="Falar com o CEO">
+              <Mic className="w-5 h-5" />
+            </Button>
             <Button data-testid="chat-send-btn" type="submit" disabled={streaming || !input.trim()}
               className="rounded-full w-11 h-11 p-0 bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431]">
               {streaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
@@ -146,6 +156,13 @@ export default function Chat() {
           </form>
         </div>
       </div>
+
+      <VoiceMode
+        open={voiceOpen}
+        onClose={() => { setVoiceOpen(false); if (sessionId) openSession(sessionId); loadSessions(); }}
+        sessionId={sessionId}
+        onSession={setSessionId}
+      />
     </div>
   );
 }

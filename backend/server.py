@@ -12,11 +12,11 @@ from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime, timezone
 
 from core import db, client, hash_password, verify_password, init_storage, send_daily_briefings, logger
-from routers import auth, companies, finance, ceo, documents, billing, misc
+from routers import auth, companies, finance, ceo, documents, billing, misc, voice
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
-for _m in (auth, companies, finance, ceo, documents, billing, misc):
+for _m in (auth, companies, finance, ceo, documents, billing, misc, voice):
     api_router.include_router(_m.router)
 app.include_router(api_router)
 
