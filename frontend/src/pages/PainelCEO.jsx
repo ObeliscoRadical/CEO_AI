@@ -56,6 +56,12 @@ export default function PainelCEO() {
 
       {/* Vitals */}
       <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground mb-5">Hoje a tua empresa está assim</p>
+      {!data.has_data && (
+        <div className="surface rounded-2xl p-5 mb-5 flex flex-col sm:flex-row sm:items-center gap-4 border border-[#D4AF37]/25" data-testid="no-data-hint">
+          <p className="text-sm text-muted-foreground flex-1">Ainda não tenho os teus números. Liga o teu banco ou importa um CSV e eu calculo o valor real da tua empresa e afino as decisões de hoje.</p>
+          <button onClick={() => navigate("/financas")} data-testid="add-data-btn" className="rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431] px-5 py-2.5 text-sm font-medium shrink-0 transition-colors">Adicionar dados</button>
+        </div>
+      )}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-16">
         {vitalCards.map((vc, i) => (
           <motion.button key={i} onClick={vc.onClick} data-testid={`vital-${i}`}

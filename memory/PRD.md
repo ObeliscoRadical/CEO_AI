@@ -79,6 +79,13 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ **Cache diário de IA** (coleção ai_cache) para decisions/health/valuation/report — reduz latência de ~10-25s para ~0.2s e evita chamadas Claude duplicadas; invalidado ao alterar dados financeiros (entries/CSV/banco demo).
 - ✅ Testado E2E (iteration_7): backend 7/7, frontend 100% (páginas, nav, simulador, roda, valuation, relatório). Zero bugs.
 
+## Implemented — Fase 8: CEO Diário + Personalidade Executiva + Reposicionamento (2026-07-23)
+- ✅ **CEO Diário** (GET /api/ceo-daily, cache diário): análise completa ao abrir a app — saudação por hora do dia, "Hoje analisei toda a tua empresa", conclusão (Estado Geral / Oportunidades / Problemas / Prioridades) + 3-6 recomendações com prioridade (🔴 Urgente / 🟡 Importante / 🟢 Oportunidade). Texto varia a cada dia (regeneração + cache por data).
+- ✅ **Painel do CEO redesenhado** (ecrã principal /): saudação + 5 vitais no topo (Saúde Empresarial, Valor estimado, Probabilidade de crescimento, Tesouraria, Fluxo de caixa, clicáveis para as páginas de detalhe) + leitura do dia + "O que eu faria hoje" com recomendações acionáveis (Fazer/Explica-me/Adiar). Empty-state amigável quando a conta não tem dados financeiros.
+- ✅ **Personalidade do CEO AI** (build_system_prompt): consultor executivo experiente que gere centenas de empresas — calmo, objetivo, confiante. Nunca diz "depende"; responde sempre com "o que eu faria" → porquê → riscos → alternativas. Toma decisões lado a lado com o empresário.
+- ✅ **Reposicionamento de copy**: "Diretor Executivo Digital" no Login, meta description, manifest e sidebar; removida linguagem de ERP/software de gestão como descrição principal.
+- ✅ Testado E2E (iteration_8): backend 3/3, frontend 100% (Painel, vitais+navegação, ações, Explica-me→chat, Conselhos, personalidade do chat). Zero bugs.
+
 ## Backlog atualizado
 - P1: Empty-state amigável quando valuation/projeção = €0 (conta sem dados financeiros).
 - P1: Modularizar server.py (~1600 linhas) em routers.
