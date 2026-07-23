@@ -5,7 +5,7 @@ import { useAppData } from "@/context/AppDataContext";
 import { CEOOrb } from "@/components/CEOOrb";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2, Crown, Check, ShieldCheck, Info, TrendingUp, ArrowUpRight, Circle, CheckCircle2, Upload } from "lucide-react";
+import { Loader2, Crown, Check, ShieldCheck, Info, TrendingUp, ArrowUpRight, Circle, CheckCircle2, Upload, FileSearch } from "lucide-react";
 import { motion } from "framer-motion";
 
 const gradeColor = (g) => {
@@ -186,6 +186,26 @@ export default function InvestmentGrade() {
           </div>
         </div>
       </div>
+
+      {data.document_insights?.length > 0 && (
+        <div className="surface rounded-3xl p-8 mt-6" data-testid="doc-insights">
+          <div className="flex items-center gap-2 mb-1"><FileSearch className="w-5 h-5 text-[#D4AF37]" /><h2 className="font-serif-lux text-2xl">Documentos analisados pela IA</h2></div>
+          <p className="text-muted-foreground text-sm mb-6">O que o CEO AI leu nos teus documentos e usou nesta avaliação.</p>
+          <div className="space-y-3">
+            {data.document_insights.map((di, i) => (
+              <div key={i} className="flex gap-3 items-start p-4 rounded-2xl border border-border" data-testid={`doc-insight-${i}`}>
+                {di.relevant ? <CheckCircle2 className="w-5 h-5 text-[#10B981] shrink-0 mt-0.5" /> : <Info className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />}
+                <div className="min-w-0">
+                  <div className="text-sm font-medium truncate">{di.filename}
+                    <span className="ml-2 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background: `${di.quality === "high" ? "#10B981" : di.quality === "medium" ? "#F59E0B" : "#A1A1AA"}22`, color: di.quality === "high" ? "#10B981" : di.quality === "medium" ? "#F59E0B" : "#A1A1AA" }}>{di.quality === "high" ? "Alta" : di.quality === "medium" ? "Média" : "Baixa"}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{di.summary}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

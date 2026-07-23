@@ -1,0 +1,322 @@
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile, File, Form, Header, Query
+from fastapi.responses import StreamingResponse
+from core import *
+from models import *
+from core import _growth_score
+
+router = APIRouter()
+
+@router.get("/memories")
+async def list_memories(user: dict = Depends(get_current_user)):
+    mems = await db.memories.find({"user_id": user["id"]}).sort("created_at", -1).to_list(500)
+    for m in mems:
+        m["id"] = str(m["_id"]); m.pop("_id")
+    return mems
+
+@router.post("/memories")
+async def add_memory(inp: MemoryInput, user: dict = Depends(get_current_user)):
+    doc = {"user_id": user["id"], "content": inp.content, "category": inp.category,
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    res = await db.memories.insert_one(doc)
+    return {"id": str(res.inserted_id), **inp.model_dump()}
+
+@router.delete("/memories/{mem_id}")
+async def del_memory(mem_id: str, user: dict = Depends(get_current_user)):
+    await db.memories.delete_one({"_id": ObjectId(mem_id), "user_id": user["id"]})
+    return {"ok": True}
+
+DEFAULT_SETTINGS = {"ceo_mode": "crescimento", "theme": "dark", "briefing_count": 4,
+                    "briefing_tone": "direto", "model": "claude", "email_briefing": False,
+                    "monitored_widgets": ["cashflow", "profit", "clients", "tax", "employees", "bank", "risk"]}
+
+@router.get("/settings")
+async def get_settings(user: dict = Depends(get_current_user)):
+    s = await db.settings.find_one({"user_id": user["id"]}) or {}
+    s.pop("_id", None); s.pop("user_id", None); s.pop("active_company_id", None)
+    return {**DEFAULT_SETTINGS, **s}
+
+@router.put("/settings")
+async def update_settings(inp: SettingsInput, user: dict = Depends(get_current_user)):
+    data = {k: v for k, v in inp.model_dump().items() if v is not None}
+    await db.settings.update_one({"user_id": user["id"]}, {"$set": data}, upsert=True)
+    s = await db.settings.find_one({"user_id": user["id"]}) or {}
+    s.pop("_id", None); s.pop("user_id", None); s.pop("active_company_id", None)
+    return {**DEFAULT_SETTINGS, **s}
+
+# ---------------------------------------------------------------- chat
+@router.get("/chat/sessions")
+async def chat_sessions(user: dict = Depends(get_current_user)):
+    sess = await db.chat_sessions.find({"user_id": user["id"], "session_id": {"$exists": True}}).sort("created_at", -1).to_list(100)
+    return [{"session_id": s.get("session_id"), "title": s.get("title", "Conversa"), "created_at": s.get("created_at")}
+            for s in sess if s.get("session_id")]
+
+@router.get("/chat/{session_id}/messages")
+async def chat_messages(session_id: str, user: dict = Depends(get_current_user)):
+    msgs = await db.chat_messages.find({"session_id": session_id, "user_id": user["id"]}).sort("created_at", 1).to_list(1000)
+    return [{"role": m["role"], "content": m["content"]} for m in msgs]
+
+@router.delete("/chat/{session_id}")
+async def delete_session(session_id: str, user: dict = Depends(get_current_user)):
+    await db.chat_sessions.delete_one({"session_id": session_id, "user_id": user["id"]})
+    await db.chat_messages.delete_many({"session_id": session_id, "user_id": user["id"]})
+    return {"ok": True}
+
+@router.post("/chat")
+async def chat(inp: ChatInput, user: dict = Depends(get_current_user)):
+    session_id = inp.session_id
+    if not session_id:
+        session_id = str(uuid.uuid4())
+        await db.chat_sessions.insert_one({"session_id": session_id, "user_id": user["id"],
+                                           "title": inp.message[:50], "created_at": datetime.now(timezone.utc).isoformat()})
+    history = await db.chat_messages.find({"session_id": session_id, "user_id": user["id"]}).sort("created_at", 1).to_list(1000)
+    await db.chat_messages.insert_one({"session_id": session_id, "user_id": user["id"], "role": "user",
+                                       "content": inp.message, "created_at": datetime.now(timezone.utc).isoformat()})
+    chat_obj = await get_chat(user["id"], user.get("name", ""), session_id)
+    context_msg = inp.message
+    if history:
+        hist_txt = "\n".join(f"{h['role']}: {h['content']}" for h in history[-10:])
+        context_msg = f"[Histórico da conversa]\n{hist_txt}\n\n[Nova mensagem do empresário]\n{inp.message}"
+
+    async def gen():
+        full = ""
+        try:
+            async for ev in chat_obj.stream_message(UserMessage(text=context_msg)):
+                if isinstance(ev, TextDelta):
+                    full += ev.content
+                    yield f"data: {json.dumps({'delta': ev.content})}\n\n"
+                elif isinstance(ev, StreamDone):
+                    break
+        except Exception as e:
+            logger.error(f"chat error: {e}")
+            yield f"data: {json.dumps({'delta': ' [erro de ligação com o CEO AI]'})}\n\n"
+        await db.chat_messages.insert_one({"session_id": session_id, "user_id": user["id"], "role": "assistant",
+                                           "content": full, "created_at": datetime.now(timezone.utc).isoformat()})
+        yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+
+    return StreamingResponse(gen(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+@router.get("/briefing")
+async def briefing(user: dict = Depends(get_current_user)):
+    return await make_briefing(user["id"], user.get("name", ""))
+
+@router.post("/briefing/email")
+async def send_briefing_email(request: Request, user: dict = Depends(get_current_user)):
+    data = await make_briefing(user["id"], user.get("name", ""))
+    app_url = request.headers.get("origin") or os.environ.get("FRONTEND_URL", "")
+    html = build_briefing_html(user.get("name", ""), data, app_url)
+    ok = await send_email_raw(user["email"], "O teu briefing diário — CEO AI", html)
+    if not ok:
+        raise HTTPException(502, "Não foi possível enviar o email")
+    return {"sent": True, "to": user["email"]}
+
+@router.get("/decisions")
+async def decisions(user: dict = Depends(get_current_user)):
+    uid = user["id"]
+    cid = await active_company_id(uid)
+    snap = await build_snapshot(uid)
+    sysmsg = await build_system_prompt(uid, user.get("name", ""))
+    prompt = (
+        "Como CEO, define o veredicto de hoje e as decisões prioritárias. Devolve APENAS JSON: "
+        '{"verdict":str,"decisions":[{"title":str,"why":str,"impact":str,"action":str,"urgency":"alta"|"media"|"baixa"}],'
+        '"vitals_phrases":{"cashflow":str,"profit":str,"clients":str,"tax":str,"employees":str,"bank":str,"risk":str}}. '
+        "O 'verdict' é 1 frase humana e directa sobre o estado hoje (sem números crus). 1 a 3 decisões concretas orientadas ao futuro, "
+        "cada uma com o porquê, o impacto estimado (em € quando possível) e a acção. Em 'vitals_phrases', 1 frase-decisão curta por sinal vital. "
+        "Português europeu, tom de executivo de confiança. Sem texto fora do JSON."
+    )
+    data = await cached_ai("decisions", uid, cid, sysmsg, prompt) or {"verdict": f"Olá {user.get('name','')}. Vamos focar no essencial hoje.", "decisions": [], "vitals_phrases": {}}
+    today = datetime.now(timezone.utc).date().isoformat()
+    fb = await db.decision_feedback.find({"user_id": uid, "company_id": cid, "date": today}).to_list(200)
+    hidden = {f["key"] for f in fb}
+    out = []
+    for d in data.get("decisions", []):
+        key = hashlib.md5(d.get("title", "").encode()).hexdigest()[:10]
+        if key in hidden:
+            continue
+        d["key"] = key
+        out.append(d)
+    ph = data.get("vitals_phrases", {})
+    for v in snap["vitals"]:
+        v["phrase"] = ph.get(v["key"], v.get("hint", ""))
+    return {"verdict": data.get("verdict"), "decisions": out, "vitals": snap["vitals"], "health": snap["health"],
+            "company_value": snap["company_value"], "goal_value": snap["goal_value"], "progress": snap["progress"],
+            "currency_symbol": snap["currency_symbol"], "company_name": snap["company_name"]}
+
+@router.post("/decisions/act")
+async def decisions_act(inp: DecisionActInput, user: dict = Depends(get_current_user)):
+    cid = await active_company_id(user["id"])
+    today = datetime.now(timezone.utc).date().isoformat()
+    await db.decision_feedback.update_one(
+        {"user_id": user["id"], "company_id": cid, "date": today, "key": inp.key},
+        {"$set": {"status": inp.status, "title": inp.title, "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
+    return {"ok": True}
+
+@router.get("/ceo-daily")
+async def ceo_daily(user: dict = Depends(get_current_user)):
+    uid = user["id"]
+    cid = await active_company_id(uid)
+    snap = await build_snapshot(uid)
+    growth = await _growth_score(uid, cid)
+    runway = snap["runway"]; m_net = snap["monthly_net"]
+    treasury = ("Confortável", "green") if runway >= 6 else ("Apertada", "amber") if runway >= 3 else ("Crítica", "red")
+    cashflow = ("Positivo", "green") if m_net > 0 else ("Equilibrado", "amber") if m_net == 0 else ("Negativo", "red")
+    sysmsg = await build_system_prompt(uid, user.get("name", ""))
+    today = datetime.now(timezone.utc).date().isoformat()
+    prompt = (
+        f"Hoje é {today}. Como Diretor Executivo Digital, analisaste toda a empresa. Devolve APENAS JSON: "
+        '{"conclusao":{"estado_geral":str,"oportunidades":str,"problemas":str,"prioridades":str},'
+        '"recomendacoes":[{"title":str,"why":str,"priority":"urgente"|"importante"|"oportunidade"}]}. '
+        "Em 'conclusao', cada campo tem 1-2 frases directas e humanas. Em 'recomendacoes', dá ENTRE 3 e 6 acções concretas "
+        "e personalizadas para hoje (ex: 'Cobrar o cliente X', 'Não contratar este mês', 'Aumentar o preço médio', "
+        "'Negociar com o fornecedor', 'Adiar a compra de equipamento 30 dias'), cada uma com o motivo ('why', 1 frase) "
+        "e a prioridade. Varia a linguagem — a análise de hoje nunca deve ser igual à de outro dia. "
+        "Português europeu, tom de CEO experiente, calmo e confiante. Sem texto fora do JSON."
+    )
+    data = await cached_ai("ceo_daily", uid, cid, sysmsg, prompt) or {
+        "conclusao": {"estado_geral": "Ainda estou a conhecer a tua empresa. Adiciona dados financeiros para uma leitura completa.",
+                      "oportunidades": "—", "problemas": "—", "prioridades": "Liga o teu banco ou importa um CSV."},
+        "recomendacoes": []}
+    fb = await db.decision_feedback.find({"user_id": uid, "company_id": cid, "date": today}).to_list(200)
+    hidden = {f["key"] for f in fb}
+    recs = []
+    for r in data.get("recomendacoes", []):
+        key = hashlib.md5((r.get("title", "") + today).encode()).hexdigest()[:10]
+        if key in hidden:
+            continue
+        r["key"] = key
+        recs.append(r)
+    return {
+        "user_name": user.get("name", ""),
+        "company_name": snap["company_name"],
+        "conclusao": data.get("conclusao", {}),
+        "recomendacoes": recs,
+        "vitals": {
+            "saude": {"label": "Saúde Empresarial", "value": snap["health"], "unit": "/100",
+                      "status": "green" if snap["health"] >= 70 else "amber" if snap["health"] >= 45 else "red"},
+            "valor": {"label": "Valor estimado", "value": snap["company_value"], "unit": snap["currency_symbol"], "status": "gold"},
+            "crescimento": {"label": "Probabilidade de crescimento", "value": growth, "unit": "%",
+                            "status": "green" if growth >= 65 else "amber" if growth >= 45 else "red"},
+            "tesouraria": {"label": "Tesouraria", "value": treasury[0], "unit": "", "status": treasury[1]},
+            "fluxo": {"label": "Fluxo de caixa", "value": cashflow[0], "unit": "", "status": cashflow[1]},
+        },
+        "currency_symbol": snap["currency_symbol"],
+        "has_data": snap["total_income"] > 0 or snap["total_expense"] > 0,
+    }
+
+
+@router.get("/health-index")
+async def health_index(user: dict = Depends(get_current_user)):
+    uid = user["id"]
+    snap = await build_snapshot(uid)
+    company = await resolve_company(uid) or {}
+    cid = str(company["_id"]) if company.get("_id") else None
+    emp = int(company.get("employees_count", 0)); cli = int(company.get("clients_count", 0))
+    g = await _growth_score(uid, cid)
+    margin = snap["profit_margin"]; runway = snap["runway"]
+    dims = {
+        "Financeiro": snap["health"],
+        "Clientes": min(100, 40 + cli * 5),
+        "Equipa": min(100, 50 + emp * 6),
+        "Dependência do Fundador": min(100, 28 + emp * 12 + (12 if cli > 5 else 0)),
+        "Marca": min(100, 30 + cli * 4),
+        "Liquidez": min(100, int(runway * 14)),
+        "Margem": max(0, min(100, int(margin * 4) + 40)),
+        "Crescimento": g,
+        "Risco": min(100, int(runway * 12 + (20 if margin > 0 else 0))),
+    }
+    overall = round(sum(dims.values()) / len(dims))
+    sysmsg = await build_system_prompt(uid, user.get("name", ""))
+    prompt = (
+        "Explica o índice de Saúde Empresarial. Notas actuais (0-100): " + json.dumps(dims, ensure_ascii=False) +
+        '. Devolve APENAS JSON: {"summary":str,"dimensions":{"<nome exacto>":{"why":str,"improve":str,"potential":str}}}. '
+        "'summary': 1-2 frases sobre a saúde global. Por dimensão: 'why' (porque tem esta nota, 1 frase), 'improve' (o que fazer, 1 frase), "
+        "'potential' (quanto pode subir, ex '+15 pontos'). Português europeu. Sem texto fora do JSON."
+    )
+    ai = await cached_ai("health", uid, cid, sysmsg, prompt) or {}
+    notes = ai.get("dimensions", {})
+    out = [{"dimension": k, "score": v, "why": notes.get(k, {}).get("why", ""),
+            "improve": notes.get(k, {}).get("improve", ""), "potential": notes.get(k, {}).get("potential", "")} for k, v in dims.items()]
+    return {"overall": overall, "summary": ai.get("summary", ""), "dimensions": out}
+
+@router.get("/valuation")
+async def valuation(user: dict = Depends(get_current_user)):
+    uid = user["id"]
+    cid = await active_company_id(uid)
+    snap = await build_snapshot(uid)
+    sym = snap["currency_symbol"]; value = snap["company_value"]
+    sysmsg = await build_system_prompt(uid, user.get("name", ""))
+    prompt = (
+        f"Decompõe o valor da empresa (valor actual estimado {sym}{value}). Devolve APENAS JSON: "
+        '{"factors":[{"name":str,"influence":"positiva"|"negativa"|"neutra","weight":str,"note":str}],'
+        '"actions":[{"action":str,"uplift":str,"note":str}]}. '
+        "'factors' DEVE incluir exactamente: Ativos, Marca, Carteira de Clientes, Capacidade de gerar lucro, Know-how, "
+        "Potencial de crescimento, Dependência do Fundador — cada um com 'influence', 'weight' (ex '+18%' ou '-12%') e 'note' (1 frase). "
+        "'actions': 3 a 5 formas concretas de aumentar o valuation (ex: contratar gestor operacional, criar contratos recorrentes, "
+        "reduzir dependência do fundador, melhorar margem), cada uma com 'uplift' (ex '+45.000 €') e 'note'. Português europeu. Sem texto fora do JSON."
+    )
+    ai = await cached_ai("valuation", uid, cid, sysmsg, prompt) or {"factors": [], "actions": []}
+    return {"company_value": value, "currency_symbol": sym, "goal_value": snap["goal_value"], "progress": snap["progress"],
+            "factors": ai.get("factors", []), "actions": ai.get("actions", [])}
+
+@router.get("/report")
+async def strategic_report(user: dict = Depends(get_current_user)):
+    uid = user["id"]
+    cid = await active_company_id(uid)
+    snap = await build_snapshot(uid)
+    sysmsg = await build_system_prompt(uid, user.get("name", ""))
+    prompt = (
+        "Prepara um Relatório Estratégico da Empresa ao nível de uma consultora de topo (McKinsey/Deloitte). Devolve APENAS JSON: "
+        '{"situacao_atual":str,"riscos":[str],"oportunidades":[str],"pontos_fortes":[str],"pontos_fracos":[str],'
+        '"valor":{"atual":str,"comentario":str},"projecao_12m":str,"plano_acao":[{"acao":str,"prazo":str,"impacto":str}],"recomendacoes":[str]}. '
+        "Profundo mas conciso, orientado a decisões e ao futuro, com linguagem executiva. Português europeu. Sem texto fora do JSON."
+    )
+    ai = await cached_ai("report", uid, cid, sysmsg, prompt) or {}
+    ai = dict(ai)
+    ai["company_name"] = snap["company_name"]; ai["health"] = snap["health"]
+    ai["company_value"] = snap["company_value"]; ai["currency_symbol"] = snap["currency_symbol"]
+    ai["generated_at"] = datetime.now(timezone.utc).isoformat()
+    return ai
+
+# ---------------------------------------------------------------- Future Engine (PREMIUM)
+@router.get("/future")
+async def future_projection(user: dict = Depends(get_current_user)):
+    if not await is_premium(user["id"]):
+        raise HTTPException(status_code=403, detail="premium_required")
+    snap = await build_snapshot(user["id"])
+    months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+    now = datetime.now(timezone.utc)
+    balance = snap["cash_balance"]; monthly_net = snap["monthly_net"]
+    projection = []; b = balance
+    for i in range(12):
+        idx = (now.month - 1 + i) % 12
+        b += monthly_net
+        projection.append({"month": months[idx], "cash": round(b, 2)})
+    projection[0]["cash"] = round(balance, 2)
+    warning = None
+    if monthly_net < 0:
+        b2 = balance
+        for i in range(12):
+            b2 += monthly_net
+            if b2 < 0:
+                warning = f"Se continuar assim, em {months[(now.month - 1 + i) % 12]} fica sem caixa."
+                break
+    return {"projection": projection, "monthly_net": monthly_net, "warning": warning, "currency_symbol": snap["currency_symbol"]}
+
+@router.post("/future/simulate")
+async def simulate(inp: SimInput, user: dict = Depends(get_current_user)):
+    if not await is_premium(user["id"]):
+        raise HTTPException(status_code=403, detail="premium_required")
+    sysmsg = await build_system_prompt(user["id"], user.get("name", ""))
+    prompt = (
+        f"O empresário quer simular esta decisão: '{inp.scenario}'. Detalhe: '{inp.detail}'. "
+        f"Analisa o impacto FUTURO com base no estado actual. Devolve APENAS JSON: "
+        f'{{"verdict":"favoravel"|"cautela"|"desaconselhado","summary":str,'
+        f'"metrics":{{"lucro":str,"fluxo_caixa":str,"risco":str,"valuation":str,"saude":str}},'
+        f'"recommendation":str,"timeline":str}}. '
+        f"Em 'metrics' indica o impacto em cada eixo (ex: '+28.000 €/ano', '-2 meses de autonomia', 'sobe para 78/100'). "
+        f"Sê concreto com números estimados. Português europeu. Sem texto fora do JSON."
+    )
+    ai = await ai_json(sysmsg, prompt)
+    if not ai:
+        raise HTTPException(status_code=500, detail="Não foi possível simular agora")
+    return ai
