@@ -1,0 +1,38 @@
+{
+  "summary": "Phase 3 (Investment Grade / Relatório de Investimento) fully validated. 11/11 backend pytest tests pass; frontend E2E confirms both non-premium paywall (grade-paywall + unlock-grade-btn -> /planos) and premium report flow (overall-grade='B-', grade-value=€38\\u00a0200, confidence-banner 'Estimativa Fundamentada · 40% dos dados formais', 5 dimension cards, 5 checklist items, 4 improvement-plan items, rationale ~523 chars). Grades are coherent with scores (to_grade thresholds verified: A+95 / A88 / A-82 / B+75 / B68 / B-62 / C+55 / C48 / C-40 / D30 / F).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/relatorio dimensions grid", "issues": ["The 5-column `lg:grid-cols-5` inside max-w-[1200px] with a 260px sidebar is tight; on some widths the 5th card (`grade-dim-dependencia`) renders slightly clipped/muted at first frame (still visible and functional). Purely cosmetic — consider `lg:grid-cols-5 gap-3` or widening max-w to 1280 for breathing room."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_investment_grade.py",
+    "/app/test_reports/pytest/phase3_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "to_grade() thresholds are monotonic and correctly used both for per-dimension and overall grade (`overall_grade == to_grade(overall_score)`). Coherence check verified in test_grade_consistent_with_score.",
+    "Endpoint gated identically to /future via `is_premium()` -> HTTPException(403, 'premium_required'). Frontend detects premium via context (`useAppData().isPremium`) — non-premium never issues the request, so paywall does not depend on a rejected round-trip.",
+    "Confidence tier calculation is straightforward and safe: 3-tier bucket based on `done/5` × 100 with margins 0.10 / 0.20 / 0.35 that widen `value_range`. `low <= company_value <= high` verified.",
+    "LLM output is graceful-degradation: try/except JSON parse; if it fails, defaults are used for `rationale`, `improvement_plan=[]`, `disclaimer`. `grade_notes` gracefully falls back to empty per-dim `why` — this means dimension cards can show empty `why` text if the LLM response fails to parse; consider a static per-dim fallback sentence.",
+    "server.py is now ~840 lines — the /investment-grade endpoint alone is ~110 lines. Continues to justify splitting server.py into modules (auth, companies, entries, ai, payments, grading). Not urgent for this ticket.",
+    "The LLM prompt template embeds the grade values (grades_txt) but leaves the LLM free to overwrite them via `overall_grade`/scores — currently the backend correctly IGNORES any grade fields the LLM might try to emit and only uses `rationale`, `grade_notes`, `improvement_plan`, `disclaimer` from the model. Good separation.",
+    "Frontend InvestmentGrade.jsx correctly gates the whole page on `isPremium` (client-side) AND the backend blocks with 403. Defense in depth is respected."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_investment_grade.py (new)"
+  ],
+  "success_rate": {"backend": "100% (11/11 phase 3 + 13/13 phase 2 + 21/21 phase 1 retained)", "frontend": "100% (paywall + full premium report validated end-to-end against real LLM response)"},
+  "test_credentials": "obeliscoradical@gmail.com / CeoAI2026! (is_premium=true kept per user request). Non-premium testing used a freshly registered TEST_paywall_* user that was created and DELETED at end of run.",
+  "seed_data_creation": "None persisted. The single TEST_paywall_* user auto-created for the 403/paywall scenario was cleaned up. Admin premium flag left untouched (=true, as instructed).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Admin (obeliscoradical@gmail.com) is intentionally left with is_premium=true. If a future feature needs to test the paywall for the admin, first flip to false in DB, then restore. All Phase 3 data-testids present and working: nav-relatorio, grade-paywall, unlock-grade-btn, overall-grade, grade-value, confidence-banner, grade-rationale, grade-dim-financeiro/crescimento/risco/liquidez/dependencia, plan-item-0..N, checklist-0..4. The /api/investment-grade endpoint takes ~5-9s (LLM call gpt-5.4) — use wait_for_selector with 30-45s timeout on overall-grade.",
+  "rca_of_the_issue": "No bug found in Phase 3."
+}

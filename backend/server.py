@@ -726,6 +726,119 @@ async def simulate(inp: SimInput, user: dict = Depends(get_current_user)):
         logger.error(f"simulate error: {e}")
         raise HTTPException(status_code=500, detail="Não foi possível simular agora")
 
+# ---------------------------------------------------------------- Investment Grade (PREMIUM)
+def to_grade(score: float) -> str:
+    for th, g in [(95, "A+"), (88, "A"), (82, "A-"), (75, "B+"), (68, "B"), (62, "B-"),
+                  (55, "C+"), (48, "C"), (40, "C-"), (30, "D")]:
+        if score >= th:
+            return g
+    return "F"
+
+@api_router.get("/investment-grade")
+async def investment_grade(user: dict = Depends(get_current_user)):
+    if not await is_premium(user["id"]):
+        raise HTTPException(status_code=403, detail="premium_required")
+    snap = await build_snapshot(user["id"])
+    company = await resolve_company(user["id"]) or {}
+    cid = str(company["_id"]) if company.get("_id") else None
+    entries = await db.entries.find({"user_id": user["id"], "company_id": cid}).to_list(5000) if cid else []
+    dna = await db.ceo_dna.find_one({"user_id": user["id"]}) or {}
+    n_docs = await db.documents.count_documents({"user_id": user["id"], "is_deleted": False})
+
+    inc, months_set = {}, set()
+    for e in entries:
+        mk = str(e.get("date", ""))[:7]
+        if len(mk) == 7:
+            months_set.add(mk)
+            if e["type"] == "income":
+                inc[mk] = inc.get(mk, 0) + e["amount"]
+    sorted_m = sorted(inc.keys())
+    growth_score = 50
+    if len(sorted_m) >= 2:
+        recent = sum(inc[m] for m in sorted_m[-3:])
+        prior = sum(inc[m] for m in sorted_m[-6:-3])
+        if prior > 0:
+            growth_score = max(5, min(100, int(60 + ((recent - prior) / prior) * 100)))
+        elif recent > 0:
+            growth_score = 72
+    coverage = len(months_set)
+    emp = int(company.get("employees_count", 0)); cli = int(company.get("clients_count", 0))
+    dependency_score = min(100, 28 + emp * 12 + (12 if cli > 5 else 0))
+    liquidity_score = min(100, int(snap["runway"] * 14))
+    risk_score = min(100, int(snap["runway"] * 12 + (20 if snap["profit_margin"] > 0 else 0)))
+    fin_score = snap["health"]
+
+    dims = [
+        {"key": "financeiro", "label": "Financeiro", "score": fin_score},
+        {"key": "crescimento", "label": "Crescimento", "score": growth_score},
+        {"key": "risco", "label": "Risco", "score": risk_score},
+        {"key": "liquidez", "label": "Liquidez", "score": liquidity_score},
+        {"key": "dependencia", "label": "Dependência do Fundador", "score": dependency_score},
+    ]
+    for d in dims:
+        d["grade"] = to_grade(d["score"])
+    overall_score = round(sum(d["score"] for d in dims) / len(dims))
+    overall_grade = to_grade(overall_score)
+
+    checklist = [
+        {"item": "Demonstrações financeiras completas", "done": n_docs > 0},
+        {"item": "Histórico de EBITDA e fluxo de caixa (6+ meses)", "done": coverage >= 6},
+        {"item": "Composição de ativos e passivos", "done": float(company.get("bank_balance", 0)) > 0 and n_docs > 0},
+        {"item": "Contratos e qualidade da carteira de clientes", "done": cli > 0},
+        {"item": "Avaliação de dependência do fundador", "done": bool(dna.get("completed")) and emp > 0},
+    ]
+    done = sum(1 for c in checklist if c["done"])
+    completeness = round(done / len(checklist) * 100)
+    if completeness >= 75:
+        tier, margin = "Nível Profissional", 0.10
+    elif completeness >= 40:
+        tier, margin = "Estimativa Fundamentada", 0.20
+    else:
+        tier, margin = "Estimativa Inteligente", 0.35
+    value = snap["company_value"]
+    value_range = {"low": round(value * (1 - margin)), "high": round(value * (1 + margin))}
+    next_target = round(value * 1.4) if value else snap["goal_value"]
+    sym = snap["currency_symbol"]
+
+    sysmsg = await build_system_prompt(user["id"], user.get("name", ""))
+    grades_txt = ", ".join(f"{d['label']}: {d['grade']}" for d in dims)
+    prompt = (
+        f"Estás a produzir um RELATÓRIO DE INVESTIMENTO estilo agência de rating para esta empresa. "
+        f"Valor estimado atual: {sym}{value} (intervalo {sym}{value_range['low']}–{sym}{value_range['high']}). "
+        f"Rating global: {overall_grade}. Notas: {grades_txt}. "
+        f"Nível de confiança dos dados: {tier} ({completeness}% completos). "
+        f"Devolve APENAS JSON: {{\"rationale\":str, \"grade_notes\":{{\"financeiro\":str,\"crescimento\":str,\"risco\":str,\"liquidez\":str,\"dependencia\":str}}, "
+        f"\"improvement_plan\":[{{\"action\":str,\"impact\":str}}], \"disclaimer\":str}}. "
+        f"'rationale': explica em 2-3 frases PORQUE a empresa vale este valor. "
+        f"'grade_notes': 1 frase curta por dimensão a justificar a nota. "
+        f"'improvement_plan': 3-4 ações concretas e priorizadas para subir o valor até {sym}{next_target}, cada uma com o impacto estimado. "
+        f"'disclaimer': 1 frase a esclarecer que é uma estimativa fundamentada nos dados fornecidos e não uma avaliação pericial oficial. "
+        f"Tudo em português. Sem texto fora do JSON."
+    )
+    chat = LlmChat(api_key=EMERGENT_KEY, session_id=f"grade-{uuid.uuid4()}", system_message=sysmsg).with_model("openai", "gpt-5.4")
+    ai = {}
+    try:
+        resp = await chat.send_message(UserMessage(text=prompt))
+        text = resp.strip()
+        if "```" in text:
+            text = text.split("```")[1].replace("json", "", 1).strip()
+        ai = json.loads(text)
+    except Exception as e:
+        logger.error(f"grade error: {e}")
+    notes = ai.get("grade_notes", {})
+    for d in dims:
+        d["why"] = notes.get(d["key"], "")
+
+    return {
+        "overall_grade": overall_grade, "overall_score": overall_score,
+        "dimensions": dims, "company_value": value, "value_range": value_range,
+        "currency_symbol": sym, "next_target": next_target,
+        "confidence": {"tier": tier, "score": completeness, "checklist": checklist},
+        "rationale": ai.get("rationale", "Estimativa baseada nos dados financeiros e no perfil da empresa fornecidos."),
+        "improvement_plan": ai.get("improvement_plan", []),
+        "disclaimer": ai.get("disclaimer", "Esta é uma estimativa fundamentada nos dados fornecidos e nos documentos analisados, não uma avaliação pericial oficial."),
+    }
+
 # ---------------------------------------------------------------- subscription / Stripe
 PLANS = {
     "premium_monthly": {"label": "Premium Mensal", "price": "€19", "period": "/mês"},

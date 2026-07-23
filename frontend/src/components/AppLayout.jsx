@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useAppData } from "@/context/AppDataContext";
-import { LayoutDashboard, MessageSquare, Wallet, Trophy, TrendingUp, Settings as SettingsIcon, LogOut, Sun, Moon, Building2, Plus, Crown, ChevronsUpDown, Check } from "lucide-react";
+import { LayoutDashboard, MessageSquare, Wallet, Trophy, TrendingUp, Settings as SettingsIcon, LogOut, Sun, Moon, Building2, Plus, Crown, ChevronsUpDown, Check, Gem } from "lucide-react";
 import { motion } from "framer-motion";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -18,6 +18,7 @@ const NAV = [
   { to: "/ceo", label: "CEO AI", icon: MessageSquare, testid: "nav-ceo" },
   { to: "/financas", label: "Finanças", icon: Wallet, testid: "nav-financas" },
   { to: "/futuro", label: "Motor de Futuro", icon: TrendingUp, testid: "nav-futuro" },
+  { to: "/relatorio", label: "Relatório de Investimento", icon: Gem, testid: "nav-relatorio", premium: true },
   { to: "/score", label: "CEO Score", icon: Trophy, testid: "nav-score" },
   { to: "/definicoes", label: "Personalização", icon: SettingsIcon, testid: "nav-definicoes" },
 ];
@@ -116,7 +117,7 @@ export function AppLayout() {
             >
               <n.icon className="w-[18px] h-[18px]" />
               {n.label}
-              {n.to === "/futuro" && !isPremium && <Crown className="w-3.5 h-3.5 ml-auto text-[#D4AF37]" />}
+              {(n.to === "/futuro" || n.premium) && !isPremium && <Crown className="w-3.5 h-3.5 ml-auto text-[#D4AF37]" />}
             </NavLink>
           ))}
           {!isPremium && (

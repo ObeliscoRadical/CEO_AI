@@ -11,6 +11,7 @@ import Chat from "@/pages/Chat";
 import Finances from "@/pages/Finances";
 import Score from "@/pages/Score";
 import Future from "@/pages/Future";
+import InvestmentGrade from "@/pages/InvestmentGrade";
 import Settings from "@/pages/Settings";
 import Pricing from "@/pages/Pricing";
 import PaymentResult from "@/pages/PaymentResult";
@@ -46,6 +47,7 @@ function App() {
                 <Route path="/financas" element={<Finances />} />
                 <Route path="/score" element={<Score />} />
                 <Route path="/futuro" element={<Future />} />
+                <Route path="/relatorio" element={<InvestmentGrade />} />
                 <Route path="/planos" element={<Pricing />} />
                 <Route path="/definicoes" element={<Settings />} />
               </Route>
