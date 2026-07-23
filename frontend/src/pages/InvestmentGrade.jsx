@@ -62,7 +62,7 @@ export default function InvestmentGrade() {
   const tierColor = TIER_COLOR[data.confidence.tier] || "#D4AF37";
 
   return (
-    <div className="p-6 md:p-10 max-w-[1200px] mx-auto">
+    <div className="p-6 md:p-10 max-w-[1320px] mx-auto">
       <h1 className="font-serif-lux text-4xl mb-1">Relatório de Investimento</h1>
       <p className="text-muted-foreground text-sm mb-8">Rating da tua empresa, ao estilo de uma agência de investimento.</p>
 
@@ -96,7 +96,7 @@ export default function InvestmentGrade() {
 
       {/* Dimensions */}
       <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mb-4">Rating por Dimensão</p>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
         {data.dimensions.map((d, i) => (
           <motion.div key={d.key} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
             className="surface rounded-2xl p-5" data-testid={`grade-dim-${d.key}`}>

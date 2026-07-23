@@ -826,8 +826,15 @@ async def investment_grade(user: dict = Depends(get_current_user)):
     except Exception as e:
         logger.error(f"grade error: {e}")
     notes = ai.get("grade_notes", {})
+    fallback_why = {
+        "financeiro": "Baseado na saúde financeira e margem de lucro atuais.",
+        "crescimento": "Baseado na tendência de receita e na base de clientes.",
+        "risco": "Baseado na autonomia de caixa e na rentabilidade.",
+        "liquidez": "Baseado no saldo disponível face às despesas mensais.",
+        "dependencia": "Baseado na estrutura de equipa e na maturidade operacional.",
+    }
     for d in dims:
-        d["why"] = notes.get(d["key"], "")
+        d["why"] = notes.get(d["key"]) or fallback_why.get(d["key"], "")
 
     return {
         "overall_grade": overall_grade, "overall_score": overall_score,

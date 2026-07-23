@@ -38,6 +38,11 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ Stripe Flow A (claimable sandbox), tax mode managed payments (SMP), catálogo em setup_stripe.py.
 - ✅ Testado E2E: backend 13/13 (fase 2) + 21/21 (fase 1); frontend 100%.
 
+## Implemented — Fase 3 (2026-07-23)
+- ✅ Relatório de Investimento (Investment Grade) — Premium: rating por letras (A+..F) para Financeiro, Crescimento, Risco, Liquidez e Dependência do Fundador + grade global; explica PORQUE vale X (rationale) e COMO valer mais (plano com impacto em €); nível de confiança honesto (Estimativa Inteligente/Fundamentada/Nível Profissional) com checklist de dados formais e disclaimer (estimativa ≠ avaliação pericial). Endpoint GET /api/investment-grade gated por is_premium. Página /relatorio + nav.
+- ✅ Testado E2E: backend 11/11; frontend 100% (paywall + relatório premium).
+
+
 
 ## Backlog (próximas fases)
 - P1: Persistência/lista de sessões de chat no UI (histórico); mobile React Native.
