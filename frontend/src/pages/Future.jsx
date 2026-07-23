@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
+import { useAppData } from "@/context/AppDataContext";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CEOOrb } from "@/components/CEOOrb";
 import { toast } from "sonner";
-import { Loader2, AlertTriangle, TrendingUp, Sparkles } from "lucide-react";
+import { Loader2, AlertTriangle, TrendingUp, Sparkles, Crown, Check } from "lucide-react";
 import { motion } from "framer-motion";
 
 const SCENARIOS = [
@@ -23,13 +26,15 @@ const VERDICT = {
 };
 
 export default function Future() {
+  const { isPremium } = useAppData();
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [scenario, setScenario] = useState("contratar");
   const [detail, setDetail] = useState("");
   const [simLoading, setSimLoading] = useState(false);
   const [result, setResult] = useState(null);
 
-  useEffect(() => { api.get("/future").then(({ data }) => setData(data)); }, []);
+  useEffect(() => { if (isPremium) api.get("/future").then(({ data }) => setData(data)).catch(() => {}); }, [isPremium]);
 
   const simulate = async () => {
     setSimLoading(true);
@@ -42,6 +47,27 @@ export default function Future() {
   };
 
   const sym = data?.currency_symbol || "€";
+
+  if (!isPremium) {
+    return (
+      <div className="p-6 md:p-10 max-w-[900px] mx-auto">
+        <div className="surface rounded-3xl p-12 text-center relative overflow-hidden" data-testid="future-paywall">
+          <div className="flex justify-center mb-6"><CEOOrb size={110} mood="gold" /></div>
+          <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[#D4AF37] mb-3"><Crown className="w-4 h-4" /> Funcionalidade Premium</span>
+          <h1 className="font-serif-lux text-4xl mb-3">Motor de Futuro</h1>
+          <p className="text-muted-foreground max-w-lg mx-auto mb-8">Projeções de caixa a 12 meses, avisos antecipados de rutura e simulações de decisões — contratar, comprar, subir preços. Vê o futuro antes de decidir.</p>
+          <div className="grid sm:grid-cols-2 gap-3 max-w-lg mx-auto text-left mb-8">
+            {["Projeção de caixa 12 meses", "Simulador de decisões", "Avisos de rutura de caixa", "Análise virada ao futuro"].map((f) => (
+              <div key={f} className="flex items-center gap-2 text-sm"><Check className="w-4 h-4 text-[#10B981]" />{f}</div>
+            ))}
+          </div>
+          <Button data-testid="unlock-premium-btn" onClick={() => navigate("/planos")} className="rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431] px-8 py-6 font-medium">
+            <Crown className="w-4 h-4 mr-2" /> Desbloquear Premium
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 md:p-10 max-w-[1200px] mx-auto">

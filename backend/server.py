@@ -10,11 +10,10 @@ from fastapi.responses import StreamingResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr
-from typing import List, Optional, Dict, Any, Annotated
-from pydantic.functional_validators import BeforeValidator
+from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
-import logging, uuid, jwt, bcrypt, secrets, io, json, requests, asyncio
+import logging, uuid, jwt, bcrypt, io, json, requests, random, stripe
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 
@@ -29,18 +28,22 @@ api_router = APIRouter(prefix="/api")
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------- AUTH helpers
+# ---------------------------------------------------------------- config
 JWT_ALGORITHM = "HS256"
 EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
 STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
 APP_NAME = "ceo-ai"
+stripe.api_key = os.environ.get("STRIPE_SECRET_KEY") or "sk_test_emergent"
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
 MODEL_MAP = {
     "claude": ("anthropic", "claude-opus-4-7"),
     "gpt": ("openai", "gpt-5.5"),
     "gemini": ("gemini", "gemini-3.1-pro-preview"),
 }
+CURRENCY_SYMBOL = {"EUR": "€", "BRL": "R$", "USD": "$"}
 
+# ---------------------------------------------------------------- auth helpers
 def get_jwt_secret() -> str:
     return os.environ["JWT_SECRET"]
 
@@ -75,6 +78,7 @@ async def get_current_user(request: Request) -> dict:
         if not user:
             raise HTTPException(status_code=401, detail="Utilizador não encontrado")
         user["id"] = str(user["_id"])
+        user["is_premium"] = bool(user.get("is_premium"))
         user.pop("_id", None)
         user.pop("password_hash", None)
         return user
@@ -83,7 +87,35 @@ async def get_current_user(request: Request) -> dict:
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Token inválido")
 
-# ---------------------------------------------------------------- Models
+async def is_premium(user_id: str) -> bool:
+    u = await db.users.find_one({"_id": ObjectId(user_id)})
+    return bool(u and u.get("is_premium"))
+
+# ---------------------------------------------------------------- company resolution
+async def resolve_company(user_id: str, company_id: Optional[str] = None):
+    if company_id:
+        c = await db.companies.find_one({"_id": ObjectId(company_id), "user_id": user_id})
+        if c:
+            return c
+    s = await db.settings.find_one({"user_id": user_id}) or {}
+    acid = s.get("active_company_id")
+    if acid:
+        c = await db.companies.find_one({"_id": ObjectId(acid), "user_id": user_id})
+        if c:
+            return c
+    return await db.companies.find_one({"user_id": user_id})
+
+async def active_company_id(user_id: str) -> Optional[str]:
+    c = await resolve_company(user_id)
+    if not c:
+        return None
+    cid = str(c["_id"])
+    # migrate orphan entries to the active company (one-time, cheap)
+    await db.entries.update_many({"user_id": user_id, "company_id": {"$exists": False}},
+                                 {"$set": {"company_id": cid}})
+    return cid
+
+# ---------------------------------------------------------------- models
 class RegisterInput(BaseModel):
     email: EmailStr
     password: str
@@ -113,7 +145,7 @@ class DNAInput(BaseModel):
     ceo_mode: str = "crescimento"
 
 class EntryInput(BaseModel):
-    type: str  # income | expense
+    type: str
     category: str
     amount: float
     date: str
@@ -136,12 +168,17 @@ class ChatInput(BaseModel):
     message: str
 
 class SimInput(BaseModel):
-    scenario: str  # e.g. "contratar", "comprar", "perder_cliente", "subir_precos"
+    scenario: str
     detail: str = ""
 
-CURRENCY_SYMBOL = {"EUR": "€", "BRL": "R$", "USD": "$"}
+class ActiveCompanyInput(BaseModel):
+    company_id: str
 
-# ---------------------------------------------------------------- Storage
+class CheckoutRequest(BaseModel):
+    lookup_key: str
+    origin_url: str
+
+# ---------------------------------------------------------------- storage
 storage_key = None
 def init_storage():
     global storage_key
@@ -159,20 +196,19 @@ def put_object(path: str, data: bytes, content_type: str) -> dict:
     resp.raise_for_status()
     return resp.json()
 
-# ---------------------------------------------------------------- Auth routes
+# ---------------------------------------------------------------- auth routes
 @api_router.post("/auth/register")
 async def register(inp: RegisterInput, response: Response):
     email = inp.email.lower()
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="Email já registado")
     doc = {"email": email, "password_hash": hash_password(inp.password), "name": inp.name,
-           "role": "owner", "auth_provider": "email", "picture": "",
+           "role": "owner", "auth_provider": "email", "picture": "", "is_premium": False,
            "created_at": datetime.now(timezone.utc).isoformat()}
     res = await db.users.insert_one(doc)
     uid = str(res.inserted_id)
-    token = create_access_token(uid, email)
-    set_auth_cookie(response, token)
-    return {"id": uid, "email": email, "name": inp.name, "role": "owner"}
+    set_auth_cookie(response, create_access_token(uid, email))
+    return {"id": uid, "email": email, "name": inp.name, "role": "owner", "is_premium": False}
 
 @api_router.post("/auth/login")
 async def login(inp: LoginInput, response: Response):
@@ -181,9 +217,9 @@ async def login(inp: LoginInput, response: Response):
     if not user or not user.get("password_hash") or not verify_password(inp.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Credenciais inválidas")
     uid = str(user["_id"])
-    token = create_access_token(uid, email)
-    set_auth_cookie(response, token)
-    return {"id": uid, "email": email, "name": user.get("name", ""), "role": user.get("role", "owner")}
+    set_auth_cookie(response, create_access_token(uid, email))
+    return {"id": uid, "email": email, "name": user.get("name", ""), "role": user.get("role", "owner"),
+            "is_premium": bool(user.get("is_premium"))}
 
 @api_router.post("/auth/session")
 async def google_session(response: Response, x_session_id: str = Header(None)):
@@ -198,14 +234,13 @@ async def google_session(response: Response, x_session_id: str = Header(None)):
     user = await db.users.find_one({"email": email})
     if not user:
         doc = {"email": email, "password_hash": "", "name": data.get("name", email),
-               "role": "owner", "auth_provider": "google", "picture": data.get("picture", ""),
+               "role": "owner", "auth_provider": "google", "picture": data.get("picture", ""), "is_premium": False,
                "created_at": datetime.now(timezone.utc).isoformat()}
         res = await db.users.insert_one(doc)
         uid = str(res.inserted_id)
     else:
         uid = str(user["_id"])
-    token = create_access_token(uid, email)
-    set_auth_cookie(response, token)
+    set_auth_cookie(response, create_access_token(uid, email))
     return {"id": uid, "email": email, "name": data.get("name", email), "picture": data.get("picture", "")}
 
 @api_router.post("/auth/logout")
@@ -217,18 +252,56 @@ async def logout(response: Response):
 async def me(user: dict = Depends(get_current_user)):
     return user
 
-# ---------------------------------------------------------------- Company
+# ---------------------------------------------------------------- companies (multi)
+def _company_out(c):
+    return {"id": str(c["_id"]), "name": c.get("name"), "region": c.get("region"), "currency": c.get("currency"),
+            "sector": c.get("sector", ""), "employees_count": c.get("employees_count", 0),
+            "clients_count": c.get("clients_count", 0), "bank_balance": c.get("bank_balance", 0),
+            "monthly_tax_estimate": c.get("monthly_tax_estimate", 0), "bank_connected": c.get("bank_connected", False)}
+
+@api_router.get("/companies")
+async def list_companies(user: dict = Depends(get_current_user)):
+    cs = await db.companies.find({"user_id": user["id"]}).to_list(100)
+    active = await active_company_id(user["id"])
+    return {"companies": [_company_out(c) for c in cs], "active_company_id": active}
+
+@api_router.post("/companies")
+async def create_company(inp: CompanyInput, user: dict = Depends(get_current_user)):
+    data = inp.model_dump()
+    data.update({"user_id": user["id"], "created_at": datetime.now(timezone.utc).isoformat()})
+    res = await db.companies.insert_one(data)
+    cid = str(res.inserted_id)
+    await db.settings.update_one({"user_id": user["id"]}, {"$set": {"active_company_id": cid}}, upsert=True)
+    data["_id"] = res.inserted_id
+    return _company_out(data)
+
+@api_router.put("/companies/active")
+async def set_active_company(inp: ActiveCompanyInput, user: dict = Depends(get_current_user)):
+    c = await db.companies.find_one({"_id": ObjectId(inp.company_id), "user_id": user["id"]})
+    if not c:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    await db.settings.update_one({"user_id": user["id"]}, {"$set": {"active_company_id": inp.company_id}}, upsert=True)
+    return {"active_company_id": inp.company_id}
+
+@api_router.delete("/companies/{company_id}")
+async def delete_company(company_id: str, user: dict = Depends(get_current_user)):
+    await db.companies.delete_one({"_id": ObjectId(company_id), "user_id": user["id"]})
+    await db.entries.delete_many({"user_id": user["id"], "company_id": company_id})
+    s = await db.settings.find_one({"user_id": user["id"]}) or {}
+    if s.get("active_company_id") == company_id:
+        other = await db.companies.find_one({"user_id": user["id"]})
+        await db.settings.update_one({"user_id": user["id"]},
+                                     {"$set": {"active_company_id": str(other["_id"]) if other else None}}, upsert=True)
+    return {"ok": True}
+
 @api_router.get("/company")
 async def get_company(user: dict = Depends(get_current_user)):
-    c = await db.companies.find_one({"user_id": user["id"]})
-    if not c:
-        return None
-    c["id"] = str(c["_id"]); c.pop("_id")
-    return c
+    c = await resolve_company(user["id"])
+    return _company_out(c) if c else None
 
 @api_router.post("/company")
 async def save_company(inp: CompanyInput, user: dict = Depends(get_current_user)):
-    existing = await db.companies.find_one({"user_id": user["id"]})
+    existing = await resolve_company(user["id"])
     data = inp.model_dump()
     data["user_id"] = user["id"]
     if existing:
@@ -238,6 +311,7 @@ async def save_company(inp: CompanyInput, user: dict = Depends(get_current_user)
         data["created_at"] = datetime.now(timezone.utc).isoformat()
         res = await db.companies.insert_one(data)
         cid = str(res.inserted_id)
+        await db.settings.update_one({"user_id": user["id"]}, {"$set": {"active_company_id": cid}}, upsert=True)
     return {"id": cid, **inp.model_dump()}
 
 # ---------------------------------------------------------------- CEO DNA
@@ -254,9 +328,7 @@ async def save_dna(inp: DNAInput, user: dict = Depends(get_current_user)):
     data = inp.model_dump()
     data.update({"user_id": user["id"], "completed": True})
     await db.ceo_dna.update_one({"user_id": user["id"]}, {"$set": data}, upsert=True)
-    # sync ceo_mode into settings
     await db.settings.update_one({"user_id": user["id"]}, {"$set": {"ceo_mode": inp.ceo_mode}}, upsert=True)
-    # store key memories
     mems = []
     if inp.dream: mems.append(("sonho", inp.dream))
     if inp.target_revenue: mems.append(("objetivo", f"Quer faturar {inp.target_revenue}"))
@@ -267,18 +339,20 @@ async def save_dna(inp: DNAInput, user: dict = Depends(get_current_user)):
                                                "created_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
     return {"completed": True}
 
-# ---------------------------------------------------------------- Financial entries
+# ---------------------------------------------------------------- entries
 @api_router.get("/entries")
 async def list_entries(user: dict = Depends(get_current_user)):
-    entries = await db.entries.find({"user_id": user["id"]}).sort("date", -1).to_list(1000)
+    cid = await active_company_id(user["id"])
+    entries = await db.entries.find({"user_id": user["id"], "company_id": cid}).sort("date", -1).to_list(2000)
     for e in entries:
         e["id"] = str(e["_id"]); e.pop("_id")
     return entries
 
 @api_router.post("/entries")
 async def create_entry(inp: EntryInput, user: dict = Depends(get_current_user)):
+    cid = await active_company_id(user["id"])
     data = inp.model_dump()
-    data.update({"user_id": user["id"], "created_at": datetime.now(timezone.utc).isoformat()})
+    data.update({"user_id": user["id"], "company_id": cid, "created_at": datetime.now(timezone.utc).isoformat()})
     res = await db.entries.insert_one(data)
     return {"id": str(res.inserted_id), **inp.model_dump()}
 
@@ -289,8 +363,8 @@ async def delete_entry(entry_id: str, user: dict = Depends(get_current_user)):
 
 @api_router.post("/entries/import")
 async def import_csv(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    cid = await active_company_id(user["id"])
     raw = (await file.read()).decode("utf-8", errors="ignore")
-    # Use AI to parse arbitrary CSV into structured entries
     prompt = (
         "Analisa este ficheiro CSV/Excel de dados financeiros e devolve APENAS um array JSON válido. "
         "Cada objeto: {\"type\":\"income\"|\"expense\",\"category\":str,\"amount\":number,\"date\":\"YYYY-MM-DD\",\"description\":str}. "
@@ -301,8 +375,8 @@ async def import_csv(file: UploadFile = File(...), user: dict = Depends(get_curr
                    system_message="És um analista financeiro que estrutura dados. Respondes só com JSON.").with_model("openai", "gpt-5.4")
     resp = await chat.send_message(UserMessage(text=prompt))
     text = resp.strip()
-    if text.startswith("```"):
-        text = text.split("```")[1].replace("json", "", 1).strip() if "```" in text else text
+    if "```" in text:
+        text = text.split("```")[1].replace("json", "", 1).strip()
     try:
         rows = json.loads(text)
     except Exception:
@@ -310,20 +384,44 @@ async def import_csv(file: UploadFile = File(...), user: dict = Depends(get_curr
     inserted = 0
     for r in rows if isinstance(rows, list) else []:
         try:
-            doc = {"user_id": user["id"], "type": r.get("type", "expense"),
-                   "category": str(r.get("category", "Outro")), "amount": float(r.get("amount", 0)),
-                   "date": str(r.get("date", datetime.now(timezone.utc).date().isoformat())),
-                   "description": str(r.get("description", "")),
-                   "created_at": datetime.now(timezone.utc).isoformat()}
-            await db.entries.insert_one(doc)
+            await db.entries.insert_one({"user_id": user["id"], "company_id": cid,
+                "type": r.get("type", "expense"), "category": str(r.get("category", "Outro")),
+                "amount": float(r.get("amount", 0)), "date": str(r.get("date", datetime.now(timezone.utc).date().isoformat())),
+                "description": str(r.get("description", "")), "created_at": datetime.now(timezone.utc).isoformat()})
             inserted += 1
         except Exception:
             continue
     return {"imported": inserted}
 
-# ---------------------------------------------------------------- Snapshot / Dashboard
+# ---------------------------------------------------------------- mock bank connect
+@api_router.post("/bank/connect")
+async def bank_connect(user: dict = Depends(get_current_user)):
+    cid = await active_company_id(user["id"])
+    if not cid:
+        raise HTTPException(status_code=400, detail="Cria uma empresa primeiro")
+    now = datetime.now(timezone.utc)
+    cats_in = ["Vendas", "Serviços", "Consultoria", "Subscrições"]
+    cats_out = ["Salários", "Renda", "Fornecedores", "Marketing", "Software", "Impostos"]
+    created = 0
+    for m in range(6):
+        d = (now - timedelta(days=30 * m))
+        for _ in range(random.randint(3, 5)):
+            await db.entries.insert_one({"user_id": user["id"], "company_id": cid, "type": "income",
+                "category": random.choice(cats_in), "amount": round(random.uniform(1500, 9000), 2),
+                "date": d.replace(day=random.randint(1, 28)).date().isoformat(),
+                "description": "Movimento bancário (demo)", "created_at": now.isoformat()})
+            created += 1
+        for _ in range(random.randint(3, 6)):
+            await db.entries.insert_one({"user_id": user["id"], "company_id": cid, "type": "expense",
+                "category": random.choice(cats_out), "amount": round(random.uniform(400, 5000), 2),
+                "date": d.replace(day=random.randint(1, 28)).date().isoformat(),
+                "description": "Movimento bancário (demo)", "created_at": now.isoformat()})
+            created += 1
+    await db.companies.update_one({"_id": ObjectId(cid)}, {"$set": {"bank_connected": True}})
+    return {"connected": True, "imported": created}
+
+# ---------------------------------------------------------------- snapshot / dashboard
 def rag(value, good, warn, reverse=False):
-    """Return status green/amber/red. reverse=True means lower is better."""
     if reverse:
         if value <= good: return "green"
         if value <= warn: return "amber"
@@ -333,8 +431,9 @@ def rag(value, good, warn, reverse=False):
     return "red"
 
 async def build_snapshot(user_id: str):
-    company = await db.companies.find_one({"user_id": user_id}) or {}
-    entries = await db.entries.find({"user_id": user_id}).to_list(5000)
+    company = await resolve_company(user_id) or {}
+    cid = str(company["_id"]) if company.get("_id") else None
+    entries = await db.entries.find({"user_id": user_id, "company_id": cid}).to_list(5000) if cid else []
     now = datetime.now(timezone.utc)
     month_key = now.strftime("%Y-%m")
     income = sum(e["amount"] for e in entries if e["type"] == "income")
@@ -369,7 +468,6 @@ async def build_snapshot(user_id: str):
     ]
     status_score = {"green": 100, "amber": 55, "red": 20}
     health = round(sum(status_score[v["status"]] for v in vitals) / len(vitals))
-
     annual_profit = net if net > 0 else 0
     company_value = round(bank + annual_profit * 3, 2)
     dna = await db.ceo_dna.find_one({"user_id": user_id}) or {}
@@ -396,14 +494,14 @@ async def dashboard(user: dict = Depends(get_current_user)):
 async def ceo_score(user: dict = Depends(get_current_user)):
     snap = await build_snapshot(user["id"])
     dna = await db.ceo_dna.find_one({"user_id": user["id"]}) or {}
-    company = await db.companies.find_one({"user_id": user["id"]}) or {}
-    entries = await db.entries.find({"user_id": user["id"]}).to_list(5000)
-    has_data = len(entries) > 0
+    company = await resolve_company(user["id"]) or {}
+    cid = str(company["_id"]) if company.get("_id") else None
+    n_entries = await db.entries.count_documents({"user_id": user["id"], "company_id": cid}) if cid else 0
     dims = [
         {"dimension": "Liderança", "score": 80 if dna.get("completed") else 40},
         {"dimension": "Financeiro", "score": snap["health"]},
         {"dimension": "Marketing", "score": min(100, 30 + company.get("clients_count", 0) * 4)},
-        {"dimension": "Operação", "score": 70 if has_data else 35},
+        {"dimension": "Operação", "score": 70 if n_entries else 35},
         {"dimension": "Clientes", "score": min(100, 40 + company.get("clients_count", 0) * 5)},
         {"dimension": "Funcionários", "score": min(100, 50 + company.get("employees_count", 0) * 6)},
         {"dimension": "Risco", "score": min(100, int(snap["runway"] * 12))},
@@ -412,7 +510,7 @@ async def ceo_score(user: dict = Depends(get_current_user)):
     overall = round(sum(d["score"] for d in dims) / len(dims))
     return {"overall": overall, "dimensions": dims}
 
-# ---------------------------------------------------------------- Memory
+# ---------------------------------------------------------------- memory / settings
 @api_router.get("/memories")
 async def list_memories(user: dict = Depends(get_current_user)):
     mems = await db.memories.find({"user_id": user["id"]}).sort("created_at", -1).to_list(500)
@@ -432,7 +530,6 @@ async def del_memory(mem_id: str, user: dict = Depends(get_current_user)):
     await db.memories.delete_one({"_id": ObjectId(mem_id), "user_id": user["id"]})
     return {"ok": True}
 
-# ---------------------------------------------------------------- Settings
 DEFAULT_SETTINGS = {"ceo_mode": "crescimento", "theme": "dark", "briefing_count": 4,
                     "briefing_tone": "direto", "model": "claude",
                     "monitored_widgets": ["cashflow", "profit", "clients", "tax", "employees", "bank", "risk"]}
@@ -440,18 +537,18 @@ DEFAULT_SETTINGS = {"ceo_mode": "crescimento", "theme": "dark", "briefing_count"
 @api_router.get("/settings")
 async def get_settings(user: dict = Depends(get_current_user)):
     s = await db.settings.find_one({"user_id": user["id"]}) or {}
-    s.pop("_id", None); s.pop("user_id", None)
+    s.pop("_id", None); s.pop("user_id", None); s.pop("active_company_id", None)
     return {**DEFAULT_SETTINGS, **s}
 
 @api_router.put("/settings")
 async def update_settings(inp: SettingsInput, user: dict = Depends(get_current_user)):
     data = {k: v for k, v in inp.model_dump().items() if v is not None}
     await db.settings.update_one({"user_id": user["id"]}, {"$set": data}, upsert=True)
-    s = await db.settings.find_one({"user_id": user["id"]})
-    s.pop("_id", None); s.pop("user_id", None)
+    s = await db.settings.find_one({"user_id": user["id"]}) or {}
+    s.pop("_id", None); s.pop("user_id", None); s.pop("active_company_id", None)
     return {**DEFAULT_SETTINGS, **s}
 
-# ---------------------------------------------------------------- CEO context builder
+# ---------------------------------------------------------------- CEO context
 MODE_PROMPTS = {
     "conservador": "És prudente e avesso ao risco. Priorizas estabilidade, reservas de caixa e evitas dívida.",
     "crescimento": "És focado em crescimento sustentável. Equilibras oportunidade e risco.",
@@ -489,10 +586,8 @@ async def build_system_prompt(user_id: str, user_name: str):
 
 async def get_chat(user_id: str, user_name: str, session_id: str):
     settings = await db.settings.find_one({"user_id": user_id}) or {}
-    model_key = settings.get("model", "claude")
-    provider, model = MODEL_MAP.get(model_key, MODEL_MAP["claude"])
+    provider, model = MODEL_MAP.get(settings.get("model", "claude"), MODEL_MAP["claude"])
     sysmsg = await build_system_prompt(user_id, user_name)
-    kwargs = {}
     if provider == "anthropic":
         chat = LlmChat(api_key=EMERGENT_KEY, session_id=session_id, system_message=sysmsg,
                        custom_headers={"anthropic-beta": "task-budgets-2026-03-13"}).with_model(provider, model)
@@ -501,35 +596,35 @@ async def get_chat(user_id: str, user_name: str, session_id: str):
         chat = LlmChat(api_key=EMERGENT_KEY, session_id=session_id, system_message=sysmsg).with_model(provider, model)
     return chat
 
-# ---------------------------------------------------------------- Chat
+# ---------------------------------------------------------------- chat
 @api_router.get("/chat/sessions")
 async def chat_sessions(user: dict = Depends(get_current_user)):
-    sess = await db.chat_sessions.find({"user_id": user["id"]}).sort("created_at", -1).to_list(100)
-    for s in sess:
-        s["id"] = str(s["_id"]); s.pop("_id")
-    return sess
+    sess = await db.chat_sessions.find({"user_id": user["id"], "session_id": {"$exists": True}}).sort("created_at", -1).to_list(100)
+    return [{"session_id": s.get("session_id"), "title": s.get("title", "Conversa"), "created_at": s.get("created_at")}
+            for s in sess if s.get("session_id")]
 
 @api_router.get("/chat/{session_id}/messages")
 async def chat_messages(session_id: str, user: dict = Depends(get_current_user)):
     msgs = await db.chat_messages.find({"session_id": session_id, "user_id": user["id"]}).sort("created_at", 1).to_list(1000)
-    for m in msgs:
-        m["id"] = str(m["_id"]); m.pop("_id")
-    return msgs
+    return [{"role": m["role"], "content": m["content"]} for m in msgs]
+
+@api_router.delete("/chat/{session_id}")
+async def delete_session(session_id: str, user: dict = Depends(get_current_user)):
+    await db.chat_sessions.delete_one({"session_id": session_id, "user_id": user["id"]})
+    await db.chat_messages.delete_many({"session_id": session_id, "user_id": user["id"]})
+    return {"ok": True}
 
 @api_router.post("/chat")
 async def chat(inp: ChatInput, user: dict = Depends(get_current_user)):
     session_id = inp.session_id
     if not session_id:
         session_id = str(uuid.uuid4())
-        title = inp.message[:50]
-        await db.chat_sessions.insert_one({"_id": ObjectId(), "sid": session_id, "user_id": user["id"],
-                                           "title": title, "created_at": datetime.now(timezone.utc).isoformat()})
-    # rebuild history for context
+        await db.chat_sessions.insert_one({"session_id": session_id, "user_id": user["id"],
+                                           "title": inp.message[:50], "created_at": datetime.now(timezone.utc).isoformat()})
     history = await db.chat_messages.find({"session_id": session_id, "user_id": user["id"]}).sort("created_at", 1).to_list(1000)
     await db.chat_messages.insert_one({"session_id": session_id, "user_id": user["id"], "role": "user",
                                        "content": inp.message, "created_at": datetime.now(timezone.utc).isoformat()})
     chat_obj = await get_chat(user["id"], user.get("name", ""), session_id)
-    # feed prior history into the fresh chat instance
     context_msg = inp.message
     if history:
         hist_txt = "\n".join(f"{h['role']}: {h['content']}" for h in history[-10:])
@@ -554,7 +649,7 @@ async def chat(inp: ChatInput, user: dict = Depends(get_current_user)):
     return StreamingResponse(gen(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
-# ---------------------------------------------------------------- Briefing
+# ---------------------------------------------------------------- briefing
 @api_router.get("/briefing")
 async def briefing(user: dict = Depends(get_current_user)):
     settings = await db.settings.find_one({"user_id": user["id"]}) or {}
@@ -566,7 +661,7 @@ async def briefing(user: dict = Depends(get_current_user)):
     prompt = (
         f"Gera o briefing diário para o empresário. Devolve APENAS JSON válido no formato: "
         f'{{"greeting":"{greeting}, <nome>. ...","items":[{{"title":str,"detail":str,"priority":"alta"|"media"|"baixa","icon":"cash"|"profit"|"clients"|"tax"|"risk"|"opportunity"}}]}}. '
-        f"Exatamente {count} itens, priorizados pelo que mais importa hoje (clientes atrasados, quebra de lucro, alerta de caixa, oportunidades). "
+        f"Exatamente {count} itens, priorizados pelo que mais importa hoje. "
         f"O greeting deve ser uma frase humana e calorosa a começar com '{greeting}'. Detalhes curtos, orientados ao futuro e à ação. Sem texto fora do JSON."
     )
     chat = LlmChat(api_key=EMERGENT_KEY, session_id=f"brief-{uuid.uuid4()}", system_message=sysmsg).with_model("openai", "gpt-5.4")
@@ -584,36 +679,35 @@ async def briefing(user: dict = Depends(get_current_user)):
     data["health"] = snap["health"]
     return data
 
-# ---------------------------------------------------------------- Future Engine
+# ---------------------------------------------------------------- Future Engine (PREMIUM)
 @api_router.get("/future")
 async def future_projection(user: dict = Depends(get_current_user)):
+    if not await is_premium(user["id"]):
+        raise HTTPException(status_code=403, detail="premium_required")
     snap = await build_snapshot(user["id"])
     months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
     now = datetime.now(timezone.utc)
-    balance = snap["cash_balance"]
-    monthly_net = snap["monthly_net"]
-    projection = []
-    b = balance
+    balance = snap["cash_balance"]; monthly_net = snap["monthly_net"]
+    projection = []; b = balance
     for i in range(12):
         idx = (now.month - 1 + i) % 12
         b += monthly_net
-        projection.append({"month": months[idx], "cash": round(b, 2), "projected": True if i > 0 else False})
+        projection.append({"month": months[idx], "cash": round(b, 2)})
     projection[0]["cash"] = round(balance, 2)
-    # find month running out of cash
     warning = None
     if monthly_net < 0:
         b2 = balance
         for i in range(12):
             b2 += monthly_net
             if b2 < 0:
-                idx = (now.month - 1 + i) % 12
-                warning = f"Se continuar assim, em {months[idx]} fica sem caixa."
+                warning = f"Se continuar assim, em {months[(now.month - 1 + i) % 12]} fica sem caixa."
                 break
-    return {"projection": projection, "monthly_net": monthly_net, "warning": warning,
-            "currency_symbol": snap["currency_symbol"]}
+    return {"projection": projection, "monthly_net": monthly_net, "warning": warning, "currency_symbol": snap["currency_symbol"]}
 
 @api_router.post("/future/simulate")
 async def simulate(inp: SimInput, user: dict = Depends(get_current_user)):
+    if not await is_premium(user["id"]):
+        raise HTTPException(status_code=403, detail="premium_required")
     sysmsg = await build_system_prompt(user["id"], user.get("name", ""))
     prompt = (
         f"O empresário quer simular esta decisão: '{inp.scenario}'. Detalhe: '{inp.detail}'. "
@@ -627,33 +721,106 @@ async def simulate(inp: SimInput, user: dict = Depends(get_current_user)):
         text = resp.strip()
         if "```" in text:
             text = text.split("```")[1].replace("json", "", 1).strip()
-        data = json.loads(text)
+        return json.loads(text)
     except Exception as e:
         logger.error(f"simulate error: {e}")
         raise HTTPException(status_code=500, detail="Não foi possível simular agora")
-    return data
 
-# ---------------------------------------------------------------- Docs upload
+# ---------------------------------------------------------------- subscription / Stripe
+PLANS = {
+    "premium_monthly": {"label": "Premium Mensal", "price": "€19", "period": "/mês"},
+    "premium_yearly": {"label": "Premium Anual", "price": "€190", "period": "/ano"},
+}
+
+@api_router.get("/subscription")
+async def subscription(user: dict = Depends(get_current_user)):
+    return {"is_premium": await is_premium(user["id"]), "plans": PLANS}
+
+@api_router.post("/payments/checkout")
+async def create_checkout(req: CheckoutRequest, user: dict = Depends(get_current_user)):
+    prices = stripe.Price.list(lookup_keys=[req.lookup_key], active=True, limit=1).data
+    if not prices:
+        raise HTTPException(500, f"Preço não encontrado: {req.lookup_key}")
+    price = prices[0]
+    kwargs = dict(
+        line_items=[{"price": price.id, "quantity": 1}],
+        mode="subscription",
+        success_url=f"{req.origin_url}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{req.origin_url}/payment/cancel",
+        metadata={"user_id": user["id"], "lookup_key": req.lookup_key},
+    )
+    try:
+        session = stripe.checkout.Session.create(**kwargs, managed_payments={"enabled": True})
+    except stripe.error.InvalidRequestError as e:
+        msg = (e.user_message or "").lower()
+        if "managed payments" in msg or "ineligible" in msg:
+            session = stripe.checkout.Session.create(**kwargs, automatic_tax={"enabled": True}, billing_address_collection="required")
+        else:
+            raise
+    await db.payment_transactions.insert_one({
+        "session_id": session.id, "user_id": user["id"], "lookup_key": req.lookup_key,
+        "amount": (price.unit_amount or 0), "currency": price.currency,
+        "status": "initiated", "payment_status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"checkout_url": session.url, "session_id": session.id}
+
+async def _activate_premium(user_id: str):
+    if user_id:
+        try:
+            await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"is_premium": True}})
+        except Exception:
+            pass
+
+@api_router.get("/payments/status/{session_id}")
+async def get_status(session_id: str):
+    record = await db.payment_transactions.find_one({"session_id": session_id})
+    if not record:
+        raise HTTPException(404, "Transação não encontrada")
+    if record.get("payment_status") != "paid":
+        try:
+            s = stripe.checkout.Session.retrieve(session_id)
+            if s.payment_status == "paid" or s.status == "complete":
+                await db.payment_transactions.update_one(
+                    {"session_id": session_id, "payment_status": {"$ne": "paid"}},
+                    {"$set": {"status": "completed", "payment_status": "paid",
+                              "stripe_subscription_id": s.subscription, "updated_at": datetime.now(timezone.utc).isoformat()}})
+                await _activate_premium(record.get("user_id"))
+                record = await db.payment_transactions.find_one({"session_id": session_id})
+        except stripe.error.StripeError:
+            pass
+    return {"session_id": record["session_id"], "status": record["status"], "payment_status": record["payment_status"]}
+
+@api_router.post("/stripe/webhook")
+async def stripe_webhook(request: Request):
+    payload = await request.body()
+    sig = request.headers.get("stripe-signature", "")
+    try:
+        event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
+    except Exception:
+        raise HTTPException(400, "Assinatura inválida")
+    obj, t = event["data"]["object"], event["type"]
+    if t == "checkout.session.completed":
+        await db.payment_transactions.update_one(
+            {"session_id": obj["id"], "payment_status": {"$ne": "paid"}},
+            {"$set": {"status": "completed", "payment_status": obj.get("payment_status", "paid"),
+                      "stripe_subscription_id": obj.get("subscription"), "updated_at": datetime.now(timezone.utc).isoformat()}})
+        rec = await db.payment_transactions.find_one({"session_id": obj["id"]})
+        await _activate_premium((rec or {}).get("user_id") or (obj.get("metadata") or {}).get("user_id"))
+    return {"status": "ok"}
+
+# ---------------------------------------------------------------- docs
 @api_router.post("/upload")
 async def upload(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
     ext = file.filename.split(".")[-1] if "." in file.filename else "bin"
     path = f"{APP_NAME}/uploads/{user['id']}/{uuid.uuid4()}.{ext}"
     data = await file.read()
     result = put_object(path, data, file.content_type or "application/octet-stream")
-    doc = {"user_id": user["id"], "storage_path": result["path"], "original_filename": file.filename,
-           "content_type": file.content_type, "size": result.get("size", len(data)), "is_deleted": False,
-           "created_at": datetime.now(timezone.utc).isoformat()}
-    res = await db.documents.insert_one(doc)
-    return {"id": str(res.inserted_id), "filename": file.filename, "size": doc["size"]}
+    res = await db.documents.insert_one({"user_id": user["id"], "storage_path": result["path"],
+        "original_filename": file.filename, "content_type": file.content_type,
+        "size": result.get("size", len(data)), "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()})
+    return {"id": str(res.inserted_id), "filename": file.filename, "size": result.get("size", len(data))}
 
-@api_router.get("/documents")
-async def list_docs(user: dict = Depends(get_current_user)):
-    docs = await db.documents.find({"user_id": user["id"], "is_deleted": False}).sort("created_at", -1).to_list(500)
-    for d in docs:
-        d["id"] = str(d["_id"]); d.pop("_id")
-    return docs
-
-# ---------------------------------------------------------------- Startup
 @api_router.get("/")
 async def root():
     return {"message": "CEO AI online"}
@@ -676,7 +843,7 @@ async def startup():
     existing = await db.users.find_one({"email": admin_email})
     if not existing:
         await db.users.insert_one({"email": admin_email, "password_hash": hash_password(admin_password),
-                                   "name": "Diego", "role": "owner", "auth_provider": "email", "picture": "",
+                                   "name": "Diego", "role": "owner", "auth_provider": "email", "picture": "", "is_premium": False,
                                    "created_at": datetime.now(timezone.utc).isoformat()})
     elif existing.get("password_hash") and not verify_password(admin_password, existing["password_hash"]):
         await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})

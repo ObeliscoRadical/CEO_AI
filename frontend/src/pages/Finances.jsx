@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Upload, Trash2, Loader2, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Plus, Upload, Trash2, Loader2, ArrowUpRight, ArrowDownRight, Landmark } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function Finances() {
@@ -14,6 +14,7 @@ export default function Finances() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [form, setForm] = useState({ type: "income", category: "", amount: "", date: new Date().toISOString().slice(0, 10), description: "" });
   const fileRef = useRef();
 
@@ -32,6 +33,16 @@ export default function Finances() {
   };
 
   const del = async (id) => { await api.delete(`/entries/${id}`); load(); };
+
+  const connectBank = async () => {
+    setConnecting(true);
+    try {
+      const { data } = await api.post("/bank/connect");
+      toast.success(`Banco ligado (demo) · ${data.imported} movimentos importados`);
+      load();
+    } catch { toast.error("Não foi possível ligar o banco"); }
+    finally { setConnecting(false); }
+  };
 
   const importFile = async (e) => {
     const file = e.target.files?.[0];
@@ -59,6 +70,9 @@ export default function Finances() {
         </div>
         <div className="flex gap-3">
           <input ref={fileRef} type="file" accept=".csv,.xlsx,.txt" onChange={importFile} className="hidden" data-testid="import-input" />
+          <Button data-testid="connect-bank-btn" variant="outline" onClick={connectBank} disabled={connecting} className="rounded-full">
+            {connecting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Landmark className="w-4 h-4 mr-2" />} Ligar banco (demo)
+          </Button>
           <Button data-testid="import-btn" variant="outline" onClick={() => fileRef.current?.click()} disabled={importing} className="rounded-full">
             {importing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />} Importar CSV
           </Button>

@@ -2,6 +2,7 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { AppDataProvider } from "@/context/AppDataContext";
 import { Toaster } from "sonner";
 import Login from "@/pages/Login";
 import Onboarding from "@/pages/Onboarding";
@@ -11,6 +12,8 @@ import Finances from "@/pages/Finances";
 import Score from "@/pages/Score";
 import Future from "@/pages/Future";
 import Settings from "@/pages/Settings";
+import Pricing from "@/pages/Pricing";
+import PaymentResult from "@/pages/PaymentResult";
 import { AppLayout } from "@/components/AppLayout";
 import { Loader2 } from "lucide-react";
 
@@ -35,12 +38,15 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/onboarding" element={<Protected><Onboarding /></Protected>} />
-              <Route element={<Protected><AppLayout /></Protected>}>
+              <Route path="/payment/success" element={<Protected><AppDataProvider><PaymentResult /></AppDataProvider></Protected>} />
+              <Route path="/payment/cancel" element={<Protected><PaymentResult /></Protected>} />
+              <Route element={<Protected><AppDataProvider><AppLayout /></AppDataProvider></Protected>}>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/ceo" element={<Chat />} />
                 <Route path="/financas" element={<Finances />} />
                 <Route path="/score" element={<Score />} />
                 <Route path="/futuro" element={<Future />} />
+                <Route path="/planos" element={<Pricing />} />
                 <Route path="/definicoes" element={<Settings />} />
               </Route>
             </Routes>
