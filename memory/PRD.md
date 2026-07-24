@@ -97,6 +97,12 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ **Reatividade estilo Siri**: a esfera pulsa/ilumina em tempo real conforme a amplitude do áudio (Web Audio API AnalyserNode) enquanto ouves e enquanto o CEO fala.
 - ✅ Testado (iteration_10): backend 11/11 (transcrição + resposta + TTS + persistência de sessão + erros + regressão). Frontend verificado por screenshot (mic não automatizável). Zero bugs.
 
+## Implemented — Fase 11: Perfil da Empresa (input do utilizador) (2026-07-24)
+- ✅ Nova secção **"A tua empresa"** na área Empresa (/definicoes): o utilizador edita/insere informação em linguagem simples que alimenta TODAS as análises do CEO (saúde, valor, conselhos, relatórios).
+- ✅ Campos (16+) agrupados: O básico (atividade, localização, anos, modelo de negócio), Pessoas e clientes (nº pessoas/clientes, peso do maior cliente %, recorrência, dependência do fundador), Dinheiro (caixa, preço médio, dívidas, maior custo, dependência de fornecedor, sazonalidade), Objetivos (objetivo da empresa, objetivo pessoal, vantagem competitiva, maior preocupação).
+- ✅ Guardado em `company.profile`; `build_system_prompt` inclui bloco "PERFIL DA EMPRESA"; guardar invalida a cache de IA (regenera análises).
+- ✅ Testado (iteration_12): backend 4/4, frontend 100%. Zero bugs.
+
 ## Backlog atualizado
 - P2: Open banking real por região (UE/PT, BR).
 - P2 (opcional): usar figuras extraídas dos documentos para recalcular o valuation base (atualmente alimentam o rationale/rating, não o valor base do snapshot).
