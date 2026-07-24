@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useTheme } from "@/context/ThemeContext";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Brain, Mail, Send, Building2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Brain, Mail, Send, Building2, Search, Upload } from "lucide-react";
 
 const MODES = ["conservador", "crescimento", "agressivo", "familiar", "startup", "investidor"];
 const MODELS = [
@@ -36,6 +36,38 @@ export default function Settings() {
   const update = (patch) => setSettings((s) => ({ ...s, ...patch }));
   const upC = (patch) => setCompany((c) => ({ ...c, ...patch }));
   const upProf = (patch) => setCompany((c) => ({ ...c, profile: { ...(c?.profile || {}), ...patch } }));
+
+  const [nif, setNif] = useState("");
+  const [looking, setLooking] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const certRef = useRef(null);
+
+  const applyImported = (d) => {
+    if (!d) return;
+    if (d.name) upC({ name: d.name });
+    if (d.activity || d.cae) upC({ sector: d.activity || company.sector });
+    upProf({
+      ...(d.location ? { location: d.location } : {}),
+      ...(d.cae ? { cae: d.cae } : {}),
+      ...(d.objeto_social ? { business_model: d.objeto_social } : {}),
+    });
+  };
+
+  const lookupNif = async () => {
+    if (!nif.trim()) return;
+    setLooking(true);
+    try { const { data } = await api.post("/company/lookup-nif", { nif: nif.trim() }); applyImported(data); toast.success(`Encontrei: ${data.name || "empresa"}. Revê e guarda.`); }
+    catch (e) { toast.error(e?.response?.data?.detail || "Não consegui buscar o NIF."); }
+    finally { setLooking(false); }
+  };
+
+  const importCertidao = async (e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    setImporting(true);
+    try { const fd = new FormData(); fd.append("file", f); const { data } = await api.post("/company/import-certidao", fd, { headers: { "Content-Type": "multipart/form-data" } }); applyImported(data); toast.success("Li a certidão. Revê os campos e guarda."); }
+    catch (er) { toast.error(er?.response?.data?.detail || "Não consegui ler a certidão."); }
+    finally { setImporting(false); if (certRef.current) certRef.current.value = ""; }
+  };
 
   const saveCompany = async () => {
     setSavingCompany(true);
@@ -95,6 +127,23 @@ export default function Settings() {
       <div className="surface rounded-3xl p-8 mb-6">
         <div className="flex items-center gap-2 mb-1"><Building2 className="w-5 h-5 text-[#D4AF37]" /><h2 className="font-serif-lux text-2xl">A tua empresa</h2></div>
         <p className="text-muted-foreground text-sm mb-6">Esta informação alimenta todas as análises do CEO AI (saúde, valor, conselhos e relatórios).</p>
+
+        <div className="rounded-2xl border border-[#D4AF37]/25 p-5 mb-8" data-testid="import-card">
+          <p className="text-sm font-medium mb-1">Preencher automaticamente</p>
+          <p className="text-xs text-muted-foreground mb-4">Escreve o NIF da empresa ou carrega a certidão permanente (PDF) — eu preencho o que conseguir. Revê sempre antes de guardar.</p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex gap-2 flex-1">
+              <Input data-testid="nif-input" value={nif} onChange={(e) => setNif(e.target.value)} placeholder="NIF / NIPC (9 dígitos)" className="bg-transparent" />
+              <Button data-testid="nif-lookup-btn" onClick={lookupNif} disabled={looking} variant="outline" className="rounded-full shrink-0">
+                {looking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}<span className="ml-1">Buscar</span>
+              </Button>
+            </div>
+            <input ref={certRef} type="file" accept=".pdf,.txt,.docx" hidden onChange={importCertidao} />
+            <Button data-testid="cert-upload-btn" onClick={() => certRef.current?.click()} disabled={importing} variant="outline" className="rounded-full shrink-0">
+              {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}<span className="ml-1">Carregar certidão (PDF)</span>
+            </Button>
+          </div>
+        </div>
 
         <p className="text-xs uppercase tracking-[0.18em] text-[#D4AF37] mb-3">O básico</p>
         <div className="grid md:grid-cols-2 gap-5 mb-8">

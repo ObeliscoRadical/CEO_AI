@@ -67,3 +67,44 @@ async def save_company(inp: CompanyInput, user: dict = Depends(get_current_user)
         await db.settings.update_one({"user_id": user["id"]}, {"$set": {"active_company_id": cid}}, upsert=True)
     await invalidate_ai_cache(user["id"])
     return {"id": cid, **inp.model_dump()}
+
+
+@router.post("/company/lookup-nif")
+async def lookup_nif(payload: dict, user: dict = Depends(get_current_user)):
+    nif = str(payload.get("nif", "")).strip()
+    if not (nif.isdigit() and len(nif) == 9):
+        raise HTTPException(400, "NIF inválido. Deve ter 9 dígitos.")
+    key = os.environ.get("NIFPT_API_KEY")
+    if not key:
+        raise HTTPException(400, "A chave da API NIF.PT ainda não está configurada. Adiciona-a para usar a busca por NIF.")
+    try:
+        async with httpx.AsyncClient(timeout=15) as hc:
+            r = await hc.get("https://www.nif.pt/", params={"json": 1, "q": nif, "key": key})
+            data = r.json()
+    except Exception as e:
+        logger.error(f"nif lookup error: {e}")
+        raise HTTPException(502, "Não consegui contactar o serviço NIF.PT. Tenta novamente.")
+    if data.get("result") != "success" or not data.get("records"):
+        raise HTTPException(404, "Não encontrei dados públicos para esse NIF.")
+    rec = data["records"].get(nif) or list(data["records"].values())[0]
+    loc = ", ".join(filter(None, [rec.get("city"), rec.get("pc4")])) or rec.get("address") or ""
+    return {"name": rec.get("title"), "cae": rec.get("cae"), "activity": rec.get("activity"),
+            "location": loc, "status": rec.get("status"), "nif": nif}
+
+
+@router.post("/company/import-certidao")
+async def import_certidao(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    data = await file.read()
+    text = extract_document_text(data, file.content_type, file.filename)
+    if not text or len(text.strip()) < 40:
+        raise HTTPException(422, "Não consegui ler texto do ficheiro. Envia a certidão permanente em PDF (não uma imagem digitalizada).")
+    prompt = (
+        "Extrai os dados desta certidão permanente do registo comercial português. Devolve APENAS JSON: "
+        '{"name":str,"nipc":str,"cae":str,"activity":str,"location":str,"objeto_social":str,'
+        '"capital":number|null,"incorporation_date":str,"socios":[str]}. '
+        "Preenche apenas com o que estiver no documento (senão null ou string vazia). "
+        "'activity' = descrição do CAE; 'objeto_social' = o objeto/atividade da empresa. Português europeu. Sem texto fora do JSON.\n\n"
+        "CONTEÚDO:\n" + text[:9000]
+    )
+    ai = await ai_json("És um jurista e analista de empresas. Respondes só com JSON.", prompt)
+    return ai or {}

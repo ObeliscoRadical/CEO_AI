@@ -265,6 +265,7 @@ PROFILE_LABELS = {
     "biggest_cost": "Maior custo mensal",
     "supplier_dependency": "Depende muito de um fornecedor",
     "seasonality": "Meses fortes ou fracos",
+    "cae": "CAE (código de atividade)",
     "main_goal": "Objetivo com a empresa",
     "personal_goal": "Objetivo pessoal do dono",
     "advantage": "O que a distingue da concorrência",

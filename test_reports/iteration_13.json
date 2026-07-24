@@ -1,0 +1,25 @@
+{
+  "summary": "Tested new 'Preencher automaticamente' feature on /definicoes. Backend: created /app/backend/tests/test_company_import.py with 6 tests — all pass (auth guard 401/403 on both endpoints, /company/lookup-nif returns 400 for invalid NIF and clear 400 message when NIFPT_API_KEY not configured, /company/import-certidao returns 422 for too-short files and correctly extracts name='OBELISCO CONSULTORIA UNIPESSOAL LDA', nipc='509442013', cae='70220', plus all required JSON keys). Regression: test_company_profile.py still passes (4/4). Frontend: import-card + nif-input + nif-lookup-btn + cert-upload-btn all present. NIF lookup shows graceful error toast 'A chave da API NIF.PT ainda não está configurada' without crashing. Certidão upload (.txt) triggers AI extraction (~10s) and pre-fills co-name (OBELISCO CONSULTORIA UNIPESSOAL LDA), co-sector (Actividades de consultoria...), co-location (Rua das Flores, 100, 4000-001 Porto) and co-model (consultoria de gestão e apoio a empresas). save-company-btn persists — verified after page reload. All acceptance criteria met.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_company_import.py",
+    "/app/backend/tests/test_company_profile.py",
+    "/app/test_reports/pytest/company_import.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "companies.py: lookup-nif accepts raw dict; consider a Pydantic model (NifLookupInput) with a validator to reject non-9-digit NIFs earlier and generate proper OpenAPI schema.",
+    "Toast on successful certidão import fires even if the AI returned an empty {} (ai_json failure). Consider showing a warning toast when no fields were extracted so the user understands why nothing changed.",
+    "applyImported in Settings.jsx never fills prof.cae into a visible field (co-* inputs do not display cae). The extracted CAE is stored in profile but hidden from the review UI — user cannot verify/edit it.",
+    "import-certidao truncates content at 9000 chars — fine for typical certidões but no warning surfaced when input is truncated for large documents."
+  ],
+  "updated_files": ["/app/backend/tests/test_company_import.py"],
+  "success_rate": {"backend": "100% (6/6 new + 4/4 regression)", "frontend": "100%"},
+  "test_credentials": "obeliscoradical@gmail.com / CeoAI2026! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None. Company profile was updated to Obelisco via existing test_company_profile regression.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Feature is fully working. NIFPT_API_KEY is intentionally absent — the 400 with 'A chave da API NIF.PT ainda não está configurada' message is the expected behavior. When user provides the key, add a happy-path test that mocks or calls nif.pt (currently only the guard-clause is asserted).",
+  "rca of the issue": "N/A — no bugs found."
+}
