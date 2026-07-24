@@ -19,6 +19,7 @@ class CompanyInput(BaseModel):
     clients_count: int = 0
     bank_balance: float = 0
     monthly_tax_estimate: float = 0
+    profile: Dict[str, Any] = {}
 
 class DNAInput(BaseModel):
     answers: Dict[str, Any]

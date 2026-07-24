@@ -3,10 +3,11 @@ import { api } from "@/lib/api";
 import { useTheme } from "@/context/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Brain, Mail, Send } from "lucide-react";
+import { Loader2, Plus, Trash2, Brain, Mail, Send, Building2 } from "lucide-react";
 
 const MODES = ["conservador", "crescimento", "agressivo", "familiar", "startup", "investidor"];
 const MODELS = [
@@ -19,6 +20,8 @@ const TONES = ["direto", "caloroso", "analítico", "motivador"];
 export default function Settings() {
   const { theme, setTheme } = useTheme();
   const [settings, setSettings] = useState(null);
+  const [company, setCompany] = useState(null);
+  const [savingCompany, setSavingCompany] = useState(false);
   const [memories, setMemories] = useState([]);
   const [newMem, setNewMem] = useState("");
   const [saving, setSaving] = useState(false);
@@ -26,10 +29,27 @@ export default function Settings() {
 
   useEffect(() => {
     api.get("/settings").then(({ data }) => setSettings(data));
+    api.get("/company").then(({ data }) => setCompany(data || {}));
     api.get("/memories").then(({ data }) => setMemories(data));
   }, []);
 
   const update = (patch) => setSettings((s) => ({ ...s, ...patch }));
+  const upC = (patch) => setCompany((c) => ({ ...c, ...patch }));
+  const upProf = (patch) => setCompany((c) => ({ ...c, profile: { ...(c?.profile || {}), ...patch } }));
+
+  const saveCompany = async () => {
+    setSavingCompany(true);
+    try {
+      await api.post("/company", {
+        name: company.name || "A minha empresa", region: company.region || "PT", currency: company.currency || "EUR",
+        sector: company.sector || "", employees_count: Number(company.employees_count) || 0,
+        clients_count: Number(company.clients_count) || 0, bank_balance: Number(company.bank_balance) || 0,
+        monthly_tax_estimate: Number(company.monthly_tax_estimate) || 0, profile: company.profile || {},
+      });
+      toast.success("Informação guardada. O teu CEO já a vai usar nas análises.");
+    } catch { toast.error("Erro ao guardar"); }
+    finally { setSavingCompany(false); }
+  };
 
   const save = async () => {
     setSaving(true);
@@ -63,12 +83,91 @@ export default function Settings() {
     finally { setSendingEmail(false); }
   };
 
-  if (!settings) return <div className="flex justify-center py-32"><Loader2 className="w-6 h-6 animate-spin text-[#D4AF37]" /></div>;
+  if (!settings || !company) return <div className="flex justify-center py-32"><Loader2 className="w-6 h-6 animate-spin text-[#D4AF37]" /></div>;
+
+  const prof = company.profile || {};
 
   return (
     <div className="p-6 md:p-10 max-w-[900px] mx-auto">
-      <h1 className="font-serif-lux text-4xl mb-1">Personalização</h1>
-      <p className="text-muted-foreground text-sm mb-8">Configura o teu CEO AI ao teu gosto.</p>
+      <h1 className="font-serif-lux text-4xl mb-1">Empresa</h1>
+      <p className="text-muted-foreground text-sm mb-8">Quanto mais o teu CEO souber, melhores serão as decisões. Preenche o que puderes — em linguagem simples.</p>
+
+      <div className="surface rounded-3xl p-8 mb-6">
+        <div className="flex items-center gap-2 mb-1"><Building2 className="w-5 h-5 text-[#D4AF37]" /><h2 className="font-serif-lux text-2xl">A tua empresa</h2></div>
+        <p className="text-muted-foreground text-sm mb-6">Esta informação alimenta todas as análises do CEO AI (saúde, valor, conselhos e relatórios).</p>
+
+        <p className="text-xs uppercase tracking-[0.18em] text-[#D4AF37] mb-3">O básico</p>
+        <div className="grid md:grid-cols-2 gap-5 mb-8">
+          <div><Label className="text-xs text-muted-foreground">Nome da empresa</Label>
+            <Input data-testid="co-name" value={company.name || ""} onChange={(e) => upC({ name: e.target.value })} className="mt-1 bg-transparent" /></div>
+          <div><Label className="text-xs text-muted-foreground">O que a empresa faz (área)</Label>
+            <Input data-testid="co-sector" value={company.sector || ""} onChange={(e) => upC({ sector: e.target.value })} placeholder="Ex: restauração, construção, loja online" className="mt-1 bg-transparent" /></div>
+          <div><Label className="text-xs text-muted-foreground">Onde fica</Label>
+            <Input data-testid="co-location" value={prof.location || ""} onChange={(e) => upProf({ location: e.target.value })} placeholder="Ex: Lisboa, Portugal" className="mt-1 bg-transparent" /></div>
+          <div><Label className="text-xs text-muted-foreground">Há quantos anos existe</Label>
+            <Input data-testid="co-years" type="number" min="0" value={prof.years_active || ""} onChange={(e) => upProf({ years_active: Number(e.target.value) })} className="mt-1 bg-transparent" /></div>
+          <div className="md:col-span-2"><Label className="text-xs text-muted-foreground">Como é que a empresa ganha dinheiro?</Label>
+            <Textarea data-testid="co-model" value={prof.business_model || ""} onChange={(e) => upProf({ business_model: e.target.value })} placeholder="Ex: vendemos bolos por encomenda e temos uma loja física" className="mt-1 bg-transparent" rows={2} /></div>
+        </div>
+
+        <p className="text-xs uppercase tracking-[0.18em] text-[#D4AF37] mb-3">Pessoas e clientes</p>
+        <div className="grid md:grid-cols-2 gap-5 mb-8">
+          <div><Label className="text-xs text-muted-foreground">Quantas pessoas trabalham contigo</Label>
+            <Input data-testid="co-employees" type="number" min="0" value={company.employees_count || 0} onChange={(e) => upC({ employees_count: Number(e.target.value) })} className="mt-1 bg-transparent" /></div>
+          <div><Label className="text-xs text-muted-foreground">Quantos clientes tens (mais ou menos)</Label>
+            <Input data-testid="co-clients" type="number" min="0" value={company.clients_count || 0} onChange={(e) => upC({ clients_count: Number(e.target.value) })} className="mt-1 bg-transparent" /></div>
+          <div><Label className="text-xs text-muted-foreground">O teu maior cliente vale quanto das vendas? (%)</Label>
+            <Input data-testid="co-bigclient" type="number" min="0" max="100" value={prof.biggest_client_pct || ""} onChange={(e) => upProf({ biggest_client_pct: Number(e.target.value) })} placeholder="Ex: 30" className="mt-1 bg-transparent" /></div>
+          <div><Label className="text-xs text-muted-foreground">Os clientes costumam voltar a comprar?</Label>
+            <Select value={prof.client_recurrence || ""} onValueChange={(v) => upProf({ client_recurrence: v })}>
+              <SelectTrigger data-testid="co-recurrence" className="mt-1 bg-transparent"><SelectValue placeholder="Escolhe" /></SelectTrigger>
+              <SelectContent><SelectItem value="Sim, quase sempre">Sim, quase sempre</SelectItem><SelectItem value="Às vezes">Às vezes</SelectItem><SelectItem value="Raramente, são quase sempre novos">Raramente, são quase sempre novos</SelectItem></SelectContent>
+            </Select></div>
+          <div className="md:col-span-2"><Label className="text-xs text-muted-foreground">A empresa funciona sem ti?</Label>
+            <Select value={prof.founder_dependency || ""} onValueChange={(v) => upProf({ founder_dependency: v })}>
+              <SelectTrigger data-testid="co-founder" className="mt-1 bg-transparent"><SelectValue placeholder="Escolhe" /></SelectTrigger>
+              <SelectContent><SelectItem value="Dependem de mim para quase tudo">Dependem de mim para quase tudo</SelectItem><SelectItem value="Aguenta alguns dias sem mim">Aguenta alguns dias sem mim</SelectItem><SelectItem value="Aguenta semanas sem mim">Aguenta semanas sem mim</SelectItem><SelectItem value="É totalmente autónoma">É totalmente autónoma</SelectItem></SelectContent>
+            </Select></div>
+        </div>
+
+        <p className="text-xs uppercase tracking-[0.18em] text-[#D4AF37] mb-3">Dinheiro</p>
+        <div className="grid md:grid-cols-2 gap-5 mb-8">
+          <div><Label className="text-xs text-muted-foreground">Dinheiro em caixa hoje</Label>
+            <Input data-testid="co-cash" type="number" value={company.bank_balance || 0} onChange={(e) => upC({ bank_balance: Number(e.target.value) })} className="mt-1 bg-transparent" /></div>
+          <div><Label className="text-xs text-muted-foreground">Preço médio do teu produto/serviço</Label>
+            <Input data-testid="co-price" type="number" value={prof.avg_price || ""} onChange={(e) => upProf({ avg_price: Number(e.target.value) })} className="mt-1 bg-transparent" /></div>
+          <div><Label className="text-xs text-muted-foreground">Tens dívidas ou empréstimos? Quanto?</Label>
+            <Input data-testid="co-debt" type="number" value={prof.debt || ""} onChange={(e) => upProf({ debt: Number(e.target.value) })} placeholder="0 se não tens" className="mt-1 bg-transparent" /></div>
+          <div><Label className="text-xs text-muted-foreground">Qual é o teu maior custo por mês?</Label>
+            <Input data-testid="co-cost" value={prof.biggest_cost || ""} onChange={(e) => upProf({ biggest_cost: e.target.value })} placeholder="Ex: salários, renda, matéria-prima" className="mt-1 bg-transparent" /></div>
+          <div><Label className="text-xs text-muted-foreground">Dependes muito de um único fornecedor?</Label>
+            <Select value={prof.supplier_dependency || ""} onValueChange={(v) => upProf({ supplier_dependency: v })}>
+              <SelectTrigger data-testid="co-supplier" className="mt-1 bg-transparent"><SelectValue placeholder="Escolhe" /></SelectTrigger>
+              <SelectContent><SelectItem value="Sim, muito">Sim, muito</SelectItem><SelectItem value="Um pouco">Um pouco</SelectItem><SelectItem value="Não, tenho vários">Não, tenho vários</SelectItem></SelectContent>
+            </Select></div>
+          <div><Label className="text-xs text-muted-foreground">Há meses muito melhores ou piores?</Label>
+            <Input data-testid="co-season" value={prof.seasonality || ""} onChange={(e) => upProf({ seasonality: e.target.value })} placeholder="Ex: verão é forte, janeiro é fraco" className="mt-1 bg-transparent" /></div>
+        </div>
+
+        <p className="text-xs uppercase tracking-[0.18em] text-[#D4AF37] mb-3">Objetivos e futuro</p>
+        <div className="grid md:grid-cols-2 gap-5 mb-6">
+          <div className="md:col-span-2"><Label className="text-xs text-muted-foreground">O que queres para a empresa?</Label>
+            <Select value={prof.main_goal || ""} onValueChange={(v) => upProf({ main_goal: v })}>
+              <SelectTrigger data-testid="co-goal" className="mt-1 bg-transparent"><SelectValue placeholder="Escolhe" /></SelectTrigger>
+              <SelectContent><SelectItem value="Crescer o mais possível">Crescer o mais possível</SelectItem><SelectItem value="Estabilizar e ter mais lucro">Estabilizar e ter mais lucro</SelectItem><SelectItem value="Preparar para vender">Preparar para vender</SelectItem><SelectItem value="Trabalhar menos / mais liberdade">Trabalhar menos / mais liberdade</SelectItem></SelectContent>
+            </Select></div>
+          <div className="md:col-span-2"><Label className="text-xs text-muted-foreground">O teu objetivo pessoal (porque fazes isto)</Label>
+            <Textarea data-testid="co-personal" value={prof.personal_goal || ""} onChange={(e) => upProf({ personal_goal: e.target.value })} placeholder="Ex: dar segurança à família e ter tempo livre" className="mt-1 bg-transparent" rows={2} /></div>
+          <div className="md:col-span-2"><Label className="text-xs text-muted-foreground">O que te distingue da concorrência?</Label>
+            <Textarea data-testid="co-advantage" value={prof.advantage || ""} onChange={(e) => upProf({ advantage: e.target.value })} placeholder="Ex: atendimento personalizado e entregas rápidas" className="mt-1 bg-transparent" rows={2} /></div>
+          <div className="md:col-span-2"><Label className="text-xs text-muted-foreground">Qual é a tua maior preocupação neste momento?</Label>
+            <Textarea data-testid="co-worry" value={prof.main_worry || ""} onChange={(e) => upProf({ main_worry: e.target.value })} placeholder="Ex: as vendas pararam de crescer" className="mt-1 bg-transparent" rows={2} /></div>
+        </div>
+
+        <Button data-testid="save-company-btn" onClick={saveCompany} disabled={savingCompany} className="rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431]">
+          {savingCompany ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null} Guardar informação da empresa
+        </Button>
+      </div>
 
       <div className="surface rounded-3xl p-8 space-y-6 mb-6">
         <h2 className="font-serif-lux text-2xl">O teu CEO</h2>

@@ -9,7 +9,8 @@ def _company_out(c):
     return {"id": str(c["_id"]), "name": c.get("name"), "region": c.get("region"), "currency": c.get("currency"),
             "sector": c.get("sector", ""), "employees_count": c.get("employees_count", 0),
             "clients_count": c.get("clients_count", 0), "bank_balance": c.get("bank_balance", 0),
-            "monthly_tax_estimate": c.get("monthly_tax_estimate", 0), "bank_connected": c.get("bank_connected", False)}
+            "monthly_tax_estimate": c.get("monthly_tax_estimate", 0), "bank_connected": c.get("bank_connected", False),
+            "profile": c.get("profile", {})}
 
 @router.get("/companies")
 async def list_companies(user: dict = Depends(get_current_user)):
@@ -64,4 +65,5 @@ async def save_company(inp: CompanyInput, user: dict = Depends(get_current_user)
         res = await db.companies.insert_one(data)
         cid = str(res.inserted_id)
         await db.settings.update_one({"user_id": user["id"]}, {"$set": {"active_company_id": cid}}, upsert=True)
+    await invalidate_ai_cache(user["id"])
     return {"id": cid, **inp.model_dump()}

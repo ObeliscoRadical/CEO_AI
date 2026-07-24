@@ -1,0 +1,26 @@
+{
+  "summary": "Verified new Empresa profile feature end-to-end. Backend POST/GET /api/company correctly persists profile dict with all 16 profile keys plus company fields. AI cache invalidation on save confirmed (report/ceo-daily regenerate in <90s). Frontend /definicoes loads existing values including profile keys, all data-testid selectors present, edits (text + Select) save via save-company-btn with success toast and persist after reload.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_company_profile.py",
+    "/app/test_reports/pytest/company_profile.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Settings.jsx is 252 lines and mixes 3 concerns (Empresa, CEO personalization, Memories, Email briefing) — consider splitting for maintainability.",
+    "Number inputs use `value={company.employees_count || 0}` — falsy 0 renders 0 which is OK, but for prof.avg_price etc uses `|| ''` — inconsistent handling of 0."
+  ],
+  "updated_files": ["/app/backend/tests/test_company_profile.py"],
+  "success_rate": { "backend": "100% (4/4)", "frontend": "100%" },
+  "test_credentials": "obeliscoradical@gmail.com / CeoAI2026! (from request)",
+  "seed_data_creation": "Owner company 'Obelisco' updated with full profile block (biggest_client_pct=40, main_worry contains 'AlfaZetaOmicron')",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "test_company_profile.py covers POST/GET /api/company with profile, report/ceo-daily 200 after save. Owner account state: profile fully populated with distinctive strings.",
+  "rca of the issue": "N/A - feature works as designed"
+}

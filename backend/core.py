@@ -252,6 +252,25 @@ MODE_PROMPTS = {
     "investidor": "Pensas como investidor: retorno sobre capital, valor da empresa e saída (exit).",
 }
 
+PROFILE_LABELS = {
+    "activity": "O que a empresa faz",
+    "years_active": "Anos de atividade",
+    "location": "Localização",
+    "business_model": "Como ganha dinheiro",
+    "avg_price": "Preço médio do produto/serviço",
+    "biggest_client_pct": "Peso do maior cliente nas vendas (%)",
+    "client_recurrence": "Os clientes voltam a comprar",
+    "founder_dependency": "A empresa funciona sem o dono",
+    "debt": "Dívidas / empréstimos",
+    "biggest_cost": "Maior custo mensal",
+    "supplier_dependency": "Depende muito de um fornecedor",
+    "seasonality": "Meses fortes ou fracos",
+    "main_goal": "Objetivo com a empresa",
+    "personal_goal": "Objetivo pessoal do dono",
+    "advantage": "O que a distingue da concorrência",
+    "main_worry": "Maior preocupação atual",
+}
+
 async def build_system_prompt(user_id: str, user_name: str):
     settings = await db.settings.find_one({"user_id": user_id}) or {}
     mode = settings.get("ceo_mode", "crescimento")
@@ -259,6 +278,9 @@ async def build_system_prompt(user_id: str, user_name: str):
     dna = await db.ceo_dna.find_one({"user_id": user_id}) or {}
     memories = await db.memories.find({"user_id": user_id}).to_list(100)
     snap = await build_snapshot(user_id)
+    company = await resolve_company(user_id)
+    prof = (company or {}).get("profile", {}) or {}
+    prof_txt = "\n".join(f"{lbl}: {prof.get(k)}" for k, lbl in PROFILE_LABELS.items() if prof.get(k) not in (None, "", 0)) or "(o empresário ainda não preencheu o perfil da empresa)"
     mem_txt = "\n".join(f"- {m['content']}" for m in memories) or "- (ainda sem memórias registadas)"
     vitals_txt = "\n".join(f"- {v['label']}: {v['value']}{v['unit']} [{v['status']}]" for v in snap["vitals"])
     return (
@@ -278,6 +300,7 @@ async def build_system_prompt(user_id: str, user_name: str):
         f"Horas de trabalho: {dna.get('work_hours', 'n/d')}\nPlano de saída: {dna.get('exit_plan', 'n/d')}\n"
         f"Visão a 5 anos: {dna.get('five_year_vision', 'n/d')}\n\n"
         f"### MEMÓRIA (lembra-te disto sempre)\n{mem_txt}\n\n"
+        f"### PERFIL DA EMPRESA (informação dada pelo empresário — usa-a sempre na tua análise)\n{prof_txt}\n\n"
         f"### ESTADO ATUAL DA EMPRESA ({snap['company_name']})\n"
         f"Saúde: {snap['health']}/100\nCaixa: {snap['currency_symbol']}{snap['cash_balance']}\n"
         f"Resultado mensal: {snap['currency_symbol']}{snap['monthly_net']}\nAutonomia: {snap['runway']} meses\n"
