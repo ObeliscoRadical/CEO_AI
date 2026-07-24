@@ -115,6 +115,11 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ Exemplos gerados: "As despesas subiram 67% e a margem caiu de 35,7% para 6,2%", "Se subires os preços 4%, acrescentas €1.200 de lucro anual", "Se perderes o maior cliente, levas um rombo de €6.400/mês".
 - ✅ Testado (iteration_14): backend 3/3, frontend 100%. Zero bugs.
 
+## Implemented — Fase 14: Especialização por setor (conselhos personalizados ao ramo) (2026-07-24)
+- ✅ O CEO AI passou a adaptar-se ao **setor da empresa**: bloco "ESPECIALIZAÇÃO NO SETOR" no `build_system_prompt` (a partir de sector/atividade/CAE) que obriga a usar referências, riscos, KPIs e vocabulário do ramo específico — nunca genérico. Afeta TODAS as saídas (sinais, saúde, valor, relatório, chat, simulações, ceo-daily).
+- ✅ Verificado: restaurante → food cost, ementa, rotação de mesas, turnos; construção → obras, empreitadas, adjudicações, mão-de-obra, materiais. Muda de vocabulário ao mudar o setor (cache invalidada ao guardar a empresa).
+- ✅ Testado (iteration_15): backend 5/5. Zero bugs.
+
 ## Backlog atualizado
 - P2: Open banking real por região (UE/PT, BR).
 - P2 (opcional): usar figuras extraídas dos documentos para recalcular o valuation base (atualmente alimentam o rationale/rating, não o valor base do snapshot).
