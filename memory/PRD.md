@@ -103,6 +103,12 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ Guardado em `company.profile`; `build_system_prompt` inclui bloco "PERFIL DA EMPRESA"; guardar invalida a cache de IA (regenera análises).
 - ✅ Testado (iteration_12): backend 4/4, frontend 100%. Zero bugs.
 
+## Implemented — Fase 12: Preencher empresa automaticamente (NIF + Certidão) (2026-07-24)
+- ✅ Card **"Preencher automaticamente"** na área Empresa: (1) campo **NIF/NIPC** → busca nome, CAE, morada e estado via API NIF.PT (POST /api/company/lookup-nif; precisa de NIFPT_API_KEY); (2) **upload da certidão permanente (PDF)** → o CEO AI extrai nome, NIPC, CAE, atividade, morada, objeto social, capital, data de constituição e sócios (POST /api/company/import-certidao; sem chave, usa IA). Os dados pré-preenchem o formulário para o utilizador rever e guardar.
+- ✅ Campo CAE visível/editável; aviso quando a extração não encontra dados.
+- ✅ Nota: código da certidão permanente não tem API pública gratuita — usámos NIF (NIF.PT) + PDF por IA.
+- ✅ Testado (iteration_13): backend 6/6 novos + 4/4 regressão, frontend 100%. NIF sem chave falha graciosamente (400 com mensagem clara). Zero bugs.
+
 ## Backlog atualizado
 - P2: Open banking real por região (UE/PT, BR).
 - P2 (opcional): usar figuras extraídas dos documentos para recalcular o valuation base (atualmente alimentam o rationale/rating, não o valor base do snapshot).

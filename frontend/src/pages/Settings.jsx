@@ -64,7 +64,9 @@ export default function Settings() {
   const importCertidao = async (e) => {
     const f = e.target.files?.[0]; if (!f) return;
     setImporting(true);
-    try { const fd = new FormData(); fd.append("file", f); const { data } = await api.post("/company/import-certidao", fd, { headers: { "Content-Type": "multipart/form-data" } }); applyImported(data); toast.success("Li a certidão. Revê os campos e guarda."); }
+    try { const fd = new FormData(); fd.append("file", f); const { data } = await api.post("/company/import-certidao", fd, { headers: { "Content-Type": "multipart/form-data" } }); applyImported(data);
+      if (data && (data.name || data.activity || data.cae || data.location || data.objeto_social)) toast.success("Li a certidão. Revê os campos e guarda.");
+      else toast.warning("Li o ficheiro mas não encontrei dados da empresa. Preenche manualmente."); }
     catch (er) { toast.error(er?.response?.data?.detail || "Não consegui ler a certidão."); }
     finally { setImporting(false); if (certRef.current) certRef.current.value = ""; }
   };
@@ -151,6 +153,8 @@ export default function Settings() {
             <Input data-testid="co-name" value={company.name || ""} onChange={(e) => upC({ name: e.target.value })} className="mt-1 bg-transparent" /></div>
           <div><Label className="text-xs text-muted-foreground">O que a empresa faz (área)</Label>
             <Input data-testid="co-sector" value={company.sector || ""} onChange={(e) => upC({ sector: e.target.value })} placeholder="Ex: restauração, construção, loja online" className="mt-1 bg-transparent" /></div>
+          <div><Label className="text-xs text-muted-foreground">CAE (código de atividade)</Label>
+            <Input data-testid="co-cae" value={prof.cae || ""} onChange={(e) => upProf({ cae: e.target.value })} placeholder="Ex: 70220" className="mt-1 bg-transparent" /></div>
           <div><Label className="text-xs text-muted-foreground">Onde fica</Label>
             <Input data-testid="co-location" value={prof.location || ""} onChange={(e) => upProf({ location: e.target.value })} placeholder="Ex: Lisboa, Portugal" className="mt-1 bg-transparent" /></div>
           <div><Label className="text-xs text-muted-foreground">Há quantos anos existe</Label>
