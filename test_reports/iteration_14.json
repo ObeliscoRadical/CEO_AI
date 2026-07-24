@@ -1,0 +1,27 @@
+{
+  "summary": "Tested new 'Sinais do CEO' feature end-to-end. Backend (/app/backend/tests/test_signals.py, 3/3 pass): (1) GET /api/signals returns 401 without cookie; (2) with owner login it returns the full shape (user_name, count, signals[type,text,detail], priority{text,why}, has_data=true) with 5 signals, all with valid types (critical/risk/attention/opportunity/positive) and all quantified (€ or %); (3) second call is cache-hit (<3s). Manual curl confirmed real numeric grounding: 'As despesas subiram 67% e a margem caiu de 35,7% para 6,2%', 'Se subires os preços 4%, acrescentas €1.200 de lucro anual', priority='Travar hoje a subida de custos e proteger a margem…'. Regression: test_ceo_daily.py structure untouched; other endpoints not affected. Frontend (Painel do CEO after owner login): data-testid='ceo-greeting' shows 'Boa noite, Diego' + 'Hoje tenho 5 alertas importantes.'; signals-section renders 5 signal-N rows each with icon + bold quantified text + detail; signal-priority block shows '🎯 PRIORIDADE MÁXIMA DE HOJE' + action + why. Vitals 0..4 and conclusion cards (conc-estado, conc-oportunidades, conc-problemas, conc-prioridades) still render below the signals. No console errors. All acceptance criteria met.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_signals.py",
+    "/app/test_reports/pytest/signals.xml",
+    "/app/test_reports/painel_signals.png"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ceo.py signals(): entries are queried only when cid is truthy; if a user has no active company, entries=[] silently and month-over-month facts vanish — a friendlier fallback signal (e.g. 'Adiciona movimentos para eu detectar tendências') could be surfaced instead of a possibly empty priority.",
+    "pct() returns None only when b<=0, but when current-month value is 0 and previous>0 it still emits a -100% figure — for very small denominators the % can be misleading (e.g. €10 → €100 = +900%). Consider suppressing pct() when |b| below a minimum floor.",
+    "runway_days uses monthly_net/30 (calendar days) but comments/UI talk about days — OK, just document. Also runway_days is only computed when monthly_net<0; when net==0 with a large cash cushion the alert 'nunca fica negativo' opportunity is not produced.",
+    "The AI 'signals' cache key is per-day only (cached_ai). If entries change mid-day (user adds a big expense), the signals won't refresh until tomorrow — consider invalidating the signals cache on POST /api/entries.",
+    "Frontend PainelCEO.jsx: setSig(null) initial + .catch(()=>{}) means a failed /signals silently hides the section. Consider a small error surface to help debugging, and skeleton state while sig is null.",
+    "signals-section is only rendered when sig?.signals?.length > 0 — but the greeting count text 'Hoje tenho N alertas importantes' relies on the same sig; if the endpoint fails, the greeting silently switches to the fallback copy without any signal telemetry."
+  ],
+  "updated_files": ["/app/backend/tests/test_signals.py"],
+  "success_rate": {"backend": "100% (3/3 new + prior suites unchanged)", "frontend": "100%"},
+  "test_credentials": "obeliscoradical@gmail.com / CeoAI2026! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None — used the seed data the main agent had already inserted.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Feature works end-to-end. Numbers in signals are grounded in real month-over-month deltas built server-side; AI only phrases them. If in future the AI stops returning quantified text, the /signals prompt in /app/backend/routers/ceo.py already forbids invented numbers — check the FACTS dict is not empty (needs entries + cid). Cache is per-day via cached_ai('signals', uid, cid, ...).",
+  "rca of the issue": "N/A — no bugs found."
+}

@@ -4,16 +4,27 @@ import { api } from "@/lib/api";
 import { CEOOrb } from "@/components/CEOOrb";
 import { DecisionCard } from "@/components/DecisionCard";
 import { motion } from "framer-motion";
-import { Loader2, HeartPulse, Coins, TrendingUp, Landmark, Waves, ArrowRight, Sparkles, AlertTriangle, Flag } from "lucide-react";
+import { Loader2, HeartPulse, Coins, TrendingUp, Landmark, Waves, ArrowRight, Sparkles, AlertTriangle, Flag, AlertOctagon, ShieldAlert, Lightbulb, Target } from "lucide-react";
 
 const STATUS = { green: "#10B981", amber: "#F59E0B", red: "#EF4444", gold: "#D4AF37" };
+const SIGNAL = {
+  critical: { Icon: AlertOctagon, color: "#EF4444" },
+  attention: { Icon: AlertTriangle, color: "#F59E0B" },
+  positive: { Icon: TrendingUp, color: "#10B981" },
+  risk: { Icon: ShieldAlert, color: "#F97316" },
+  opportunity: { Icon: Lightbulb, color: "#D4AF37" },
+};
 
 export default function PainelCEO() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
+  const [sig, setSig] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const load = () => api.get("/ceo-daily").then(({ data }) => setData(data)).finally(() => setLoading(false));
+  const load = () => Promise.all([
+    api.get("/ceo-daily").then(({ data }) => setData(data)).catch(() => {}),
+    api.get("/signals").then(({ data }) => setSig(data)).catch(() => {}),
+  ]).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
   const act = async (d, status) => {
@@ -31,6 +42,7 @@ export default function PainelCEO() {
   const c = data.conclusao || {};
   const health = v?.saude?.value ?? 0;
   const mood = health >= 75 ? "emerald" : health >= 45 ? "gold" : "amber";
+  const count = sig?.count || 0;
 
   const vitalCards = [
     { ...v.saude, Icon: HeartPulse, display: `${v.saude.value}`, suffix: "/100", onClick: () => navigate("/saude") },
@@ -50,9 +62,43 @@ export default function PainelCEO() {
             className="font-serif-lux text-4xl md:text-5xl leading-tight" data-testid="ceo-greeting">
             {greet}, {data.user_name?.split(" ")[0]}
           </motion.h1>
-          <p className="text-muted-foreground mt-2 text-lg">Hoje analisei toda a tua empresa. Aqui está o que importa.</p>
+          <p className="text-muted-foreground mt-2 text-lg">
+            {count > 0 ? `Hoje tenho ${count} ${count === 1 ? "alerta importante" : "alertas importantes"}.` : "Analisei toda a tua empresa. Aqui está o que importa."}
+          </p>
         </div>
       </div>
+
+      {/* Signals — sharp quantified alerts */}
+      {sig?.signals?.length > 0 && (
+        <div className="mb-16" data-testid="signals-section">
+          <div className="space-y-3">
+            {sig.signals.map((s, i) => {
+              const cfg = SIGNAL[s.type] || SIGNAL.attention;
+              return (
+                <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08 }}
+                  className="surface rounded-2xl p-5 flex items-start gap-4" data-testid={`signal-${i}`}>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${cfg.color}1a` }}>
+                    <cfg.Icon className="w-5 h-5" style={{ color: cfg.color }} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[15px] md:text-base font-medium leading-snug">{s.text}</p>
+                    {s.detail && <p className="text-sm text-muted-foreground mt-1">{s.detail}</p>}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {sig.priority?.text && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+              className="rounded-2xl p-6 mt-4 border border-[#D4AF37]/30" style={{ background: "rgba(212,175,55,0.06)" }} data-testid="signal-priority">
+              <div className="flex items-center gap-2 text-[#D4AF37] mb-2"><Target className="w-4 h-4" /><span className="text-xs uppercase tracking-[0.18em]">Prioridade máxima de hoje</span></div>
+              <p className="text-lg font-medium">{sig.priority.text}</p>
+              {sig.priority.why && <p className="text-sm text-muted-foreground mt-1">{sig.priority.why}</p>}
+            </motion.div>
+          )}
+        </div>
+      )}
 
       {/* Vitals */}
       <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground mb-5">Hoje a tua empresa está assim</p>

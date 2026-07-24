@@ -320,3 +320,78 @@ async def simulate(inp: SimInput, user: dict = Depends(get_current_user)):
     if not ai:
         raise HTTPException(status_code=500, detail="Não foi possível simular agora")
     return ai
+
+
+@router.get("/signals")
+async def signals(user: dict = Depends(get_current_user)):
+    uid = user["id"]
+    cid = await active_company_id(uid)
+    snap = await build_snapshot(uid)
+    company = await resolve_company(uid) or {}
+    prof = company.get("profile", {}) or {}
+    sym = snap["currency_symbol"]
+
+    # month-over-month from entries
+    entries = await db.entries.find({"user_id": uid, "company_id": cid}, {"type": 1, "amount": 1, "date": 1}).to_list(5000) if cid else []
+    now = datetime.now(timezone.utc)
+    this_k = now.strftime("%Y-%m")
+    prev = (now.replace(day=1) - timedelta(days=1))
+    prev_k = prev.strftime("%Y-%m")
+    def agg(k, t):
+        return sum(e["amount"] for e in entries if e["type"] == t and str(e.get("date", "")).startswith(k))
+    inc_t, exp_t = agg(this_k, "income"), agg(this_k, "expense")
+    inc_p, exp_p = agg(prev_k, "income"), agg(prev_k, "expense")
+    def pct(a, b):
+        return round((a - b) / b * 100) if b > 0 else None
+    exp_chg, inc_chg = pct(exp_t, exp_p), pct(inc_t, inc_p)
+    margin_t = round((inc_t - exp_t) / inc_t * 100, 1) if inc_t > 0 else None
+    margin_p = round((inc_p - exp_p) / inc_p * 100, 1) if inc_p > 0 else None
+
+    m_net = snap["monthly_net"]; cash = snap["cash_balance"]
+    runway_days = round(cash / (abs(m_net) / 30)) if m_net < 0 and cash > 0 else None
+    annual_income = snap["total_income"]
+    price_uplift_profit = round(annual_income * 0.04) if annual_income > 0 else None
+    big_pct = prof.get("biggest_client_pct")
+    client_loss = round(inc_t * (big_pct / 100)) if big_pct and inc_t > 0 else None
+    debt = prof.get("debt")
+
+    facts = {
+        "moeda": sym,
+        "saldo_atual": cash,
+        "resultado_mensal": m_net,
+        "runway_dias_ate_negativo": runway_days,
+        "despesas_variacao_pct_vs_mes_anterior": exp_chg,
+        "receitas_variacao_pct_vs_mes_anterior": inc_chg,
+        "margem_este_mes_pct": margin_t,
+        "margem_mes_anterior_pct": margin_p,
+        "lucro_extra_anual_se_subir_precos_4pct": price_uplift_profit,
+        "peso_maior_cliente_pct": big_pct,
+        "perda_mensal_se_perder_maior_cliente": client_loss,
+        "dividas": debt,
+        "dependencia_fundador": prof.get("founder_dependency"),
+        "dependencia_fornecedor": prof.get("supplier_dependency"),
+        "saude_0_100": snap["health"],
+    }
+    facts = {k: v for k, v in facts.items() if v not in (None, "")}
+
+    sysmsg = await build_system_prompt(uid, user.get("name", ""))
+    prompt = (
+        "Transforma estes FACTOS em ALERTAS de decisão, no estilo de um Diretor Executivo. "
+        "NÃO descrevas dashboards — cada alerta é uma frase curta, afiada e QUANTIFICADA (com € ou %), "
+        "que diz a consequência ou a decisão. Exemplos do tom: 'A tesouraria fica negativa em 43 dias.', "
+        "'As despesas subiram 18% face ao mês passado.', 'Se subires os preços 4%, o lucro anual sobe " + sym + "62.000.'. "
+        "Devolve APENAS JSON: {\"signals\":[{\"type\":\"critical\"|\"attention\"|\"positive\"|\"risk\"|\"opportunity\",\"text\":str,\"detail\":str}],"
+        "\"priority\":{\"text\":str,\"why\":str}}. "
+        "Regras: usa SÓ os números presentes nos FACTOS (ou aritmética simples a partir deles); NUNCA inventes números. "
+        "Se um facto não existir, omite esse alerta. Dá entre 3 e 6 sinais, variando os tipos (inclui pelo menos 1 positivo se os dados permitirem e 1 oportunidade). "
+        "'detail' = 1 frase a explicar. 'priority' = a ação nº1 de hoje, concreta. Português europeu. Sem texto fora do JSON.\n\n"
+        "FACTOS:\n" + json.dumps(facts, ensure_ascii=False)
+    )
+    data = await cached_ai("signals", uid, cid, sysmsg, prompt) or {"signals": [], "priority": {}}
+    return {
+        "user_name": user.get("name", ""),
+        "count": len(data.get("signals", [])),
+        "signals": data.get("signals", []),
+        "priority": data.get("priority", {}),
+        "has_data": snap["total_income"] > 0 or snap["total_expense"] > 0,
+    }
