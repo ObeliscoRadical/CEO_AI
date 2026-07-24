@@ -109,6 +109,12 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ Nota: código da certidão permanente não tem API pública gratuita — usámos NIF (NIF.PT) + PDF por IA.
 - ✅ Testado (iteration_13): backend 6/6 novos + 4/4 regressão, frontend 100%. NIF sem chave falha graciosamente (400 com mensagem clara). Zero bugs.
 
+## Implemented — Fase 13: Sinais do CEO (decisões, não dashboards) (2026-07-24)
+- ✅ **Sinais do CEO** no topo do Painel: "Bom dia/tarde/noite, {Nome}. Hoje tenho N alertas importantes." + 3-6 alertas afiados e QUANTIFICADOS com ícones por severidade (🔴 crítico, 🟡 atenção, 🟢 positivo, ⚠️ risco, 💡 oportunidade) e uma 🎯 "Prioridade máxima de hoje".
+- ✅ Números REAIS calculados no backend (GET /api/signals): variação de despesas/receitas mês-a-mês, tendência de margem, runway em dias, perda mensal se perder o maior cliente (concentração), lucro extra se subir preços 4%, dívidas. A IA só transforma os factos em frases de decisão (proibido inventar números). Cache diária + invalida ao mudar dados.
+- ✅ Exemplos gerados: "As despesas subiram 67% e a margem caiu de 35,7% para 6,2%", "Se subires os preços 4%, acrescentas €1.200 de lucro anual", "Se perderes o maior cliente, levas um rombo de €6.400/mês".
+- ✅ Testado (iteration_14): backend 3/3, frontend 100%. Zero bugs.
+
 ## Backlog atualizado
 - P2: Open banking real por região (UE/PT, BR).
 - P2 (opcional): usar figuras extraídas dos documentos para recalcular o valuation base (atualmente alimentam o rationale/rating, não o valor base do snapshot).
