@@ -1,92 +1,107 @@
 import { motion } from "framer-motion";
 import { useRef } from "react";
 
-// Innovative gold "voice" sphere with real flowing smoke (animated SVG turbulence displacement).
+// "Living Sun" — a solar plasma core radiating energy: rotating sun rays,
+// breathing corona, turbulent molten surface and flickering solar flares.
 export function VoiceSphere({ size = 170, className = "", ripple = false }) {
-  const id = useRef(`vs-${Math.random().toString(36).slice(2, 8)}`).current;
+  const id = useRef(`sun-${Math.random().toString(36).slice(2, 8)}`).current;
+  const core = size * 0.62;
+
+  const rays = (freq, dur, dir, opacity, blur) => (
+    <motion.div
+      className="absolute rounded-full"
+      style={{
+        width: size * 1.9, height: size * 1.9,
+        background: `repeating-conic-gradient(from 0deg, transparent 0deg, rgba(245,208,96,${opacity}) ${freq * 0.4}deg, transparent ${freq}deg, transparent ${freq * 2.4}deg)`,
+        WebkitMaskImage: "radial-gradient(circle, transparent 26%, #000 40%, transparent 74%)",
+        maskImage: "radial-gradient(circle, transparent 26%, #000 40%, transparent 74%)",
+        filter: `blur(${blur}px)`,
+        mixBlendMode: "screen",
+      }}
+      animate={{ rotate: dir * 360, opacity: [opacity > 0.2 ? 0.7 : 0.5, 1, 0.7] }}
+      transition={{ rotate: { duration: dur, repeat: Infinity, ease: "linear" }, opacity: { duration: 4, repeat: Infinity, ease: "easeInOut" } }}
+    />
+  );
+
+  const flare = (i, angle, len, w, delay) => (
+    <div key={i} className="absolute left-1/2 top-1/2" style={{ transform: `rotate(${angle}deg)` }}>
+      <motion.div
+        className="absolute"
+        style={{
+          width: w, height: len, borderRadius: "50%", left: -w / 2, top: core * 0.34,
+          background: "radial-gradient(circle at 50% 0%, rgba(255,240,190,0.95), rgba(240,180,70,0.5) 45%, transparent 75%)",
+          filter: `blur(${size * 0.02}px)`,
+        }}
+        animate={{ scaleY: [0.55, 1.25, 0.7, 1], opacity: [0.4, 0.95, 0.5, 0.8] }}
+        transition={{ duration: 2.6 + (i % 3), repeat: Infinity, ease: "easeInOut", delay }}
+      />
+    </div>
+  );
 
   return (
     <div className={`relative flex items-center justify-center ${className}`} style={{ width: size, height: size }} data-testid="voice-sphere">
-      {/* Siri-style activation ripples */}
-      {ripple && [0, 1, 2].map((i) => (
-        <motion.div
-          key={i}
-          className="absolute rounded-full border"
-          style={{ width: size, height: size, borderColor: "rgba(212,175,55,0.5)" }}
-          initial={{ scale: 0.85, opacity: 0.6 }}
-          animate={{ scale: 1.9, opacity: 0 }}
-          transition={{ duration: 3.6, repeat: Infinity, ease: "easeOut", delay: i * 1.2 }}
-        />
-      ))}
-      {/* ambient glow */}
+      {/* outer heat glow */}
       <motion.div
         className="absolute rounded-full"
-        style={{ inset: -size * 0.22, background: "radial-gradient(circle, rgba(212,175,55,0.4), transparent 68%)", filter: `blur(${size * 0.07}px)` }}
-        animate={{ opacity: [0.7, 1, 0.7], scale: [1, 1.06, 1] }}
-        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+        style={{ inset: -size * 0.35, background: "radial-gradient(circle, rgba(240,180,70,0.35), rgba(212,140,40,0.12) 45%, transparent 70%)", filter: `blur(${size * 0.1}px)` }}
+        animate={{ opacity: [0.6, 1, 0.6], scale: [1, 1.1, 1] }}
+        transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
       />
+
+      {/* rotating sun rays (two layers, opposite spin) */}
+      {rays(9, 55, 1, 0.28, 2)}
+      {rays(4, 38, -1, 0.16, 0.6)}
+
+      {/* solar flares / prominences around the rim */}
+      {[0, 40, 78, 130, 175, 210, 255, 300, 335].map((a, i) =>
+        flare(i, a, size * (0.16 + (i % 3) * 0.05), size * 0.06, i * 0.3)
+      )}
+
+      {/* pulsing energy wave emanating from the core */}
+      <motion.div
+        className="absolute rounded-full"
+        style={{ width: core, height: core, boxShadow: "0 0 40px 8px rgba(245,200,90,0.5)" }}
+        animate={{ scale: [1, 1.35, 1], opacity: [0.6, 0, 0.6] }}
+        transition={{ duration: 3.2, repeat: Infinity, ease: "easeOut" }}
+      />
+
+      {/* molten plasma core */}
       <motion.svg
-        width={size} height={size} viewBox="0 0 200 200"
-        className="absolute inset-0"
-        animate={{ rotate: [0, 6, -5, 0] }}
-        transition={{ duration: 26, repeat: Infinity, ease: "easeInOut" }}
-        style={{ filter: "drop-shadow(0 0 24px rgba(201,152,46,0.35))" }}
+        width={core} height={core} viewBox="0 0 200 200" className="absolute"
+        animate={{ rotate: [0, 10, -8, 0] }}
+        transition={{ duration: 24, repeat: Infinity, ease: "easeInOut" }}
+        style={{ filter: "drop-shadow(0 0 26px rgba(240,180,70,0.55))" }}
       >
         <defs>
-          <radialGradient id={`${id}-gold`} cx="50%" cy="28%" r="80%">
-            <stop offset="0%" stopColor="#FCEEC6" />
-            <stop offset="32%" stopColor="#EBC96A" />
-            <stop offset="70%" stopColor="#C79A32" />
-            <stop offset="100%" stopColor="#9A711F" />
+          <radialGradient id={`${id}-g`} cx="50%" cy="44%" r="60%">
+            <stop offset="0%" stopColor="#FFFDF2" />
+            <stop offset="24%" stopColor="#FFE7A0" />
+            <stop offset="55%" stopColor="#F1C24E" />
+            <stop offset="82%" stopColor="#DB9A2A" />
+            <stop offset="100%" stopColor="#B4761B" />
           </radialGradient>
-
-          {/* flowing smoke: animated fractal noise displaces the light gas layer */}
-          <filter id={`${id}-smoke`} x="-40%" y="-40%" width="180%" height="180%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.011 0.018" numOctaves="4" seed="8" result="noise">
-              <animate attributeName="baseFrequency" dur="22s" repeatCount="indefinite"
-                values="0.011 0.018; 0.02 0.012; 0.014 0.022; 0.011 0.018" />
+          <filter id={`${id}-plasma`} x="-30%" y="-30%" width="160%" height="160%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.018 0.026" numOctaves="4" seed="5" result="n">
+              <animate attributeName="baseFrequency" dur="14s" repeatCount="indefinite"
+                values="0.018 0.026; 0.03 0.016; 0.02 0.03; 0.018 0.026" />
             </feTurbulence>
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="34" xChannelSelector="R" yChannelSelector="G" result="disp" />
-            <feGaussianBlur in="disp" stdDeviation="3.2" />
+            <feDisplacementMap in="SourceGraphic" in2="n" scale="24" xChannelSelector="R" yChannelSelector="G" result="d" />
+            <feGaussianBlur in="d" stdDeviation="1.4" />
           </filter>
-
-          {/* second, slower smoke layer for depth */}
-          <filter id={`${id}-smoke2`} x="-40%" y="-40%" width="180%" height="180%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.016 0.01" numOctaves="3" seed="21" result="n2">
-              <animate attributeName="baseFrequency" dur="34s" repeatCount="indefinite"
-                values="0.016 0.01; 0.009 0.02; 0.016 0.01" />
-            </feTurbulence>
-            <feDisplacementMap in="SourceGraphic" in2="n2" scale="26" xChannelSelector="R" yChannelSelector="G" result="d2" />
-            <feGaussianBlur in="d2" stdDeviation="4" />
-          </filter>
-
-          <clipPath id={`${id}-clip`}><circle cx="100" cy="100" r="98" /></clipPath>
+          <clipPath id={`${id}-c`}><circle cx="100" cy="100" r="97" /></clipPath>
         </defs>
-
-        <g clipPath={`url(#${id}-clip)`}>
-          {/* base sphere */}
-          <circle cx="100" cy="100" r="98" fill={`url(#${id}-gold)`} />
-
-          {/* deep slow smoke */}
-          <g filter={`url(#${id}-smoke2)`} opacity="0.75">
-            <circle cx="70" cy="130" r="62" fill="#B4821E" />
-            <circle cx="140" cy="80" r="54" fill="#F0D68A" />
-            <circle cx="95" cy="60" r="46" fill="#8C6417" />
+        <g clipPath={`url(#${id}-c)`}>
+          <circle cx="100" cy="100" r="97" fill={`url(#${id}-g)`} />
+          {/* churning plasma spots */}
+          <g filter={`url(#${id}-plasma)`}>
+            <circle cx="70" cy="80" r="42" fill="#FFF4CE" opacity="0.9" />
+            <circle cx="132" cy="120" r="46" fill="#E7A93E" opacity="0.75" />
+            <circle cx="96" cy="140" r="34" fill="#B4761B" opacity="0.7" />
+            <circle cx="128" cy="66" r="30" fill="#FFFBEC" opacity="0.8" />
+            <circle cx="58" cy="120" r="26" fill="#D8952A" opacity="0.7" />
           </g>
-
-          {/* bright flowing smoke */}
-          <g filter={`url(#${id}-smoke)`}>
-            <circle cx="72" cy="66" r="52" fill="#FFF6D0" opacity="0.85" />
-            <circle cx="132" cy="120" r="58" fill="#E6BE58" opacity="0.7" />
-            <circle cx="92" cy="140" r="44" fill="#FFFFFF" opacity="0.55" />
-            <circle cx="140" cy="70" r="38" fill="#C99433" opacity="0.6" />
-            <circle cx="55" cy="105" r="34" fill="#FFEDB0" opacity="0.6" />
-          </g>
-
-          {/* inner shading for volume */}
-          <circle cx="100" cy="100" r="98" fill="none" stroke="rgba(120,80,10,0.45)" strokeWidth="14" opacity="0.5" />
-          {/* top sheen */}
-          <ellipse cx="82" cy="58" rx="46" ry="28" fill="#FFFFFF" opacity="0.4" style={{ filter: "blur(9px)" }} />
+          {/* bright fusion center */}
+          <circle cx="94" cy="86" r="30" fill="#FFFFFF" opacity="0.55" style={{ filter: "blur(8px)" }} />
         </g>
       </motion.svg>
     </div>
