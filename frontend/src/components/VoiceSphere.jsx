@@ -73,7 +73,7 @@ export function VoiceSphere({ size = 170, className = "", ripple = false }) {
             <circle cx="130" cy="64" r="32" fill="#FFFDEC" opacity="0.85" />
             <circle cx="56" cy="118" r="28" fill="#D8952A" opacity="0.7" />
           </g>
-          <motion.circle cx="92" cy="82" r="26" fill="#FFFFFF"
+          <motion.circle cx="92" cy="82" r="26" fill="#FFFFFF" initial={{ r: 22, opacity: 0.4 }}
             animate={{ opacity: [0.4, 0.7, 0.4], r: [22, 30, 22] }} transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
             style={{ filter: "blur(7px)" }} />
           <circle cx="100" cy="100" r="96" fill="none" stroke="rgba(110,70,10,0.5)" strokeWidth="12" opacity="0.55" />
