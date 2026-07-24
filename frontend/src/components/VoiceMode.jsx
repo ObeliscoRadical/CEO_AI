@@ -7,6 +7,12 @@ import { Mic, X, Loader2 } from "lucide-react";
 
 const STATUS_LABEL = { idle: "Toca para falar", listening: "A ouvir…", thinking: "A pensar…", speaking: "" };
 
+const b64ToBuf = (b64) => {
+  const bin = atob(b64); const len = bin.length; const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+};
+
 export function VoiceMode({ open, onClose, sessionId, onSession }) {
   const [status, setStatus] = useState("idle");
   const [amp, setAmp] = useState(0);
@@ -14,18 +20,28 @@ export function VoiceMode({ open, onClose, sessionId, onSession }) {
   const [replyText, setReplyText] = useState("");
   const mrRef = useRef(null); const chunksRef = useRef([]); const streamRef = useRef(null);
   const acRef = useRef(null); const analyserRef = useRef(null); const rafRef = useRef(null);
-  const audioRef = useRef(null); const sidRef = useRef(sessionId);
+  const srcNodeRef = useRef(null); const sidRef = useRef(sessionId);
 
   useEffect(() => { sidRef.current = sessionId; }, [sessionId]);
   useEffect(() => { if (!open) cleanup(); return cleanup; /* eslint-disable-next-line */ }, [open]);
+
+  const ensureContext = async () => {
+    if (!acRef.current) acRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    if (acRef.current.state === "suspended") { try { await acRef.current.resume(); } catch {} }
+    // unlock playback on mobile with a silent buffer (must run inside a user gesture)
+    try {
+      const b = acRef.current.createBuffer(1, 1, 22050);
+      const s = acRef.current.createBufferSource(); s.buffer = b; s.connect(acRef.current.destination); s.start(0);
+    } catch {}
+    return acRef.current;
+  };
 
   const cleanup = () => {
     cancelAnimationFrame(rafRef.current);
     try { mrRef.current?.state === "recording" && mrRef.current.stop(); } catch {}
     streamRef.current?.getTracks().forEach((t) => t.stop());
-    try { audioRef.current?.pause(); } catch {}
-    try { acRef.current?.close(); } catch {}
-    acRef.current = null; analyserRef.current = null;
+    try { srcNodeRef.current?.stop(); } catch {}
+    srcNodeRef.current = null; analyserRef.current = null;
     setAmp(0); setStatus("idle");
   };
 
@@ -46,12 +62,11 @@ export function VoiceMode({ open, onClose, sessionId, onSession }) {
   const startListening = async () => {
     setUserText(""); setReplyText("");
     try {
+      await ensureContext(); // unlock audio within the tap gesture
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
-      const ac = new (window.AudioContext || window.webkitAudioContext)();
-      acRef.current = ac;
-      const src = ac.createMediaStreamSource(stream);
-      const an = ac.createAnalyser(); an.fftSize = 512; src.connect(an);
+      const src = acRef.current.createMediaStreamSource(stream);
+      const an = acRef.current.createAnalyser(); an.fftSize = 512; src.connect(an);
       analyserRef.current = an; runAmpLoop();
       const mime = pickMime();
       const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
@@ -82,7 +97,7 @@ export function VoiceMode({ open, onClose, sessionId, onSession }) {
       const { data } = await api.post("/voice/chat", fd, { headers: { "Content-Type": "multipart/form-data" } });
       setUserText(data.user_text); setReplyText(data.reply_text);
       if (data.session_id) { sidRef.current = data.session_id; onSession?.(data.session_id); }
-      if (data.audio_base64) speak(data.audio_base64); else setStatus("idle");
+      if (data.audio_base64) await speak(data.audio_base64); else setStatus("idle");
     } catch (e) {
       setReplyText(e?.response?.data?.detail || "Não consegui perceber. Tenta outra vez.");
       setStatus("idle");
@@ -91,24 +106,27 @@ export function VoiceMode({ open, onClose, sessionId, onSession }) {
 
   const speak = async (b64) => {
     setStatus("speaking");
-    const audio = new Audio(`data:audio/mp3;base64,${b64}`);
-    audioRef.current = audio;
     try {
-      const ac = new (window.AudioContext || window.webkitAudioContext)();
-      acRef.current = ac;
-      const src = ac.createMediaElementSource(audio);
+      const ac = await ensureContext();
+      const audioBuffer = await ac.decodeAudioData(b64ToBuf(b64));
+      const src = ac.createBufferSource(); src.buffer = audioBuffer;
       const an = ac.createAnalyser(); an.fftSize = 512;
       src.connect(an); an.connect(ac.destination);
-      analyserRef.current = an; runAmpLoop();
-    } catch {}
-    audio.onended = () => { cancelAnimationFrame(rafRef.current); setAmp(0); setStatus("idle"); };
-    try { await audio.play(); } catch { setStatus("idle"); }
+      analyserRef.current = an; srcNodeRef.current = src; runAmpLoop();
+      src.onended = () => { cancelAnimationFrame(rafRef.current); setAmp(0); setStatus("idle"); };
+      src.start(0);
+    } catch (e) {
+      // playback failed — reply text is still shown
+      setStatus("idle");
+    }
   };
+
+  const stopSpeaking = () => { try { srcNodeRef.current?.stop(); } catch {} cancelAnimationFrame(rafRef.current); setAmp(0); setStatus("idle"); };
 
   const onMainButton = () => {
     if (status === "idle") startListening();
     else if (status === "listening") stopListening();
-    else if (status === "speaking") { try { audioRef.current?.pause(); } catch {} cancelAnimationFrame(rafRef.current); setAmp(0); setStatus("idle"); }
+    else if (status === "speaking") stopSpeaking();
   };
 
   if (!open) return null;
