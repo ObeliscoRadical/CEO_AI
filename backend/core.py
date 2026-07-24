@@ -281,6 +281,9 @@ async def build_system_prompt(user_id: str, user_name: str):
     snap = await build_snapshot(user_id)
     company = await resolve_company(user_id)
     prof = (company or {}).get("profile", {}) or {}
+    sector = (company or {}).get("sector") or prof.get("activity") or ""
+    cae = prof.get("cae")
+    sector_line = (f"Esta empresa opera no setor: {sector}" + (f" (CAE {cae})" if cae else "") + ".") if sector else "O setor da empresa ainda NÃO está indicado."
     prof_txt = "\n".join(f"{lbl}: {prof.get(k)}" for k, lbl in PROFILE_LABELS.items() if prof.get(k) not in (None, "", 0)) or "(o empresário ainda não preencheu o perfil da empresa)"
     mem_txt = "\n".join(f"- {m['content']}" for m in memories) or "- (ainda sem memórias registadas)"
     vitals_txt = "\n".join(f"- {v['label']}: {v['value']}{v['unit']} [{v['status']}]" for v in snap["vitals"])
@@ -296,6 +299,15 @@ async def build_system_prompt(user_id: str, user_name: str):
         f"3) RISCOS — o que pode correr mal.\n"
         f"4) ALTERNATIVAS — 1 ou 2 caminhos possíveis.\n"
         f"Foca-te no FUTURO e nas decisões, não no passado. Sê conciso, calmo e confiante. Fala português europeu.\n\n"
+        f"### ESPECIALIZAÇÃO NO SETOR (OBRIGATÓRIO — nunca generalizes)\n"
+        f"{sector_line}\n"
+        f"Age como um CEO que conhece PROFUNDAMENTE este setor específico. Todos os conselhos, "
+        f"referências (margens típicas, ticket médio, custos-chave, sazonalidade), riscos, KPIs e boas práticas "
+        f"DEVEM ser próprios deste setor — usa o vocabulário e a realidade de quem gere este tipo de negócio "
+        f"(ex.: uma construtora fala de obras, adjudicações, mão-de-obra e materiais; um restaurante fala de "
+        f"food cost, rotação de mesas, ementa e turnos). Compara sempre com as referências típicas DESTE setor e "
+        f"evita conselhos genéricos que serviriam para qualquer empresa. Se o setor não estiver indicado, "
+        f"recomenda ao empresário preenchê-lo na área Empresa.\n\n"
         f"### PERFIL (CEO DNA)\n"
         f"Sonho: {dna.get('dream', 'n/d')}\nFaturação desejada: {dna.get('target_revenue', 'n/d')}\n"
         f"Horas de trabalho: {dna.get('work_hours', 'n/d')}\nPlano de saída: {dna.get('exit_plan', 'n/d')}\n"

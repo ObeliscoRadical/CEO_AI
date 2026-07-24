@@ -1,0 +1,32 @@
+{
+  "summary": "Backend testing of sector-specialization for CEO AI outputs. Verified that build_system_prompt injects sector-specific vocabulary and that /api/report, /api/signals adapt per company sector, that /api/ceo-daily still returns valid JSON, and that saving the company invalidates the AI cache so subsequent responses regenerate. 5/5 tests pass.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_sector_specialization.py",
+    "/app/test_reports/pytest/sector_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "core.py build_system_prompt correctly derives sector from company.sector OR profile.activity fallback, and includes CAE if present — good defensive design.",
+    "companies.POST /company calls invalidate_ai_cache after save — verified: switching sector produces a fresh regeneration on subsequent /report and /signals calls.",
+    "Owner company 'Obelisco' is being mutated by these tests (sector left as 'restaurante / restauração' at end). Not restored — main agent may want to reset it if the owner account is used by others."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_sector_specialization.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "not tested (backend-only per request)"},
+  "test_credentials": "obeliscoradical@gmail.com / CeoAI2026! (from review_request)",
+  "seed_data_creation": "None. Test mutates the owner's company sector between 'restaurante / restauração' and 'construção civil'. Final state: restaurante.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Test file /app/backend/tests/test_sector_specialization.py logs into obeliscoradical@gmail.com, toggles sector, and greps whole-word restaurant/construction terms in /api/report + /api/signals JSON (fully flattened). Distinctive construction terms used: empreitada, adjudica*, estaleiro, subempreiteir*, alvará, dono de obra (avoids false positives from generic 'obra'/'mão de obra'/'materiais'/'orçamento' which any business report uses). Restaurant terms: food cost, ementa (word-bounded to avoid 'incrementa'), mesas, rotação de mesas, turnos, cozinha, restaurant*. AI cold calls take 30-90s; total suite runs ~2min. Endpoints exercised: /api/auth/login, /api/auth/me, /api/company (GET/POST), /api/report, /api/signals, /api/ceo-daily.",
+  "rca of the issue": "No bugs found. Initial test iterations had false positives from over-broad term lists (e.g. 'obras', 'mão de obra', 'materiais', 'rotação', 'ticket médio' are common cross-sector Portuguese business vocabulary). Tightened to sector-exclusive terms and all 5 tests passed."
+}
