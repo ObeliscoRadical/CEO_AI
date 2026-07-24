@@ -2,11 +2,22 @@ import { motion } from "framer-motion";
 import { useRef } from "react";
 
 // Innovative gold "voice" sphere with real flowing smoke (animated SVG turbulence displacement).
-export function VoiceSphere({ size = 170, className = "" }) {
+export function VoiceSphere({ size = 170, className = "", ripple = false }) {
   const id = useRef(`vs-${Math.random().toString(36).slice(2, 8)}`).current;
 
   return (
-    <div className={`relative ${className}`} style={{ width: size, height: size }} data-testid="voice-sphere">
+    <div className={`relative flex items-center justify-center ${className}`} style={{ width: size, height: size }} data-testid="voice-sphere">
+      {/* Siri-style activation ripples */}
+      {ripple && [0, 1, 2].map((i) => (
+        <motion.div
+          key={i}
+          className="absolute rounded-full border"
+          style={{ width: size, height: size, borderColor: "rgba(212,175,55,0.5)" }}
+          initial={{ scale: 0.85, opacity: 0.6 }}
+          animate={{ scale: 1.9, opacity: 0 }}
+          transition={{ duration: 3.6, repeat: Infinity, ease: "easeOut", delay: i * 1.2 }}
+        />
+      ))}
       {/* ambient glow */}
       <motion.div
         className="absolute rounded-full"

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { api, formatApiError } from "@/lib/api";
-import { CEOOrb } from "@/components/CEOOrb";
+import { VoiceSphere } from "@/components/VoiceSphere";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,7 +71,7 @@ export default function Login() {
       {/* Left: brand */}
       <div className="hidden lg:flex flex-col justify-center items-center p-16 relative overflow-hidden border-r border-border">
         <div className="absolute inset-0 opacity-[0.12]" style={{ background: "url('https://images.unsplash.com/photo-1747673002516-f11a48cb0ce2?crop=entropy&cs=srgb&fm=jpg&q=85') center/cover" }} />
-        <CEOOrb size={200} mood="gold" />
+        <VoiceSphere size={220} ripple />
         <h1 className="font-serif-lux text-5xl mt-12 text-center leading-tight tracking-tight">
           O CEO que trabalha<br />24 horas pela sua empresa
         </h1>
@@ -83,7 +83,7 @@ export default function Login() {
       {/* Right: form */}
       <div className="flex items-center justify-center p-8">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm">
-          <div className="lg:hidden flex justify-center mb-8"><CEOOrb size={110} /></div>
+          <div className="lg:hidden flex justify-center mb-8"><VoiceSphere size={120} ripple /></div>
           <h2 className="font-serif-lux text-4xl mb-2">{mode === "login" ? "Bem-vindo de volta" : "Comece agora"}</h2>
           <p className="text-muted-foreground text-sm mb-8">
             {mode === "login" ? "Entre para falar com o seu CEO AI." : "Crie a sua conta e conheça o seu Diretor Executivo Digital."}
