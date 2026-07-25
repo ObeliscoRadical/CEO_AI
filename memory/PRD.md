@@ -136,6 +136,14 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ **Gating plano grátis ("só demonstração")**: Painel visível mas Prioridade + Recomendações bloqueadas (LockedBlock); Saúde/Valor/Futuro/Relatórios/Chat/Conselhos bloqueados (nav com cadeado → /planos; UpgradeWall no acesso direto). Backend devolve 402 nos endpoints premium; admin tem bypass.
 - ✅ Testado: iteration_17 (backend 13/14 → corrigido /decisions; frontend 100% dos fluxos) + e2e_founder.py (alocação atómica, concorrência, cap 15, idempotência, trial-não-ocupa, ativo-ocupa, cancel mantém número/perde preço) — TODOS a passar.
 
+## Implemented — Fase 17: Redesign visual "Executive Cybernetic" (2026-07-25)
+- ✅ Novo tema dark near-black (#05050A) com acento AZUL (#3B82F6) + esmeralda, glow radial azul de fundo (index.css: CSS vars, `.surface` glass 24px blur, `.watermark`, fontes Outfit display + Inter body).
+- ✅ Swap global de dourado→azul em todo o `src` (pages/components/App.js).
+- ✅ **Sidebar icon-rail** (w-20, só ícones + tooltips, logo cubo azul) a substituir a sidebar larga; testids desktop preservados (nav-*, company-selector, restart-tour-btn, nav-subscricao, logout-btn, nav-admin) e drawer mobile com sufixo `-m`.
+- ✅ **Watermark gigante** (nome da empresa) atrás dos títulos no Painel, Futuro e Relatórios; subtítulo de data no Painel; gráficos recharts a azul.
+- ✅ VoiceSphere e CEOOrb recoloridos para azul.
+- ✅ Testado: iteration_18 (frontend 100%, navegação icon-rail + gating grátis + drawer mobile, sem erros de runtime).
+
 ## Backlog atualizado
 - P1: Confirmar entrega dos emails admin/briefing (chave Emergent Email devolveu 401).
 - P2: Open banking real por região (UE/PT, BR).
