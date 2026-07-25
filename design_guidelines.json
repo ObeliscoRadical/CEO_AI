@@ -1,134 +1,144 @@
 {
-  "theme_strategy": {
-    "concept": "Digital Executive / Living Company",
-    "vibe": "Luxury, Private Banking, Living Organism, Trust",
-    "theme": "Dark-first (Obsidian) with Light mode toggle",
-    "core_metaphor": "The UI is not software; it is a breathing, intelligent executive suite that talks to you."
+  "theme": "dark",
+  "concept": "Executive Cybernetic Clarity",
+  "colors": {
+    "background": "#05050A",
+    "background_radial_glow": "radial-gradient(circle at 50% 0%, rgba(59,130,246,0.12), transparent 60%)",
+    "surface": "rgba(255, 255, 255, 0.02)",
+    "surface_hover": "rgba(255, 255, 255, 0.04)",
+    "primary": "#3B82F6",
+    "primary_glow": "rgba(59, 130, 246, 0.4)",
+    "success": "#10B981",
+    "warning": "#F59E0B",
+    "danger": "#EF4444",
+    "text_main": "#FFFFFF",
+    "text_muted": "#94A3B8",
+    "border_subtle": "rgba(255, 255, 255, 0.08)",
+    "border_highlight": "rgba(255, 255, 255, 0.15)"
   },
   "typography": {
-    "headings": {
-      "family": "Cormorant Garamond",
-      "fallback": "Playfair Display, serif",
-      "usage": "Used for main greetings (e.g., Daily Briefing), large metrics, and section titles. Evokes a 'private banking' and luxury feel.",
-      "weights": "Light (300) to Medium (500). Avoid ultra-bold for elegance.",
-      "tracking": "tracking-tight for large headings"
-    },
-    "body": {
-      "family": "Satoshi",
-      "fallback": "Manrope, sans-serif",
-      "usage": "Used for all dashboard data, conversational chat bubbles, labels, and small UI text.",
-      "weights": "Regular (400), Medium (500)",
-      "tracking": "Normal. Overlines should be tracking-[0.2em] uppercase."
-    },
-    "hierarchy_rules": "Maximum heading size is text-5xl or text-6xl for the Daily Briefing entry. Use fluid scales. Never jump more than 2 tailwind steps between heading and subtitle."
+    "font_family_primary": "Inter, sans-serif",
+    "font_family_display": "Outfit, sans-serif",
+    "watermark_heading": "absolute -top-12 -left-8 text-[8rem] md:text-[14rem] font-black uppercase text-white/[0.015] tracking-tighter select-none z-0 pointer-events-none whitespace-nowrap overflow-hidden",
+    "page_title": "text-4xl sm:text-5xl font-bold tracking-tight text-white relative z-10",
+    "page_subtitle": "text-sm font-medium text-slate-400 uppercase tracking-widest relative z-10 mt-2",
+    "card_title": "text-sm font-medium text-slate-400 uppercase tracking-wider mb-2",
+    "metric_value": "text-3xl font-bold text-white tracking-tight"
   },
-  "colors": {
-    "archetype": "LUXURY (Premium, Depth, Mystery)",
-    "base_dark": {
-      "background": "#0B0C10",
-      "surface": "#1F2833",
-      "border": "rgba(255, 255, 255, 0.1)"
+  "components": {
+    "sidebar": {
+      "layout": "w-20 h-screen fixed left-0 top-0 flex flex-col items-center py-6 border-r border-white/[0.08] bg-[#05050A]/90 backdrop-blur-xl z-50",
+      "logo_area": "flex flex-col items-center gap-2 mb-12",
+      "logo_icon": "w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 shadow-[0_0_20px_rgba(59,130,246,0.3)] flex items-center justify-center text-white",
+      "logo_text": "text-[10px] font-bold tracking-widest text-white/80 uppercase",
+      "nav_item": "w-12 h-12 rounded-xl flex items-center justify-center text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all duration-300 mb-2 relative group",
+      "nav_item_active": "text-blue-500 bg-blue-500/10 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1 before:bg-blue-500 before:rounded-r-full"
     },
-    "base_light": {
-      "background": "#F9F9F9",
-      "surface": "#FFFFFF",
-      "border": "rgba(0, 0, 0, 0.08)"
+    "glass_card": {
+      "base": "bg-white/[0.02] backdrop-blur-2xl border border-white/[0.08] rounded-2xl shadow-xl overflow-hidden relative",
+      "hover": "hover:bg-white/[0.04] hover:border-white/[0.15] transition-all duration-300",
+      "positive_pill": "px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium flex items-center gap-1 shrink-0"
     },
-    "accents": {
-      "gold": "#D4AF37",
-      "emerald": "#10B981",
-      "ruby": "#EF4444",
-      "amber": "#F59E0B"
+    "alerts_card": {
+      "base": "p-5 bg-white/[0.02] border border-white/[0.05] rounded-xl flex items-start gap-4 hover:bg-white/[0.04] transition-colors",
+      "status_dot_emerald": "w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] mt-1.5 shrink-0",
+      "status_dot_amber": "w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)] mt-1.5 shrink-0",
+      "status_dot_red": "w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] mt-1.5 shrink-0"
     },
-    "text": {
-      "dark_theme": {
-        "primary": "#EDEDED",
-        "secondary": "#A1A1AA",
-        "disabled": "#52525B"
+    "chat_screen": {
+      "ceo_reply": "bg-white/[0.03] border-l-2 border-blue-500 p-5 rounded-2xl rounded-tl-none shadow-lg max-w-[85%] text-slate-300 text-sm leading-relaxed",
+      "user_reply": "bg-blue-600 text-white p-5 rounded-2xl rounded-tr-none shadow-lg max-w-[85%] text-sm leading-relaxed self-end flex-shrink-0"
+    },
+    "reports_screen": {
+      "card_blue": "bg-white/[0.02] border border-white/[0.08] border-t-2 border-t-blue-500 rounded-xl p-6",
+      "card_emerald": "bg-white/[0.02] border border-white/[0.08] border-t-2 border-t-emerald-500 rounded-xl p-6",
+      "card_neutral": "bg-white/[0.02] border border-white/[0.08] border-t-2 border-t-slate-500 rounded-xl p-6",
+      "button_download": "mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] text-white text-sm font-medium transition-colors border border-white/[0.05]"
+    },
+    "charts": {
+      "area_gradient": {
+        "id": "colorBlue",
+        "start_color": "#3B82F6",
+        "start_opacity": 0.25,
+        "end_color": "#3B82F6",
+        "end_opacity": 0
       },
-      "light_theme": {
-        "primary": "#18181B",
-        "secondary": "#71717A",
-        "disabled": "#A1A1AA"
-      }
-    },
-    "rules": "Never use pure #000000. Tint neutrals with blue/charcoal. Use Emerald/Ruby/Amber strictly for Vital Signs (Green/Yellow/Red statuses) and Health Scores. Use Gold for gamification, company value, and premium 'CEO DNA' moments."
-  },
-  "visual_enhancers": {
-    "glassmorphism": {
-      "name": "Crystal Glass",
-      "usage": "Use for the Daily Briefing chat overlay, sticky headers, and specific high-value widget cards.",
-      "classes_dark": "bg-black/40 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]",
-      "classes_light": "bg-white/60 backdrop-blur-2xl border border-black/5 shadow-sm"
-    },
-    "ambient_glow": {
-      "usage": "Cinematic depth behind the 'Living Orb' and key Health metrics.",
-      "classes": "shadow-[0_0_40px_rgba(212,175,55,0.15)] (adjust color based on context)"
-    },
-    "surfaces": "Dashboard vital cards should NOT be fully glass to ensure data readability. Use flat surfaces (e.g., bg-[#121318] in dark mode) with a subtle 1px border. No muddy gray transparency."
-  },
-  "component_usage": {
-    "shadcn": ["Card", "Progress", "Badge", "HoverCard", "Tabs", "Select", "Dialog", "Input", "Button"],
-    "modifications": {
-      "Card": "Remove default borders if using grids. Apply custom border-white/5 for dark mode. Do not overuse Cards; allow bento grid structures to act as boundaries.",
-      "Progress": "Use circular SVGs or Recharts for the 'Health Score Ring' and 'Goal Ring'. Shadcn default progress is linear.",
-      "Button": "Pill-shaped (rounded-full). Hover state must slightly lift (-translate-y-0.5) and increase glow."
+      "lines": {
+        "primary": "#3B82F6",
+        "success": "#10B981"
+      },
+      "grid": {
+        "stroke": "rgba(255,255,255,0.05)",
+        "strokeDasharray": "3 3"
+      },
+      "tooltip": "bg-[#05050A]/90 backdrop-blur-md border border-white/[0.1] rounded-lg shadow-xl p-3 text-white"
     }
   },
-  "grids_and_layouts": {
-    "dashboard_mode": "High Density Grid (Bento style). Base grid: grid-cols-1 md:grid-cols-3 lg:grid-cols-4. Gap: gap-6. Mix 1x1, 2x1, and 2x2 spans. Ensure full height stretch on cards.",
-    "conversational_mode": "Full-height focus layout. The CEO Orb sits centrally or top-center. Chat bubbles flow elegantly from bottom-up or within a central column (max-w-3xl).",
-    "spacing": "Generous. Use p-6 or p-8 inside metric cards to prevent data collision. Use massive padding (py-24) for the CEO DNA onboarding."
+  "layouts": {
+    "main_container": "pl-20 min-h-screen bg-[#05050A] relative overflow-hidden",
+    "content_wrapper": "max-w-7xl mx-auto p-8 pt-12 relative z-10",
+    "bento_grid": "grid grid-cols-1 lg:grid-cols-12 gap-6",
+    "bento_main": "lg:col-span-8 space-y-6",
+    "bento_side": "lg:col-span-4 space-y-6"
   },
-  "motion_and_interactions": {
-    "living_orb": "The CEO presence must be animated. A CSS/Framer Motion glowing sphere that 'breathes' (scales 1 to 1.05 over 4 seconds, ease-in-out, infinite). It changes color based on mood or company health (Gold = default, Emerald = excellent, Amber = caution).",
-    "transitions": "Use Framer Motion for page routes and staggered entry of dashboard cards. Do NOT use 'transition-all'. Target specific properties.",
-    "hover_states": "All interactive elements must lighten on hover and clearly indicate interactivity. Use micro-animations."
+  "motion": {
+    "hover_lift": "hover:-translate-y-1 transition-transform duration-300",
+    "stagger_children": "transition-all duration-500 ease-out",
+    "page_enter": "animate-in fade-in slide-in-from-bottom-4 duration-700"
   },
-  "3d_and_creative_libraries": {
-    "framer_motion": "Mandatory for the CEO Orb breathing animation, chat message staggering, and bento card reveals.",
-    "recharts": "Mandatory for the 8-Dimension CEO Score (Radar Chart), Future Engine (Line/Area charts with gradient fills), and Vital Signs mini-sparklines."
-  },
-  "accessibility": {
-    "contrast": "Ensure text over glassmorphism passes WCAG AA. Use off-white text, not dark gray on black.",
-    "data_testid": "ALL interactive elements, form inputs, buttons, and key metrics (health score, company value) MUST have a data-testid attribute in kebab-case."
-  },
-  "media_and_assets": {
-    "icons": "Use 'lucide-react' (default) or 'phosphor-icons' for thin, elegant strokes fitting the luxury vibe.",
-    "image_urls": {
-      "abstract_obsidian_gold": {
-        "url": "https://images.unsplash.com/photo-1747673002516-f11a48cb0ce2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwzfHxhYnN0cmFjdCUyMG9ic2lkaWFuJTIwZ29sZCUyMHRleHR1cmV8ZW58MHx8fHwxNzg0NzYxODk3fDA&ixlib=rb-4.1.0&q=85",
-        "description": "Fluid obsidian and gold texture. Use as a subtle, very low opacity (10-20%) background overlay for the 'CEO DNA Onboarding' or entry screen."
-      },
-      "executive_portrait_1": {
-        "url": "https://images.pexels.com/photos/28446973/pexels-photo-28446973.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-        "description": "Professional confident businessman in a grey suit. Use for 'Conservative' or 'Investor' CEO personality avatars."
-      },
-      "executive_portrait_2": {
-        "url": "https://images.unsplash.com/photo-1770452603217-89b4f03e8271?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjV8MHwxfHNlYXJjaHw0fHxleGVjdXRpdmUlMjBwb3J0cmFpdCUyMGRhcmslMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc4NDc2MTg5N3ww&ixlib=rb-4.1.0&q=85",
-        "description": "Smiling man in black suit. Use for 'Growth' or 'Familiar' CEO personality avatars."
-      }
-    }
+  "css_variables_update": {
+    "instructions": "Update index.css / globals.css with the following tailwind-compatible CSS variables for the dark high-tech theme",
+    "variables": {
+      "--background": "240 33% 3%",
+      "--foreground": "0 0% 100%",
+      "--card": "240 33% 4%",
+      "--card-foreground": "0 0% 100%",
+      "--popover": "240 33% 4%",
+      "--popover-foreground": "0 0% 100%",
+      "--primary": "217.2 91.2% 59.8%",
+      "--primary-foreground": "0 0% 100%",
+      "--secondary": "240 4% 16%",
+      "--secondary-foreground": "0 0% 100%",
+      "--muted": "240 4% 16%",
+      "--muted-foreground": "240 5% 64.9%",
+      "--accent": "240 4% 16%",
+      "--accent-foreground": "0 0% 100%",
+      "--destructive": "0 84.2% 60.2%",
+      "--destructive-foreground": "0 0% 100%",
+      "--border": "0 0% 100% / 0.08",
+      "--input": "0 0% 100% / 0.08",
+      "--ring": "217.2 91.2% 59.8%",
+      "--radius": "1rem"
+    },
+    "surface_utility_update": ".surface { @apply bg-white/[0.02] backdrop-blur-2xl border border-white/[0.08] shadow-xl rounded-2xl; }"
   },
   "instructions_to_main_agent": [
-    "Build the dashboard using React, Tailwind CSS, and Shadcn UI.",
-    "Start by implementing the 'Daily Intelligent Briefing' as a conversational overlay, featuring the breathing animated Orb (Framer Motion).",
-    "Create the 'Living Company Dashboard' bento grid with specific RAG (Red/Amber/Green) colored vital signs. Use circular progress for Health (0-100).",
-    "Integrate Recharts for the CEO Score Gamification (Radar chart) and Future Engine (Forecast line chart).",
-    "Ensure 'Cormorant Garamond' is applied to large UI headings to maintain the private banking aesthetic.",
-    "Do NOT use pure black backgrounds or pure white text. Use #0B0C10 for base and #EDEDED for primary text.",
-    "Apply data-testid to every interactive and data-bearing element."
+    "Do not break any existing testids or routes. Maintain all existing Portuguese text.",
+    "Replace the current gold color scheme globally with the new blue/emerald high-tech palette.",
+    "Update the app layout to use a left icon-rail sidebar (w-20, icons only, small 3D cube logo) instead of a top nav or wide sidebar.",
+    "Add a radial blue glow behind the main content area in the global layout.",
+    "Implement the HUGE ghosted/translucent watermark heading behind page titles using the 'watermark_heading' class specifications.",
+    "Update Recharts components: use the defined `<defs>` gradients and line colors (Blue and Emerald). Add confidence shaded bands to forecast charts.",
+    "Redesign the Alert cards on the right to use simple left-aligned colored dots (emerald/amber/red) instead of heavy backgrounds, maintaining glassy surface logic.",
+    "For the Chat UI, apply the specific `border-l-2 border-blue-500` accent for the CEO reply and solid `bg-blue-600` for the user reply.",
+    "For the Reports screen, use the 'reports_screen' card definitions with the top accent border lines (blue/emerald/slate).",
+    "Update the global `.surface` utility to match the glassy `bg-white/[0.02] border-white/[0.08]` spec and ensure all cards use it.",
+    "Ensure all interactive elements have hover states (e.g. bg-white/[0.04]) and subtle transitions.",
+    "Make sure background is extremely dark, near-black (#05050A)."
   ],
-  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
     "You tend to converge toward generic, 'on distribution' outputs. Avoid this: make creative, distinctive frontends that surprise and delight.",
     "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
-    "Create depth through layered design elements with z-index hierarchy and glassmorphism effects (12-24px blur).",
-    "You MUST NOT apply universal transition (e.g., transition: all). Always add transitions for specific interactive elements.",
-    "You MUST NOT center align the app container in App.css.",
-    "Every interaction needs micro-animations - hover states, transitions, parallax effects. Static = dead.",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur).",
+    "You MUST NOT apply universal transition. Eg: transition: all. Always add transitions for specific interactive elements like button, input excluding transforms.",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; } in the css file.",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style.",
+    "NEVER use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
     "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
-    "NEVER use placeholder text or placeholder image URLs for assets. Always use the provided image URLs.",
-    "Prioritize using pre-existing Shadcn components from src/components/ui.",
-    "Use sonner for toast notifications."
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "All interactive and key informational elements MUST include a data-testid attribute to facilitate robust automated testing."
   ]
 }
