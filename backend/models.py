@@ -49,6 +49,7 @@ class SettingsInput(BaseModel):
     model: Optional[str] = None
     monitored_widgets: Optional[List[str]] = None
     email_briefing: Optional[bool] = None
+    tour_completed: Optional[bool] = None
 
 class ChatInput(BaseModel):
     session_id: Optional[str] = None

@@ -1,0 +1,24 @@
+{
+  "summary": "Frontend-only test of CEO AI intelligent onboarding tour (CEOTour). All 8 test cases passed at desktop 1920x900. Login, manual tour trigger, all 7 steps in order, sector personalization (restauração), final CTA navigation to /financas, PUT /api/settings persistence, no auto-open after completion, X skip, and inline 'Saltar' skip all work as specified.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "CEOTour.jsx: checkedRef.current is set true BEFORE the GET /api/settings resolves; if the request fails or network is slow the ref still blocks any retry. Acceptable but note.",
+    "finishTour ignores PUT /api/settings failure silently (.catch(() => {})). Consider surfacing a toast if persistence fails so the tour doesn't loop next login.",
+    "Auto-start path checks tour_completed on every render where user/pathname change; because checkedRef is a component-instance ref, it resets on unmount. If user navigates away and returns to '/', the check re-runs (fine because backend returns tour_completed=true). No bug, just note."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "obeliscoradical@gmail.com / CeoAI2026! (admin, sector Obelisco = restauração)",
+  "seed_data_creation": "None. Test toggled tour_completed via the UI itself (finishTour, skip variants each fired PUT /api/settings).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Verified: (1) manual restart-tour-btn opens overlay; (2) welcome step greets 'Olá, Diego'; (3) full sequence welcome→painel→prioridade→saude→chat→relatorio→final via tour-next-btn; (4) sector copy for restauração matched ('food cost', 'ocupação de mesas', 'turnos', 'restaurantes', 'ementa'); (5) final CTA navigates to /financas AND closes overlay AND fires PUT /api/settings tour_completed:true; (6) after reload of '/', overlay does NOT auto-open; (7) tour-skip-btn (X) closes overlay without navigation and fires PUT; (8) tour-skip-inline on intermediate steps closes overlay and fires PUT. Total 3 PUT /api/settings observed across skip/finish variants. Auto-open on first login also fired (before we dismissed it) — confirmed the auto-start path works when tour_completed=false.",
+  "rca_of_the_issue": "N/A — no issues found."
+}

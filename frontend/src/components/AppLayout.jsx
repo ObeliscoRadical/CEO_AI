@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useAppData } from "@/context/AppDataContext";
-import { Home, Lightbulb, HeartPulse, Coins, MessageSquare, Wallet, TrendingUp, FileText, Settings as SettingsIcon, LogOut, Sun, Moon, Building2, Plus, Crown, ChevronsUpDown, Check, Menu } from "lucide-react";
+import { Home, Lightbulb, HeartPulse, Coins, MessageSquare, Wallet, TrendingUp, FileText, Settings as SettingsIcon, LogOut, Sun, Moon, Building2, Plus, Crown, ChevronsUpDown, Check, Menu, Compass } from "lucide-react";
 import { motion } from "framer-motion";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CEOTour } from "@/components/CEOTour";
 import { toast } from "sonner";
 
 const NAV = [
@@ -110,6 +111,10 @@ export function AppLayout() {
       </nav>
 
       <div className="mt-6 pt-6 border-t border-border">
+        <button data-testid="restart-tour-btn" onClick={() => { onNavigate(); window.dispatchEvent(new Event("start-ceo-tour")); }}
+          className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-xs mb-3 text-muted-foreground hover:bg-accent transition-colors">
+          <Compass className="w-4 h-4" /> <span className="flex-1 text-left">Tour guiado do CEO</span>
+        </button>
         <NavLink to="/subscricao" data-testid="nav-subscricao" onClick={onNavigate} className={({ isActive }) => `flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs mb-4 transition-colors ${isActive ? "bg-[#D4AF37]/12 text-[#D4AF37]" : "text-muted-foreground hover:bg-accent"}`}>
           <Crown className={`w-4 h-4 ${isPremium ? "text-[#D4AF37]" : ""}`} />
           <span className="flex-1">{isPremium ? "Subscrição Premium" : "Plano Grátis"}</span>
@@ -190,6 +195,7 @@ export function AppLayout() {
           <Outlet />
         </motion.div>
       </main>
+      <CEOTour />
     </div>
   );
 }

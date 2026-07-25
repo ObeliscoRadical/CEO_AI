@@ -26,7 +26,7 @@ async def del_memory(mem_id: str, user: dict = Depends(get_current_user)):
     return {"ok": True}
 
 DEFAULT_SETTINGS = {"ceo_mode": "crescimento", "theme": "dark", "briefing_count": 4,
-                    "briefing_tone": "direto", "model": "claude", "email_briefing": False,
+                    "briefing_tone": "direto", "model": "claude", "email_briefing": False, "tour_completed": False,
                     "monitored_widgets": ["cashflow", "profit", "clients", "tax", "employees", "bank", "risk"]}
 
 @router.get("/settings")
