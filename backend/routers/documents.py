@@ -16,8 +16,8 @@ def to_grade(score: float) -> str:
 
 @router.get("/investment-grade")
 async def investment_grade(user: dict = Depends(get_current_user)):
-    if not await is_premium(user["id"]):
-        raise HTTPException(status_code=403, detail="premium_required")
+    if not await can_access_premium(user):
+        raise HTTPException(status_code=402, detail="premium_required")
     snap = await build_snapshot(user["id"])
     company = await resolve_company(user["id"]) or {}
     cid = str(company["_id"]) if company.get("_id") else None

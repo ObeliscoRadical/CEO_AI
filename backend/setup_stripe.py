@@ -14,6 +14,8 @@ CATALOG = [
         "prices": [
             {"lookup_key": "premium_monthly", "amount": 2900, "currency": "eur", "interval": "month"},
             {"lookup_key": "premium_yearly", "amount": 29000, "currency": "eur", "interval": "year"},
+            {"lookup_key": "founder_monthly", "amount": 2900, "currency": "eur", "interval": "month"},
+            {"lookup_key": "professional_monthly", "amount": 7900, "currency": "eur", "interval": "month"},
         ],
     },
 ]

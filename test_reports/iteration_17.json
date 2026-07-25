@@ -1,0 +1,38 @@
+{
+  "summary": "Backend + frontend tested for Founder Campaign + Admin panel + Free-tier gating. 13/14 backend tests pass. Only bug: /api/decisions (and /api/decisions/act) is NOT gated by premium_user — returns 200 for free users, contradicting the spec that says /decisions must return 402. All other premium endpoints (chat/sessions, valuation, report, health-index, future, investment-grade, POST /chat) correctly return 402; ceo-daily & signals return premium_locked=true for free users; admin has full access. Admin auth (403 non-admin / 200 admin) correct on all /admin/* endpoints. Founder checkout guards work: enterprise=400, founder_closed=409 when campaign toggled off. Professional trial checkout creates a valid Stripe URL. Frontend: Pricing page shows plan-founder/professional/enterprise with correct testids and prices; Enterprise CTA navigates to /contacto; FAQ accordion toggles. Admin page loads, all 5 tabs switch, filter-* + admin-search present, toggle-campaign-btn flips campaign, StickyNote → note-input → save-note-btn saves a note. Free user (fresh registration): sidebar nav-saude/valor/ceo/relatorios/conselhos/futuro all show lock icon; clicking nav-saude routes to /planos; direct visits /saude, /valor, /futuro, /relatorios, /conselhos, /ceo all render data-testid=upgrade-wall; /admin as free user redirects to /. Painel LockedBlock (premium-locked-block) visually confirmed in screenshot on '/'. Full end-to-end Stripe payment (card 4242) was NOT executed because Stripe-hosted checkout page automation is fragile in this environment; the checkout URL creation and guard logic are covered.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "GET /api/decisions", "issue": "Uses Depends(get_current_user) instead of premium_user — free users get 200 instead of 402. Spec requires 402 for free tier. Fix: change dependency in /app/backend/routers/ceo.py line 114 (and /decisions/act at line 146) to Depends(premium_user).", "priority": "HIGH"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_founder_admin.py",
+    "/app/test_reports/pytest/iter17_founder_admin.xml"
+  ],
+  "action_items": [
+    "Change /api/decisions and /api/decisions/act to use Depends(premium_user) in /app/backend/routers/ceo.py so free tier receives 402 (matches spec and matches UpgradeWall behaviour of the /conselhos page which currently would show data instead of the wall for the free tier via API).",
+    "OPTIONAL: main agent should run an interactive end-to-end Stripe test with card 4242 4242 4242 4242 to confirm the founder_number allocation increments claimed by exactly 1 and that trialing subscriptions do NOT increment claimed — the guard logic is verified but the full paid-flow was not executed in this test iteration."
+  ],
+  "critical_code_review_comments": [
+    "routers/ceo.py: /decisions and /decisions/act are missing premium gating (see backend_issues.critical).",
+    "routers/billing.py get_status: fallback runs sync_subscription only after checkout completion — good redundancy against webhook. However it does not verify session.metadata.user_id == record.user_id before syncing, relying on record.user_id — acceptable but a stricter equality check would harden against tampering.",
+    "core.py handle_founder_activation: atomic increment via findOneAndUpdate {seq: {$lt: FOUNDER_LIMIT}} and per-user lock — correct. Trial subscriptions correctly avoid founder allocation because sync_subscription only assigns when status == 'active' (not 'trialing') — verify by inspection.",
+    "Pricing.jsx founder-progress: inner filler div may have width 0 while claimed=0 causing Playwright is_visible=false; consider min-width for a small marker so QA/UX shows the bar exists even at 0."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_founder_admin.py (new)"
+  ],
+  "success_rate": {"backend": "93% (13/14)", "frontend": "100% of covered flows"},
+  "test_credentials": "Admin: obeliscoradical@gmail.com / CeoAI2026! ; fresh free users registered dynamically as TEST_free_* and test_fe_free_*",
+  "seed_data_creation": "Added multiple TEST_ prefixed free users through /api/auth/register during backend + frontend tests. Also added one internal note to a customer via admin panel. Campaign toggled off and back on during the founder_closed guard test.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend suite lives at /app/backend/tests/test_founder_admin.py — run with REACT_APP_BACKEND_URL env exported. The single failure is /decisions gating. Frontend: all admin+free flows verified via Playwright. Full paid Stripe flow (card 4242) NOT executed because it requires typing into Stripe hosted checkout iframe/page which is unstable in headless automation; verify manually or with a more targeted script that fills Stripe's iframe. Founder allocation atomic logic, professional trial, and guards were verified indirectly (guard responses + subscription_data trial_period_days=7 set in create_checkout code).",
+  "rca_of_the_issue": "/api/decisions router uses Depends(get_current_user) rather than Depends(premium_user). Reproduction: register a free user, GET /api/decisions with the auth cookie — response is 200 with verdict/decisions payload. Expected 402 premium_required. Mitigation: swap the dependency to premium_user (already used correctly by /valuation, /report, /health-index, /chat, /chat/sessions). No DB migration or data changes required."
+}

@@ -45,7 +45,7 @@ async def update_settings(inp: SettingsInput, user: dict = Depends(get_current_u
 
 # ---------------------------------------------------------------- chat
 @router.get("/chat/sessions")
-async def chat_sessions(user: dict = Depends(get_current_user)):
+async def chat_sessions(user: dict = Depends(premium_user)):
     sess = await db.chat_sessions.find({"user_id": user["id"], "session_id": {"$exists": True}}).sort("created_at", -1).to_list(100)
     return [{"session_id": s.get("session_id"), "title": s.get("title", "Conversa"), "created_at": s.get("created_at")}
             for s in sess if s.get("session_id")]
@@ -62,7 +62,7 @@ async def delete_session(session_id: str, user: dict = Depends(get_current_user)
     return {"ok": True}
 
 @router.post("/chat")
-async def chat(inp: ChatInput, user: dict = Depends(get_current_user)):
+async def chat(inp: ChatInput, user: dict = Depends(premium_user)):
     session_id = inp.session_id
     if not session_id:
         session_id = str(uuid.uuid4())
@@ -185,11 +185,15 @@ async def ceo_daily(user: dict = Depends(get_current_user)):
             continue
         r["key"] = key
         recs.append(r)
+    allowed = await can_access_premium(user)
+    if not allowed:
+        recs = []
     return {
         "user_name": user.get("name", ""),
         "company_name": snap["company_name"],
         "conclusao": data.get("conclusao", {}),
         "recomendacoes": recs,
+        "premium_locked": not allowed,
         "vitals": {
             "saude": {"label": "Saúde Empresarial", "value": snap["health"], "unit": "/100",
                       "status": "green" if snap["health"] >= 70 else "amber" if snap["health"] >= 45 else "red"},
@@ -205,7 +209,7 @@ async def ceo_daily(user: dict = Depends(get_current_user)):
 
 
 @router.get("/health-index")
-async def health_index(user: dict = Depends(get_current_user)):
+async def health_index(user: dict = Depends(premium_user)):
     uid = user["id"]
     snap = await build_snapshot(uid)
     company = await resolve_company(uid) or {}
@@ -239,7 +243,7 @@ async def health_index(user: dict = Depends(get_current_user)):
     return {"overall": overall, "summary": ai.get("summary", ""), "dimensions": out}
 
 @router.get("/valuation")
-async def valuation(user: dict = Depends(get_current_user)):
+async def valuation(user: dict = Depends(premium_user)):
     uid = user["id"]
     cid = await active_company_id(uid)
     snap = await build_snapshot(uid)
@@ -259,7 +263,7 @@ async def valuation(user: dict = Depends(get_current_user)):
             "factors": ai.get("factors", []), "actions": ai.get("actions", [])}
 
 @router.get("/report")
-async def strategic_report(user: dict = Depends(get_current_user)):
+async def strategic_report(user: dict = Depends(premium_user)):
     uid = user["id"]
     cid = await active_company_id(uid)
     snap = await build_snapshot(uid)
@@ -280,8 +284,8 @@ async def strategic_report(user: dict = Depends(get_current_user)):
 # ---------------------------------------------------------------- Future Engine (PREMIUM)
 @router.get("/future")
 async def future_projection(user: dict = Depends(get_current_user)):
-    if not await is_premium(user["id"]):
-        raise HTTPException(status_code=403, detail="premium_required")
+    if not await can_access_premium(user):
+        raise HTTPException(status_code=402, detail="premium_required")
     snap = await build_snapshot(user["id"])
     months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
     now = datetime.now(timezone.utc)
@@ -304,8 +308,8 @@ async def future_projection(user: dict = Depends(get_current_user)):
 
 @router.post("/future/simulate")
 async def simulate(inp: SimInput, user: dict = Depends(get_current_user)):
-    if not await is_premium(user["id"]):
-        raise HTTPException(status_code=403, detail="premium_required")
+    if not await can_access_premium(user):
+        raise HTTPException(status_code=402, detail="premium_required")
     sysmsg = await build_system_prompt(user["id"], user.get("name", ""))
     prompt = (
         f"O empresário quer simular esta decisão: '{inp.scenario}'. Detalhe: '{inp.detail}'. "
@@ -388,10 +392,13 @@ async def signals(user: dict = Depends(get_current_user)):
         "FACTOS:\n" + json.dumps(facts, ensure_ascii=False)
     )
     data = await cached_ai("signals", uid, cid, sysmsg, prompt) or {"signals": [], "priority": {}}
+    allowed = await can_access_premium(user)
+    priority = data.get("priority", {}) if allowed else {}
     return {
         "user_name": user.get("name", ""),
         "count": len(data.get("signals", [])),
         "signals": data.get("signals", []),
-        "priority": data.get("priority", {}),
+        "priority": priority,
+        "premium_locked": not allowed,
         "has_data": snap["total_income"] > 0 or snap["total_expense"] > 0,
     }

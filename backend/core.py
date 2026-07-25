@@ -481,3 +481,214 @@ async def _growth_score(uid: str, cid: str):
         elif recent > 0:
             g = 72
     return g
+
+# ================================================================ FOUNDER CAMPAIGN / BILLING / ADMIN
+from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
+
+FOUNDER_LIMIT = 15
+FOUNDER_PRICE_MONTHLY = 29
+PROFESSIONAL_PRICE_MONTHLY = 79
+ENTERPRISE_PRICE_MONTHLY = 199
+PROFESSIONAL_TRIAL_DAYS = 7
+FOUNDER_PROGRAM_ACTIVE_DEFAULT = True
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "").lower()
+
+LOOKUP_TO_PLAN = {
+    "founder_monthly": "founder",
+    "professional_monthly": "professional",
+    "premium_monthly": "professional",
+    "premium_yearly": "professional",
+}
+PLAN_LABELS = {"founder": "Empresa Fundadora", "professional": "Professional", "enterprise": "Enterprise"}
+PLAN_PRICE = {"founder": FOUNDER_PRICE_MONTHLY, "professional": PROFESSIONAL_PRICE_MONTHLY, "enterprise": ENTERPRISE_PRICE_MONTHLY}
+PREMIUM_STATUSES = {"active", "trialing"}
+
+def plan_from_lookup(lk):
+    return LOOKUP_TO_PLAN.get(lk, "professional")
+
+def is_admin_email(user: dict) -> bool:
+    return bool(ADMIN_EMAIL) and (user.get("email", "") or "").lower() == ADMIN_EMAIL
+
+async def get_admin_user(user: dict = Depends(get_current_user)) -> dict:
+    if not is_admin_email(user):
+        raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
+    return user
+
+async def can_access_premium(user: dict) -> bool:
+    if is_admin_email(user):
+        return True
+    return bool(user.get("is_premium"))
+
+async def premium_user(user: dict = Depends(get_current_user)) -> dict:
+    if not (is_admin_email(user) or bool(user.get("is_premium"))):
+        raise HTTPException(status_code=402, detail="premium_required")
+    return user
+
+# ---------------------------------------------------------------- campaign config
+async def get_campaign() -> dict:
+    c = await db.app_config.find_one({"_id": "founder_campaign"})
+    if not c:
+        c = {"_id": "founder_campaign", "active": FOUNDER_PROGRAM_ACTIVE_DEFAULT, "milestones_sent": []}
+        try:
+            await db.app_config.insert_one(c)
+        except DuplicateKeyError:
+            c = await db.app_config.find_one({"_id": "founder_campaign"})
+    return c
+
+async def set_campaign_active(value: bool):
+    await db.app_config.update_one({"_id": "founder_campaign"}, {"$set": {"active": bool(value)}}, upsert=True)
+
+async def founder_claimed_count() -> int:
+    doc = await db.counters.find_one({"_id": "founder"})
+    return int((doc or {}).get("seq", 0))
+
+async def _allocate_founder_number():
+    doc = await db.counters.find_one_and_update(
+        {"_id": "founder", "seq": {"$lt": FOUNDER_LIMIT}},
+        {"$inc": {"seq": 1}},
+        return_document=ReturnDocument.AFTER,
+    )
+    return int(doc["seq"]) if doc else None
+
+async def handle_founder_activation(user_doc: dict):
+    """Atomic, race-safe founder slot allocation. Returns founder_number or None."""
+    if not user_doc:
+        return None
+    oid = user_doc["_id"]
+    if user_doc.get("founder_number") or user_doc.get("is_founder"):
+        return None  # already a founder (historical) — never reallocate
+    camp = await get_campaign()
+    if not camp.get("active", True):
+        return None
+    # per-user lock: only one concurrent activation can claim
+    claim = await db.users.update_one(
+        {"_id": oid, "founder_number": {"$exists": False}, "is_founder": {"$ne": True},
+         "founder_claim_in_progress": {"$ne": True}},
+        {"$set": {"founder_claim_in_progress": True}})
+    if claim.modified_count != 1:
+        return None
+    num = await _allocate_founder_number()
+    if not num:
+        await db.users.update_one({"_id": oid}, {"$unset": {"founder_claim_in_progress": ""}})
+        await set_campaign_active(False)
+        return None
+    now = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one({"_id": oid}, {
+        "$set": {"is_founder": True, "founder_number": num, "founder_activated_at": now,
+                 "founder_price_locked": True, "founder_subscription_status": "active"},
+        "$unset": {"founder_claim_in_progress": ""}})
+    remaining = FOUNDER_LIMIT - num
+    try:
+        await notify_founder_activated(user_doc, num, remaining)
+        await check_founder_milestones(remaining)
+    except Exception as e:
+        logger.error(f"founder notify error: {e}")
+    if num >= FOUNDER_LIMIT:
+        await set_campaign_active(False)
+    return num
+
+# ---------------------------------------------------------------- stripe subscription sync
+def _sub_period_end(sub, item):
+    return sub.get("current_period_end") or (item.get("current_period_end") if item else None)
+
+async def sync_subscription(sub_id: str, user_id: str = None):
+    if not sub_id:
+        return
+    try:
+        sub = stripe.Subscription.retrieve(sub_id, expand=["items.data.price"])
+    except Exception as e:
+        logger.error(f"sync_subscription retrieve error: {e}")
+        return
+    items = sub.get("items", {}).get("data", [])
+    item = items[0] if items else None
+    price = item["price"] if item else {}
+    lk = price.get("lookup_key")
+    status = sub.get("status")
+    cpe = _sub_period_end(sub, item)
+    customer = sub.get("customer")
+    md = sub.get("metadata") or {}
+    uid = user_id or md.get("user_id")
+    user_doc = None
+    if uid:
+        try:
+            user_doc = await db.users.find_one({"_id": ObjectId(uid)})
+        except Exception:
+            user_doc = None
+    if not user_doc and customer:
+        user_doc = await db.users.find_one({"stripe_customer_id": customer})
+    if not user_doc and sub_id:
+        user_doc = await db.users.find_one({"stripe_subscription_id": sub_id})
+    if not user_doc:
+        logger.error(f"sync_subscription: no user for {sub_id}")
+        return
+    plan = plan_from_lookup(lk)
+    premium = status in PREMIUM_STATUSES
+    upd = {"stripe_customer_id": customer, "stripe_subscription_id": sub_id,
+           "subscription_status": status, "plan": plan, "is_premium": premium,
+           "current_period_end": cpe, "subscription_lookup_key": lk,
+           "cancel_at_period_end": bool(sub.get("cancel_at_period_end"))}
+    if premium and not user_doc.get("subscription_started_at"):
+        upd["subscription_started_at"] = datetime.now(timezone.utc).isoformat()
+    if status in ("canceled", "unpaid", "incomplete_expired"):
+        upd["is_premium"] = False
+        upd["subscription_cancelled_at"] = datetime.now(timezone.utc).isoformat()
+        if user_doc.get("is_founder"):
+            upd["founder_price_locked"] = False
+            upd["founder_subscription_status"] = "cancelled"
+    await db.users.update_one({"_id": user_doc["_id"]}, {"$set": upd})
+    if plan == "founder" and status == "active":
+        fresh = await db.users.find_one({"_id": user_doc["_id"]})
+        await handle_founder_activation(fresh)
+
+# ---------------------------------------------------------------- admin notifications
+async def notify_founder_activated(user_doc: dict, num: int, remaining: int):
+    company = await resolve_company(str(user_doc["_id"]))
+    cname = (company or {}).get("name", "(empresa)")
+    name = user_doc.get("name", ""); email = user_doc.get("email", "")
+    now = datetime.now(timezone.utc)
+    await db.admin_notifications.insert_one({
+        "type": "founder_activated", "founder_number": num, "company": cname,
+        "name": name, "email": email, "remaining": remaining, "read": False,
+        "created_at": now.isoformat()})
+    subject = f"Nova Empresa Fundadora ativada — vaga {num} de {FOUNDER_LIMIT}"
+    html = (f"<div style='font-family:Arial,sans-serif;max-width:560px;margin:auto'>"
+            f"<h2 style='color:#0b0c10'>Nova Empresa Fundadora ativada</h2>"
+            f"<p>Uma nova Empresa Fundadora concluiu a subscrição.</p>"
+            f"<table cellpadding='6' style='font-size:14px'>"
+            f"<tr><td><b>Empresa</b></td><td>{cname}</td></tr>"
+            f"<tr><td><b>Responsável</b></td><td>{name}</td></tr>"
+            f"<tr><td><b>E-mail</b></td><td>{email}</td></tr>"
+            f"<tr><td><b>Posição</b></td><td>{num} de {FOUNDER_LIMIT}</td></tr>"
+            f"<tr><td><b>Preço</b></td><td>{FOUNDER_PRICE_MONTHLY} €/mês</td></tr>"
+            f"<tr><td><b>Data e hora</b></td><td>{now.strftime('%d/%m/%Y %H:%M UTC')}</td></tr>"
+            f"<tr><td><b>Vagas restantes</b></td><td>{remaining}</td></tr>"
+            f"</table></div>")
+    if ADMIN_EMAIL:
+        await send_email_raw(ADMIN_EMAIL, subject, html)
+
+async def check_founder_milestones(remaining: int):
+    if remaining not in (5, 3, 1, 0):
+        return
+    camp = await get_campaign()
+    sent = camp.get("milestones_sent", []) or []
+    if remaining in sent:
+        return
+    await db.app_config.update_one({"_id": "founder_campaign"}, {"$addToSet": {"milestones_sent": remaining}}, upsert=True)
+    if remaining == 0:
+        subject = f"Programa Empresas Fundadoras concluído — {FOUNDER_LIMIT} de {FOUNDER_LIMIT} vagas preenchidas."
+        body = "Todas as vagas de Empresa Fundadora foram preenchidas. O plano Professional continua disponível."
+    else:
+        subject = f"Programa Empresas Fundadoras — {'resta' if remaining == 1 else 'restam'} {remaining} {'vaga' if remaining == 1 else 'vagas'}"
+        body = f"Restam apenas {remaining} vagas de Empresa Fundadora."
+    await db.admin_notifications.insert_one({"type": "milestone", "remaining": remaining,
+                                             "read": False, "created_at": datetime.now(timezone.utc).isoformat(), "text": subject})
+    if ADMIN_EMAIL:
+        html = f"<div style='font-family:Arial,sans-serif'><h2>{subject}</h2><p>{body}</p></div>"
+        await send_email_raw(ADMIN_EMAIL, subject, html)
+
+# ---------------------------------------------------------------- audit
+async def audit_log(admin_email: str, action: str, target: str = None, before=None, after=None):
+    await db.audit_log.insert_one({"admin": admin_email, "action": action, "target": target,
+                                   "before": before, "after": after,
+                                   "created_at": datetime.now(timezone.utc).isoformat()})

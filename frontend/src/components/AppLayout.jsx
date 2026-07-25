@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useAppData } from "@/context/AppDataContext";
-import { Home, Lightbulb, HeartPulse, Coins, MessageSquare, Wallet, TrendingUp, FileText, Settings as SettingsIcon, LogOut, Sun, Moon, Building2, Plus, Crown, ChevronsUpDown, Check, Menu, Compass } from "lucide-react";
+import { Home, Lightbulb, HeartPulse, Coins, MessageSquare, Wallet, TrendingUp, FileText, Settings as SettingsIcon, LogOut, Sun, Moon, Building2, Plus, Crown, ChevronsUpDown, Check, Menu, Compass, Lock, Shield } from "lucide-react";
 import { motion } from "framer-motion";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -17,20 +17,20 @@ import { toast } from "sonner";
 
 const NAV = [
   { to: "/", label: "Painel do CEO", icon: Home, end: true, testid: "nav-painel" },
-  { to: "/conselhos", label: "Conselhos", icon: Lightbulb, testid: "nav-conselhos" },
-  { to: "/saude", label: "Saúde Empresarial", icon: HeartPulse, testid: "nav-saude" },
-  { to: "/valor", label: "Valor da Empresa", icon: Coins, testid: "nav-valor" },
-  { to: "/futuro", label: "Futuro", icon: TrendingUp, testid: "nav-futuro", premium: true },
-  { to: "/ceo", label: "Conversar com o CEO", icon: MessageSquare, testid: "nav-ceo" },
+  { to: "/conselhos", label: "Conselhos", icon: Lightbulb, testid: "nav-conselhos", gated: true },
+  { to: "/saude", label: "Saúde Empresarial", icon: HeartPulse, testid: "nav-saude", gated: true },
+  { to: "/valor", label: "Valor da Empresa", icon: Coins, testid: "nav-valor", gated: true },
+  { to: "/futuro", label: "Futuro", icon: TrendingUp, testid: "nav-futuro", premium: true, gated: true },
+  { to: "/ceo", label: "Conversar com o CEO", icon: MessageSquare, testid: "nav-ceo", gated: true },
   { to: "/financas", label: "Finanças", icon: Wallet, testid: "nav-financas" },
-  { to: "/relatorios", label: "Relatórios", icon: FileText, testid: "nav-relatorios" },
+  { to: "/relatorios", label: "Relatórios", icon: FileText, testid: "nav-relatorios", gated: true },
   { to: "/definicoes", label: "Empresa", icon: SettingsIcon, testid: "nav-empresa" },
 ];
 
 export function AppLayout() {
   const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
-  const { companies, activeCompanyId, isPremium, switchCompany, createCompany } = useAppData();
+  const { companies, activeCompanyId, isPremium, isAdmin, switchCompany, createCompany } = useAppData();
   const navigate = useNavigate();
   const [newOpen, setNewOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -85,25 +85,43 @@ export function AppLayout() {
       </DropdownMenu>
 
       <nav className="flex-1 flex flex-col gap-1 overflow-y-auto">
-        {NAV.map((n) => (
-          <NavLink
-            key={n.to}
-            to={n.to}
-            end={n.end}
-            data-testid={n.testid}
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors duration-200 ${
-                isActive ? "bg-[#D4AF37]/12 text-[#D4AF37]" : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              }`
-            }
-          >
-            <n.icon className="w-[18px] h-[18px]" />
-            {n.label}
-            {(n.to === "/futuro" || n.premium) && !isPremium && <Crown className="w-3.5 h-3.5 ml-auto text-[#D4AF37]" />}
+        {NAV.map((n) => {
+          const locked = n.gated && !isPremium && !isAdmin;
+          if (locked) {
+            return (
+              <button key={n.to} data-testid={n.testid} onClick={() => { onNavigate(); navigate("/planos"); }}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-200">
+                <n.icon className="w-[18px] h-[18px]" />
+                {n.label}
+                <Lock className="w-3.5 h-3.5 ml-auto text-[#D4AF37]" />
+              </button>
+            );
+          }
+          return (
+            <NavLink
+              key={n.to}
+              to={n.to}
+              end={n.end}
+              data-testid={n.testid}
+              onClick={onNavigate}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors duration-200 ${
+                  isActive ? "bg-[#D4AF37]/12 text-[#D4AF37]" : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                }`
+              }
+            >
+              <n.icon className="w-[18px] h-[18px]" />
+              {n.label}
+              {(n.to === "/futuro" || n.premium) && !isPremium && !isAdmin && <Crown className="w-3.5 h-3.5 ml-auto text-[#D4AF37]" />}
+            </NavLink>
+          );
+        })}
+        {isAdmin && (
+          <NavLink to="/admin" data-testid="nav-admin" onClick={onNavigate} className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors mt-1 ${isActive ? "bg-[#D4AF37]/12 text-[#D4AF37]" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}>
+            <Shield className="w-[18px] h-[18px]" /> Administração
           </NavLink>
-        ))}
-        {!isPremium && (
+        )}
+        {!isPremium && !isAdmin && (
           <NavLink to="/planos" data-testid="nav-planos" onClick={onNavigate} className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors mt-1 border border-[#D4AF37]/30 ${isActive ? "bg-[#D4AF37]/12 text-[#D4AF37]" : "text-[#D4AF37] hover:bg-[#D4AF37]/10"}`}>
             <Crown className="w-[18px] h-[18px]" /> Passar a Premium
           </NavLink>

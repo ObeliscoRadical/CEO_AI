@@ -78,3 +78,9 @@ class DecisionActInput(BaseModel):
     key: str
     title: str = ""
     status: str  # done | snoozed
+
+class AdminNoteInput(BaseModel):
+    note: str
+
+class CampaignToggleInput(BaseModel):
+    active: bool

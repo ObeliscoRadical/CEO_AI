@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { CEOOrb } from "@/components/CEOOrb";
 import { DecisionCard } from "@/components/DecisionCard";
+import { LockedBlock } from "@/components/Premium";
 import { motion } from "framer-motion";
 import { Loader2, HeartPulse, Coins, TrendingUp, Landmark, Waves, ArrowRight, Sparkles, AlertTriangle, Flag, AlertOctagon, ShieldAlert, Lightbulb, Target } from "lucide-react";
 
@@ -89,14 +90,16 @@ export default function PainelCEO() {
             })}
           </div>
 
-          {sig.priority?.text && (
+          {sig.priority?.text ? (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
               className="rounded-2xl p-6 mt-4 border border-[#D4AF37]/30" style={{ background: "rgba(212,175,55,0.06)" }} data-testid="signal-priority">
               <div className="flex items-center gap-2 text-[#D4AF37] mb-2"><Target className="w-4 h-4" /><span className="text-xs uppercase tracking-[0.18em]">Prioridade máxima de hoje</span></div>
               <p className="text-lg font-medium">{sig.priority.text}</p>
               {sig.priority.why && <p className="text-sm text-muted-foreground mt-1">{sig.priority.why}</p>}
             </motion.div>
-          )}
+          ) : sig?.premium_locked ? (
+            <div className="mt-4"><LockedBlock title="Prioridade máxima de hoje" description="A prioridade nº1 do teu dia faz parte dos planos pagos." /></div>
+          ) : null}
         </div>
       )}
 
@@ -132,7 +135,7 @@ export default function PainelCEO() {
       </div>
 
       {/* Recommendations */}
-      {data.recomendacoes.length > 0 && (
+      {data.recomendacoes.length > 0 ? (
         <>
           <div className="flex items-center gap-3 mb-6">
             <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">O que eu faria hoje</p>
@@ -142,7 +145,14 @@ export default function PainelCEO() {
             {data.recomendacoes.map((d, i) => <DecisionCard key={d.key} d={d} index={i} onAct={act} onExplain={explain} />)}
           </div>
         </>
-      )}
+      ) : data.premium_locked ? (
+        <>
+          <div className="flex items-center gap-3 mb-6">
+            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">O que eu faria hoje</p>
+          </div>
+          <LockedBlock title="Recomendações do dia" description="As decisões concretas que eu tomaria hoje fazem parte dos planos pagos." />
+        </>
+      ) : null}
     </div>
   );
 }

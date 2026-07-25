@@ -8,6 +8,8 @@ export function AppDataProvider({ children }) {
   const [companies, setCompanies] = useState([]);
   const [activeCompanyId, setActiveCompanyId] = useState(null);
   const [isPremium, setIsPremium] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [subReady, setSubReady] = useState(false);
   const [plans, setPlans] = useState({});
   const [subscription, setSubscription] = useState(null);
   const [hasBilling, setHasBilling] = useState(false);
@@ -21,9 +23,11 @@ export function AppDataProvider({ children }) {
   const loadSubscription = useCallback(async () => {
     const { data } = await api.get("/subscription");
     setIsPremium(data.is_premium);
+    setIsAdmin(!!data.is_admin);
     setPlans(data.plans);
     setSubscription(data.subscription);
     setHasBilling(data.has_billing);
+    setSubReady(true);
   }, []);
 
   useEffect(() => {
@@ -44,7 +48,7 @@ export function AppDataProvider({ children }) {
   };
 
   return (
-    <AppDataContext.Provider value={{ companies, activeCompanyId, isPremium, plans, subscription, hasBilling, loadCompanies, loadSubscription, switchCompany, createCompany }}>
+    <AppDataContext.Provider value={{ companies, activeCompanyId, isPremium, isAdmin, subReady, plans, subscription, hasBilling, loadCompanies, loadSubscription, switchCompany, createCompany }}>
       {children}
     </AppDataContext.Provider>
   );

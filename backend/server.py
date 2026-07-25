@@ -12,11 +12,11 @@ from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime, timezone
 
 from core import db, client, hash_password, verify_password, init_storage, send_daily_briefings, logger
-from routers import auth, companies, finance, ceo, documents, billing, misc, voice
+from routers import auth, companies, finance, ceo, documents, billing, misc, voice, founders
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
-for _m in (auth, companies, finance, ceo, documents, billing, misc, voice):
+for _m in (auth, companies, finance, ceo, documents, billing, misc, voice, founders):
     api_router.include_router(_m.router)
 app.include_router(api_router)
 
@@ -41,6 +41,11 @@ else:
 @app.on_event("startup")
 async def startup():
     await db.users.create_index("email", unique=True)
+    await db.users.create_index("stripe_subscription_id")
+    await db.users.create_index("stripe_customer_id")
+    await db.counters.update_one({"_id": "founder"}, {"$setOnInsert": {"seq": 0}}, upsert=True)
+    await db.app_config.update_one({"_id": "founder_campaign"},
+                                   {"$setOnInsert": {"active": True, "milestones_sent": []}}, upsert=True)
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@example.com").lower()
     admin_password = os.environ.get("ADMIN_PASSWORD", "admin123")
     existing = await db.users.find_one({"email": admin_email})
