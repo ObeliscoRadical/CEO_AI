@@ -164,21 +164,26 @@ export function CEOTour() {
     cardStyle.width = cardW;
   }
 
-  const centered = cur.center || !rect;
+  const mobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const centered = cur.center || !rect || mobile;
+  const showOrb = cur.center;
 
   return createPortal(
     <div className="fixed inset-0 z-[100]" data-testid="ceo-tour-overlay">
       {/* dimmer / spotlight */}
-      {centered ? (
+      {(cur.center || !rect) ? (
         <div className="absolute inset-0 bg-black/80 backdrop-blur-[2px]" />
       ) : (
-        <motion.div
-          initial={false}
-          animate={{ top: rect.top - 8, left: rect.left - 8, width: rect.width + 16, height: rect.height + 16 }}
-          transition={{ type: "spring", stiffness: 260, damping: 30 }}
-          className="absolute rounded-2xl pointer-events-none"
-          style={{ boxShadow: "0 0 0 9999px rgba(0,0,0,0.78), 0 0 0 2px #3B82F6", background: "transparent" }}
-        />
+        <>
+          {mobile && <div className="absolute inset-0 bg-black/50" />}
+          <motion.div
+            initial={false}
+            animate={{ top: rect.top - 8, left: rect.left - 8, width: rect.width + 16, height: rect.height + 16 }}
+            transition={{ type: "spring", stiffness: 260, damping: 30 }}
+            className="absolute rounded-2xl pointer-events-none"
+            style={{ boxShadow: mobile ? "0 0 0 3px #3B82F6" : "0 0 0 9999px rgba(0,0,0,0.78), 0 0 0 2px #3B82F6", background: "transparent" }}
+          />
+        </>
       )}
 
       {/* progress + skip */}
@@ -188,7 +193,7 @@ export function CEOTour() {
         ))}
       </div>
       <button data-testid="tour-skip-btn" onClick={() => finishTour(false)}
-        className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors">
+        className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors z-10">
         <X className="w-5 h-5" />
       </button>
 
@@ -200,16 +205,16 @@ export function CEOTour() {
           transition={{ duration: 0.3 }}
           data-testid={`tour-step-${cur.key}`}
           className={centered
-            ? "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(440px,calc(100vw-32px))]"
+            ? "fixed inset-x-4 bottom-6 md:inset-x-auto md:bottom-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[420px]"
             : "absolute"}
           style={centered ? {} : cardStyle}
         >
-          <div className="bg-[hsl(var(--card))] border border-[#3B82F6]/30 rounded-3xl p-7 shadow-2xl">
-            {centered && (
+          <div className="bg-[hsl(var(--card))] border border-[#3B82F6]/30 rounded-3xl p-6 md:p-7 shadow-2xl max-h-[82vh] overflow-y-auto">
+            {showOrb && (
               <div className="flex justify-center mb-5"><CEOOrb size={84} mood="gold" /></div>
             )}
-            <h3 className={`font-serif-lux text-2xl mb-3 ${centered ? "text-center" : ""}`}>{cur.title}</h3>
-            <p className={`text-[15px] leading-relaxed text-muted-foreground whitespace-pre-line ${centered ? "text-center" : ""}`}>{cur.body}</p>
+            <h3 className={`font-serif-lux text-2xl mb-3 ${showOrb ? "text-center" : ""}`}>{cur.title}</h3>
+            <p className={`text-[15px] leading-relaxed text-muted-foreground whitespace-pre-line ${showOrb ? "text-center" : ""}`}>{cur.body}</p>
             <div className="flex items-center gap-3 mt-6">
               {step > 0 && step < steps.length - 1 && (
                 <button data-testid="tour-skip-inline" onClick={() => finishTour(false)}
