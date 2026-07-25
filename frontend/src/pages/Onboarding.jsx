@@ -57,7 +57,7 @@ export default function Onboarding() {
       <div className="w-full max-w-xl mt-8 relative">
         <div className="flex gap-2 mb-8 justify-center">
           {steps.map((_, i) => (
-            <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i <= step ? "w-10 bg-[#D4AF37]" : "w-6 bg-border"}`} />
+            <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i <= step ? "w-10 bg-[#3B82F6]" : "w-6 bg-border"}`} />
           ))}
         </div>
         <AnimatePresence mode="wait">
@@ -118,7 +118,7 @@ export default function Onboarding() {
               <div className="grid grid-cols-2 gap-3">
                 {MODES.map((m) => (
                   <button key={m.key} data-testid={`mode-${m.key}`} onClick={() => setDna({ ...dna, ceo_mode: m.key })}
-                    className={`text-left p-4 rounded-xl border transition-colors ${dna.ceo_mode === m.key ? "border-[#D4AF37] bg-[#D4AF37]/10" : "border-border hover:bg-accent"}`}>
+                    className={`text-left p-4 rounded-xl border transition-colors ${dna.ceo_mode === m.key ? "border-[#3B82F6] bg-[#3B82F6]/10" : "border-border hover:bg-accent"}`}>
                     <div className="font-medium mb-1">{m.label}</div>
                     <div className="text-xs text-muted-foreground">{m.desc}</div>
                   </button>
@@ -129,11 +129,11 @@ export default function Onboarding() {
             <div className="flex gap-3 mt-10">
               {step > 0 && <Button data-testid="back-btn" variant="outline" onClick={back} className="rounded-full">Voltar</Button>}
               {step < steps.length - 1 ? (
-                <Button data-testid="next-btn" onClick={next} disabled={step === 0 && !company.name} className="flex-1 rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431] font-medium py-6">
+                <Button data-testid="next-btn" onClick={next} disabled={step === 0 && !company.name} className="flex-1 rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB] font-medium py-6">
                   Continuar <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               ) : (
-                <Button data-testid="finish-btn" onClick={finish} disabled={loading} className="flex-1 rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431] font-medium py-6">
+                <Button data-testid="finish-btn" onClick={finish} disabled={loading} className="flex-1 rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB] font-medium py-6">
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Concluir CEO DNA"}
                 </Button>
               )}

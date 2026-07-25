@@ -145,7 +145,7 @@ export function VoiceMode({ open, onClose, sessionId, onSession }) {
         </button>
 
         <motion.div animate={{ scale }} transition={{ type: "spring", stiffness: 120, damping: 18 }} className="relative">
-          <div className="absolute rounded-full" style={{ inset: -40, background: `radial-gradient(circle, rgba(212,175,55,${0.15 + amp * 0.4}), transparent 70%)`, filter: "blur(20px)" }} />
+          <div className="absolute rounded-full" style={{ inset: -40, background: `radial-gradient(circle, rgba(59,130,246,${0.15 + amp * 0.4}), transparent 70%)`, filter: "blur(20px)" }} />
           <VoiceSphere size={230} />
         </motion.div>
 
@@ -154,7 +154,7 @@ export function VoiceMode({ open, onClose, sessionId, onSession }) {
         <div className="mt-6 max-w-xl px-8 text-center min-h-[80px]">
           {userText && <p className="text-white/40 text-sm mb-3" data-testid="voice-user-text">“{userText}”</p>}
           {status === "thinking" ? (
-            <Loader2 className="w-5 h-5 animate-spin text-[#D4AF37] mx-auto" />
+            <Loader2 className="w-5 h-5 animate-spin text-[#3B82F6] mx-auto" />
           ) : (
             replyText && <p className="text-white text-lg leading-relaxed font-serif-lux" data-testid="voice-reply-text">{replyText}</p>
           )}
@@ -164,11 +164,11 @@ export function VoiceMode({ open, onClose, sessionId, onSession }) {
           onClick={onMainButton} data-testid="voice-mic-button"
           className="mt-12 w-20 h-20 rounded-full flex items-center justify-center transition-all"
           style={{
-            background: status === "listening" ? "#EF4444" : "#D4AF37",
-            boxShadow: `0 0 ${20 + amp * 40}px ${status === "listening" ? "rgba(239,68,68,0.6)" : "rgba(212,175,55,0.6)"}`,
+            background: status === "listening" ? "#EF4444" : "#3B82F6",
+            boxShadow: `0 0 ${20 + amp * 40}px ${status === "listening" ? "rgba(239,68,68,0.6)" : "rgba(59,130,246,0.6)"}`,
           }}
         >
-          {status === "thinking" ? <Loader2 className="w-8 h-8 animate-spin text-[#0B0C10]" /> : <Mic className="w-8 h-8 text-[#0B0C10]" />}
+          {status === "thinking" ? <Loader2 className="w-8 h-8 animate-spin text-white" /> : <Mic className="w-8 h-8 text-white" />}
         </button>
         <p className="mt-4 text-white/30 text-xs">{status === "listening" ? "Toca para enviar" : "Toca no micro e fala"}</p>
       </motion.div>

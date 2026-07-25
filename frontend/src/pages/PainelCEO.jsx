@@ -4,16 +4,17 @@ import { api } from "@/lib/api";
 import { CEOOrb } from "@/components/CEOOrb";
 import { DecisionCard } from "@/components/DecisionCard";
 import { LockedBlock } from "@/components/Premium";
+import { Watermark } from "@/components/Watermark";
 import { motion } from "framer-motion";
 import { Loader2, HeartPulse, Coins, TrendingUp, Landmark, Waves, ArrowRight, Sparkles, AlertTriangle, Flag, AlertOctagon, ShieldAlert, Lightbulb, Target } from "lucide-react";
 
-const STATUS = { green: "#10B981", amber: "#F59E0B", red: "#EF4444", gold: "#D4AF37" };
+const STATUS = { green: "#10B981", amber: "#F59E0B", red: "#EF4444", gold: "#3B82F6" };
 const SIGNAL = {
   critical: { Icon: AlertOctagon, color: "#EF4444" },
   attention: { Icon: AlertTriangle, color: "#F59E0B" },
   positive: { Icon: TrendingUp, color: "#10B981" },
   risk: { Icon: ShieldAlert, color: "#F97316" },
-  opportunity: { Icon: Lightbulb, color: "#D4AF37" },
+  opportunity: { Icon: Lightbulb, color: "#3B82F6" },
 };
 
 export default function PainelCEO() {
@@ -34,7 +35,7 @@ export default function PainelCEO() {
   };
   const explain = (d) => navigate("/ceo", { state: { ask: `Sobre "${d.title}": ${d.why} — o que me recomendas fazer?` } });
 
-  if (loading || !data) return <div className="flex justify-center py-40"><Loader2 className="w-6 h-6 animate-spin text-[#D4AF37]" /></div>;
+  if (loading || !data) return <div className="flex justify-center py-40"><Loader2 className="w-6 h-6 animate-spin text-[#3B82F6]" /></div>;
 
   const hour = new Date().getHours();
   const greet = hour < 12 ? "Bom dia" : hour < 20 ? "Boa tarde" : "Boa noite";
@@ -56,14 +57,18 @@ export default function PainelCEO() {
   return (
     <div className="px-6 md:px-16 py-14 md:py-20 max-w-[1100px] mx-auto">
       {/* Greeting */}
-      <div className="flex items-start gap-5 mb-10">
-        <CEOOrb size={72} mood={mood} className="shrink-0 hidden sm:block" />
-        <div>
+      <div className="relative flex items-start gap-5 mb-14 pt-4">
+        <Watermark text={data.company_name} />
+        <CEOOrb size={72} mood={mood} className="shrink-0 hidden sm:block relative z-10" />
+        <div className="relative z-10">
           <motion.h1 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
-            className="font-serif-lux text-4xl md:text-5xl leading-tight" data-testid="ceo-greeting">
+            className="font-serif-lux text-4xl md:text-6xl leading-[1.05] tracking-tight" data-testid="ceo-greeting">
             {greet}, {data.user_name?.split(" ")[0]}
           </motion.h1>
-          <p className="text-muted-foreground mt-2 text-lg">
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-[0.2em] mt-3">
+            {new Date().toLocaleDateString("pt-PT", { weekday: "long", day: "numeric", month: "long" })}
+          </p>
+          <p className="text-muted-foreground mt-2 text-base md:text-lg">
             {count > 0 ? `Hoje tenho ${count} ${count === 1 ? "alerta importante" : "alertas importantes"}.` : "Analisei toda a tua empresa. Aqui está o que importa."}
           </p>
         </div>
@@ -92,8 +97,8 @@ export default function PainelCEO() {
 
           {sig.priority?.text ? (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-              className="rounded-2xl p-6 mt-4 border border-[#D4AF37]/30" style={{ background: "rgba(212,175,55,0.06)" }} data-testid="signal-priority">
-              <div className="flex items-center gap-2 text-[#D4AF37] mb-2"><Target className="w-4 h-4" /><span className="text-xs uppercase tracking-[0.18em]">Prioridade máxima de hoje</span></div>
+              className="rounded-2xl p-6 mt-4 border border-[#3B82F6]/30" style={{ background: "rgba(59,130,246,0.06)" }} data-testid="signal-priority">
+              <div className="flex items-center gap-2 text-[#3B82F6] mb-2"><Target className="w-4 h-4" /><span className="text-xs uppercase tracking-[0.18em]">Prioridade máxima de hoje</span></div>
               <p className="text-lg font-medium">{sig.priority.text}</p>
               {sig.priority.why && <p className="text-sm text-muted-foreground mt-1">{sig.priority.why}</p>}
             </motion.div>
@@ -106,9 +111,9 @@ export default function PainelCEO() {
       {/* Vitals */}
       <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground mb-5">Hoje a tua empresa está assim</p>
       {!data.has_data && (
-        <div className="surface rounded-2xl p-5 mb-5 flex flex-col sm:flex-row sm:items-center gap-4 border border-[#D4AF37]/25" data-testid="no-data-hint">
+        <div className="surface rounded-2xl p-5 mb-5 flex flex-col sm:flex-row sm:items-center gap-4 border border-[#3B82F6]/25" data-testid="no-data-hint">
           <p className="text-sm text-muted-foreground flex-1">Ainda não tenho os teus números. Liga o teu banco ou importa um CSV e eu calculo o valor real da tua empresa e afino as decisões de hoje.</p>
-          <button onClick={() => navigate("/financas")} data-testid="add-data-btn" className="rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431] px-5 py-2.5 text-sm font-medium shrink-0 transition-colors">Adicionar dados</button>
+          <button onClick={() => navigate("/financas")} data-testid="add-data-btn" className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB] px-5 py-2.5 text-sm font-medium shrink-0 transition-colors">Adicionar dados</button>
         </div>
       )}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-16">
@@ -128,7 +133,7 @@ export default function PainelCEO() {
       {/* Conclusão */}
       <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground mb-5">A minha leitura de hoje</p>
       <div className="grid md:grid-cols-2 gap-4 mb-16">
-        <ConclusionCard title="Estado geral" text={c.estado_geral} Icon={Flag} tone="#D4AF37" testid="conc-estado" />
+        <ConclusionCard title="Estado geral" text={c.estado_geral} Icon={Flag} tone="#3B82F6" testid="conc-estado" />
         <ConclusionCard title="Oportunidades" text={c.oportunidades} Icon={Sparkles} tone="#10B981" testid="conc-oportunidades" />
         <ConclusionCard title="Problemas" text={c.problemas} Icon={AlertTriangle} tone="#EF4444" testid="conc-problemas" />
         <ConclusionCard title="Prioridades" text={c.prioridades} Icon={Flag} tone="#F59E0B" testid="conc-prioridades" />
@@ -139,7 +144,7 @@ export default function PainelCEO() {
         <>
           <div className="flex items-center gap-3 mb-6">
             <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">O que eu faria hoje</p>
-            <ArrowRight className="w-4 h-4 text-[#D4AF37]" />
+            <ArrowRight className="w-4 h-4 text-[#3B82F6]" />
           </div>
           <div className="space-y-5">
             {data.recomendacoes.map((d, i) => <DecisionCard key={d.key} d={d} index={i} onAct={act} onExplain={explain} />)}

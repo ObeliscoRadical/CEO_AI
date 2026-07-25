@@ -78,7 +78,7 @@ export default function Finances() {
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button data-testid="add-entry-btn" className="rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431]"><Plus className="w-4 h-4 mr-2" />Novo registo</Button>
+              <Button data-testid="add-entry-btn" className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]"><Plus className="w-4 h-4 mr-2" />Novo registo</Button>
             </DialogTrigger>
             <DialogContent className="surface">
               <DialogHeader><DialogTitle className="font-serif-lux text-2xl">Novo registo financeiro</DialogTitle>
@@ -97,7 +97,7 @@ export default function Finances() {
                 <div><Label className="text-xs text-muted-foreground">Categoria</Label><Input data-testid="entry-category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} required className="mt-1 bg-transparent" placeholder="Ex: Vendas, Salários, Renda" /></div>
                 <div><Label className="text-xs text-muted-foreground">Data</Label><Input data-testid="entry-date" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="mt-1 bg-transparent" /></div>
                 <div><Label className="text-xs text-muted-foreground">Descrição</Label><Input data-testid="entry-desc" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1 bg-transparent" /></div>
-                <Button data-testid="save-entry-btn" type="submit" className="w-full rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431]">Guardar</Button>
+                <Button data-testid="save-entry-btn" type="submit" className="w-full rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]">Guardar</Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -107,11 +107,11 @@ export default function Finances() {
       <div className="grid grid-cols-3 gap-4 mb-8">
         <div className="surface rounded-2xl p-6"><p className="text-xs text-muted-foreground mb-2">Receitas</p><div className="font-serif-lux text-3xl text-[#10B981]">€{income.toLocaleString("pt-PT")}</div></div>
         <div className="surface rounded-2xl p-6"><p className="text-xs text-muted-foreground mb-2">Despesas</p><div className="font-serif-lux text-3xl text-[#EF4444]">€{expense.toLocaleString("pt-PT")}</div></div>
-        <div className="surface rounded-2xl p-6"><p className="text-xs text-muted-foreground mb-2">Resultado</p><div className="font-serif-lux text-3xl text-[#D4AF37]">€{(income - expense).toLocaleString("pt-PT")}</div></div>
+        <div className="surface rounded-2xl p-6"><p className="text-xs text-muted-foreground mb-2">Resultado</p><div className="font-serif-lux text-3xl text-[#3B82F6]">€{(income - expense).toLocaleString("pt-PT")}</div></div>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-[#D4AF37]" /></div>
+        <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-[#3B82F6]" /></div>
       ) : entries.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">Ainda sem registos. Adiciona um ou importa um CSV.</div>
       ) : (

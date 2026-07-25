@@ -66,7 +66,7 @@ export default function Admin() {
   const markRead = async () => { await api.post("/admin/notifications/read-all"); load(); };
   const exportCsv = () => { window.open(`${API}/admin/customers/export`, "_blank"); };
 
-  if (loading) return <div className="flex justify-center py-40"><Loader2 className="w-6 h-6 animate-spin text-[#D4AF37]" /></div>;
+  if (loading) return <div className="flex justify-center py-40"><Loader2 className="w-6 h-6 animate-spin text-[#3B82F6]" /></div>;
 
   const unread = notifs.filter((n) => !n.read).length;
 
@@ -86,11 +86,11 @@ export default function Admin() {
       {/* Founder progress bar */}
       <div className="surface rounded-2xl p-6 mb-6" data-testid="admin-founder-bar">
         <div className="flex items-center justify-between mb-3">
-          <span className="flex items-center gap-2 text-sm"><Crown className="w-4 h-4 text-[#D4AF37]" /> Empresas Fundadoras</span>
+          <span className="flex items-center gap-2 text-sm"><Crown className="w-4 h-4 text-[#3B82F6]" /> Empresas Fundadoras</span>
           <span className="font-medium">{ov?.founders_assigned}/{ov?.founder_limit} · restam {ov?.remaining_slots} vagas históricas</span>
         </div>
         <div className="h-2.5 rounded-full bg-white/10 overflow-hidden">
-          <div className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] to-[#f0d375]" style={{ width: `${Math.round(((ov?.founders_assigned || 0) / (ov?.founder_limit || 15)) * 100)}%` }} />
+          <div className="h-full rounded-full bg-gradient-to-r from-[#3B82F6] to-[#60A5FA]" style={{ width: `${Math.round(((ov?.founders_assigned || 0) / (ov?.founder_limit || 15)) * 100)}%` }} />
         </div>
       </div>
 
@@ -98,7 +98,7 @@ export default function Admin() {
       <div className="flex gap-2 mb-6 border-b border-border overflow-x-auto">
         {[["overview", "Visão geral"], ["customers", "Clientes"], ["founders", "Fundadoras"], ["notifs", `Notificações${unread ? ` (${unread})` : ""}`], ["audit", "Auditoria"]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} data-testid={`admin-tab-${k}`}
-            className={`px-4 py-2.5 text-sm whitespace-nowrap border-b-2 -mb-px transition-colors ${tab === k ? "border-[#D4AF37] text-[#D4AF37]" : "border-transparent text-muted-foreground hover:text-foreground"}`}>{l}</button>
+            className={`px-4 py-2.5 text-sm whitespace-nowrap border-b-2 -mb-px transition-colors ${tab === k ? "border-[#3B82F6] text-[#3B82F6]" : "border-transparent text-muted-foreground hover:text-foreground"}`}>{l}</button>
         ))}
       </div>
 
@@ -107,9 +107,9 @@ export default function Admin() {
           <Metric icon={Building2} label="Empresas registadas" value={ov.total_companies} />
           <Metric icon={CreditCard} label="Subscrições ativas" value={ov.active_subscriptions} />
           <Metric icon={Users} label="Em teste" value={ov.trialing} />
-          <Metric icon={Crown} label="Fundadoras ativas" value={ov.founders_active} tone="#D4AF37" />
+          <Metric icon={Crown} label="Fundadoras ativas" value={ov.founders_active} tone="#3B82F6" />
           <Metric icon={TrendingUp} label="MRR total" value={`${ov.mrr_total} €`} tone="#10B981" />
-          <Metric icon={Crown} label="MRR Fundadoras" value={`${ov.mrr_founders} €`} tone="#D4AF37" />
+          <Metric icon={Crown} label="MRR Fundadoras" value={`${ov.mrr_founders} €`} tone="#3B82F6" />
           <Metric icon={TrendingUp} label="MRR outros planos" value={`${ov.mrr_others} €`} />
           <Metric icon={CreditCard} label="Professional" value={ov.professional_count} />
           <Metric icon={Building2} label="Enterprise" value={ov.enterprise_count} />
@@ -125,14 +125,14 @@ export default function Admin() {
             <div className="relative flex-1 min-w-[220px]">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input data-testid="admin-search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Procurar empresa, nome ou email"
-                className="w-full pl-9 pr-3 py-2.5 rounded-full bg-transparent border border-border text-sm focus:outline-none focus:border-[#D4AF37]" />
+                className="w-full pl-9 pr-3 py-2.5 rounded-full bg-transparent border border-border text-sm focus:outline-none focus:border-[#3B82F6]" />
             </div>
             <button onClick={exportCsv} data-testid="export-csv-btn" className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm hover:bg-accent transition-colors"><Download className="w-4 h-4" /> Exportar CSV</button>
           </div>
           <div className="flex gap-2 mb-4 flex-wrap">
             {FILTERS.map(([k, l]) => (
               <button key={k} onClick={() => setFilter(k)} data-testid={`filter-${k}`}
-                className={`px-3 py-1.5 rounded-full text-xs transition-colors ${filter === k ? "bg-[#D4AF37] text-[#0B0C10]" : "border border-border text-muted-foreground hover:bg-accent"}`}>{l}</button>
+                className={`px-3 py-1.5 rounded-full text-xs transition-colors ${filter === k ? "bg-[#3B82F6] text-white" : "border border-border text-muted-foreground hover:bg-accent"}`}>{l}</button>
             ))}
           </div>
           <div className="surface rounded-2xl overflow-x-auto">
@@ -147,14 +147,14 @@ export default function Admin() {
                     <td className="p-3">{c.company || "—"}</td>
                     <td className="p-3">{c.name}<div className="text-xs text-muted-foreground">{c.email}</div></td>
                     <td className="p-3">{c.plan}</td>
-                    <td className="p-3">{c.is_founder ? <span className="text-[#D4AF37]">Nº {c.founder_number}{c.founder_price_locked ? "" : " (perdido)"}</span> : "Não"}</td>
+                    <td className="p-3">{c.is_founder ? <span className="text-[#3B82F6]">Nº {c.founder_number}{c.founder_price_locked ? "" : " (perdido)"}</span> : "Não"}</td>
                     <td className="p-3"><span className="text-xs px-2 py-0.5 rounded-full bg-white/5">{STATUS_LABEL[c.subscription_status] || c.subscription_status}</span></td>
                     <td className="p-3">{c.monthly || 0} €</td>
                     <td className="p-3 text-muted-foreground">{fmtDate(c.created_at)}</td>
                     <td className="p-3">
                       <div className="flex gap-2">
                         <button onClick={() => setNoteFor(c.id)} title="Nota interna" className="text-muted-foreground hover:text-foreground"><StickyNote className="w-4 h-4" /></button>
-                        {c.is_founder && <button onClick={() => resend(c.id)} title="Reenviar notificação" className="text-muted-foreground hover:text-[#D4AF37]"><RefreshCw className="w-4 h-4" /></button>}
+                        {c.is_founder && <button onClick={() => resend(c.id)} title="Reenviar notificação" className="text-muted-foreground hover:text-[#3B82F6]"><RefreshCw className="w-4 h-4" /></button>}
                         {c.stripe_subscription_id && <button onClick={() => cancelSub(c.id)} title="Cancelar" className="text-muted-foreground hover:text-[#EF4444]"><XCircle className="w-4 h-4" /></button>}
                       </div>
                     </td>
@@ -176,7 +176,7 @@ export default function Admin() {
             <tbody>
               {positions.map((p) => (
                 <tr key={p.founder_number} className="border-b border-border/50">
-                  <td className="p-3 text-[#D4AF37] font-medium">Nº {p.founder_number}</td>
+                  <td className="p-3 text-[#3B82F6] font-medium">Nº {p.founder_number}</td>
                   <td className="p-3">{p.company || "—"}</td>
                   <td className="p-3">{p.name}<div className="text-xs text-muted-foreground">{p.email}</div></td>
                   <td className="p-3">{p.price_locked ? "Sim" : "Não (cancelado)"}</td>
@@ -195,8 +195,8 @@ export default function Admin() {
           <div className="flex justify-end mb-3"><button onClick={markRead} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1"><Bell className="w-4 h-4" /> Marcar como lidas</button></div>
           <div className="space-y-2">
             {notifs.map((n) => (
-              <div key={n.id} className={`surface rounded-xl p-4 flex items-center gap-3 ${!n.read ? "border border-[#D4AF37]/30" : ""}`}>
-                <Crown className="w-4 h-4 text-[#D4AF37] shrink-0" />
+              <div key={n.id} className={`surface rounded-xl p-4 flex items-center gap-3 ${!n.read ? "border border-[#3B82F6]/30" : ""}`}>
+                <Crown className="w-4 h-4 text-[#3B82F6] shrink-0" />
                 <div className="flex-1 text-sm">
                   {n.type === "founder_activated"
                     ? <span>Nova Empresa Fundadora <b>nº {n.founder_number}</b> — {n.company} ({n.email}). Restam {n.remaining} vagas.</span>
@@ -229,10 +229,10 @@ export default function Admin() {
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => setNoteFor(null)}>
           <div className="surface rounded-2xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-serif-lux text-2xl mb-4">Nota interna</h3>
-            <textarea data-testid="note-input" value={noteText} onChange={(e) => setNoteText(e.target.value)} rows={4} className="w-full rounded-xl bg-transparent border border-border p-3 text-sm focus:outline-none focus:border-[#D4AF37]" placeholder="Escreve uma nota..." />
+            <textarea data-testid="note-input" value={noteText} onChange={(e) => setNoteText(e.target.value)} rows={4} className="w-full rounded-xl bg-transparent border border-border p-3 text-sm focus:outline-none focus:border-[#3B82F6]" placeholder="Escreve uma nota..." />
             <div className="flex justify-end gap-3 mt-4">
               <button onClick={() => setNoteFor(null)} className="text-sm text-muted-foreground">Cancelar</button>
-              <button onClick={saveNote} data-testid="save-note-btn" className="rounded-full bg-[#D4AF37] text-[#0B0C10] px-5 py-2 text-sm font-medium">Guardar</button>
+              <button onClick={saveNote} data-testid="save-note-btn" className="rounded-full bg-[#3B82F6] text-white px-5 py-2 text-sm font-medium">Guardar</button>
             </div>
           </div>
         </div>

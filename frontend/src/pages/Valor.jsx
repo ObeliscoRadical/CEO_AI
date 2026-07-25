@@ -15,14 +15,14 @@ export default function Valor() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   useEffect(() => { api.get("/valuation").then(({ data }) => setData(data)); }, []);
-  if (!data) return <div className="flex justify-center py-40"><Loader2 className="w-6 h-6 animate-spin text-[#D4AF37]" /></div>;
+  if (!data) return <div className="flex justify-center py-40"><Loader2 className="w-6 h-6 animate-spin text-[#3B82F6]" /></div>;
   const sym = data.currency_symbol;
 
   return (
     <div className="px-6 md:px-16 py-14 md:py-20 max-w-[980px] mx-auto">
       <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground mb-3">Valor da Empresa</p>
       <div className="mb-14">
-        <div className="font-serif-lux text-6xl md:text-7xl text-[#D4AF37]" data-testid="valuation-value">{sym}{Number(data.company_value).toLocaleString("pt-PT")}</div>
+        <div className="font-serif-lux text-6xl md:text-7xl text-[#3B82F6]" data-testid="valuation-value">{sym}{Number(data.company_value).toLocaleString("pt-PT")}</div>
         <p className="text-muted-foreground mt-3">Valor atual estimado · {data.progress}% do teu objetivo de {sym}{Number(data.goal_value).toLocaleString("pt-PT")}</p>
       </div>
 
@@ -61,12 +61,12 @@ export default function Valor() {
       </div>
 
       <div className="surface rounded-3xl p-8 mt-14 flex flex-col md:flex-row md:items-center gap-6" data-testid="investment-grade-cta">
-        <div className="w-12 h-12 rounded-2xl bg-[#D4AF37]/15 flex items-center justify-center text-[#D4AF37] shrink-0"><Gem className="w-6 h-6" /></div>
+        <div className="w-12 h-12 rounded-2xl bg-[#3B82F6]/15 flex items-center justify-center text-[#3B82F6] shrink-0"><Gem className="w-6 h-6" /></div>
         <div className="flex-1">
           <h3 className="font-serif-lux text-2xl mb-1">Relatório de Investimento</h3>
           <p className="text-sm text-muted-foreground">Uma avaliação formal, ao nível de investidor, com o grau de confiança da tua empresa. Ideal para investidores, bancos ou uma venda.</p>
         </div>
-        <Button data-testid="open-investment-grade" onClick={() => navigate("/relatorio")} className="rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431] shrink-0">Ver avaliação formal</Button>
+        <Button data-testid="open-investment-grade" onClick={() => navigate("/relatorio")} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB] shrink-0">Ver avaliação formal</Button>
       </div>
     </div>
   );

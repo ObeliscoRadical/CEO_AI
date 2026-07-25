@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CEOOrb } from "@/components/CEOOrb";
 import { toast } from "sonner";
 import { Loader2, AlertTriangle, TrendingUp, Sparkles, Crown, Check } from "lucide-react";
+import { Watermark } from "@/components/Watermark";
 import { motion } from "framer-motion";
 
 const SCENARIOS = [
@@ -55,7 +56,7 @@ export default function Future() {
       <div className="p-6 md:p-10 max-w-[900px] mx-auto">
         <div className="surface rounded-3xl p-12 text-center relative overflow-hidden" data-testid="future-paywall">
           <div className="flex justify-center mb-6"><CEOOrb size={110} mood="gold" /></div>
-          <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[#D4AF37] mb-3"><Crown className="w-4 h-4" /> Funcionalidade Premium</span>
+          <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[#3B82F6] mb-3"><Crown className="w-4 h-4" /> Funcionalidade Premium</span>
           <h1 className="font-serif-lux text-4xl mb-3">Motor de Futuro</h1>
           <p className="text-muted-foreground max-w-lg mx-auto mb-8">Projeções de caixa a 12 meses, avisos antecipados de rutura e simulações de decisões — contratar, comprar, subir preços. Vê o futuro antes de decidir.</p>
           <div className="grid sm:grid-cols-2 gap-3 max-w-lg mx-auto text-left mb-8">
@@ -63,7 +64,7 @@ export default function Future() {
               <div key={f} className="flex items-center gap-2 text-sm"><Check className="w-4 h-4 text-[#10B981]" />{f}</div>
             ))}
           </div>
-          <Button data-testid="unlock-premium-btn" onClick={() => navigate("/planos")} className="rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431] px-8 py-6 font-medium">
+          <Button data-testid="unlock-premium-btn" onClick={() => navigate("/planos")} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB] px-8 py-6 font-medium">
             <Crown className="w-4 h-4 mr-2" /> Desbloquear Premium
           </Button>
         </div>
@@ -73,11 +74,13 @@ export default function Future() {
 
   return (
     <div className="p-6 md:p-10 max-w-[1200px] mx-auto">
-      <h1 className="font-serif-lux text-4xl mb-1">Motor de Futuro</h1>
-      <p className="text-muted-foreground text-sm mb-8">O passado já aconteceu. Vamos olhar para a frente.</p>
-
+      <div className="relative mb-8 pt-4">
+        <Watermark text={data?.company_name || "Futuro"} />
+        <h1 className="font-serif-lux text-4xl md:text-6xl relative z-10 leading-[1.05]">Módulo Futuro — Previsões</h1>
+        <p className="text-xs font-medium text-slate-400 uppercase tracking-[0.2em] mt-3 relative z-10">O passado já aconteceu. Vamos olhar para a frente.</p>
+      </div>
       {!data ? (
-        <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-[#D4AF37]" /></div>
+        <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-[#3B82F6]" /></div>
       ) : (
         <>
           {data.warning && (
@@ -92,15 +95,15 @@ export default function Future() {
               <AreaChart data={data.projection}>
                 <defs>
                   <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#D4AF37" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="#D4AF37" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="#3B82F6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} axisLine={false} tickLine={false} width={70} tickFormatter={(v) => `${sym}${(v / 1000).toFixed(0)}k`} />
                 <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12 }} formatter={(v) => [`${sym}${Number(v).toLocaleString("pt-PT")}`, "Caixa"]} />
-                <Area type="monotone" dataKey="cash" stroke="#D4AF37" strokeWidth={2.5} fill="url(#g)" />
+                <Area type="monotone" dataKey="cash" stroke="#3B82F6" strokeWidth={2.5} fill="url(#g)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -109,7 +112,7 @@ export default function Future() {
 
       {/* Simulator */}
       <div className="surface rounded-3xl p-8">
-        <div className="flex items-center gap-2 mb-6"><Sparkles className="w-5 h-5 text-[#D4AF37]" /><h2 className="font-serif-lux text-2xl">Simular uma decisão</h2></div>
+        <div className="flex items-center gap-2 mb-6"><Sparkles className="w-5 h-5 text-[#3B82F6]" /><h2 className="font-serif-lux text-2xl">Simular uma decisão</h2></div>
         <div className="grid md:grid-cols-3 gap-4 mb-4">
           <Select value={scenario} onValueChange={setScenario}>
             <SelectTrigger data-testid="sim-scenario" className="bg-transparent"><SelectValue /></SelectTrigger>
@@ -117,7 +120,7 @@ export default function Future() {
           </Select>
           <Textarea data-testid="sim-detail" value={detail} onChange={(e) => setDetail(e.target.value)} placeholder="Detalhe (ex: técnico a 1400€/mês)" className="md:col-span-2 bg-transparent min-h-[44px]" />
         </div>
-        <Button data-testid="sim-btn" onClick={simulate} disabled={simLoading} className="rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431]">
+        <Button data-testid="sim-btn" onClick={simulate} disabled={simLoading} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]">
           {simLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <TrendingUp className="w-4 h-4 mr-2" />} Simular impacto
         </Button>
 
@@ -151,14 +154,14 @@ function Metric({ label, value }) {
   return (
     <div className="rounded-xl p-4 border border-border text-center" data-testid={`sim-metric-${label.toLowerCase()}`}>
       <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{label}</p>
-      <p className="text-sm font-medium text-[#D4AF37] leading-tight">{value}</p>
+      <p className="text-sm font-medium text-[#3B82F6] leading-tight">{value}</p>
     </div>
   );
 }
 
 function Info({ label, value, highlight }) {
   return (
-    <div className={`rounded-xl p-4 border ${highlight ? "border-[#D4AF37]/40 bg-[#D4AF37]/8" : "border-border"}`}>
+    <div className={`rounded-xl p-4 border ${highlight ? "border-[#3B82F6]/40 bg-[#3B82F6]/8" : "border-border"}`}>
       <p className="text-xs text-muted-foreground mb-1">{label}</p>
       <p className="text-sm">{value}</p>
     </div>

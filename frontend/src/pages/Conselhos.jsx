@@ -18,7 +18,7 @@ export default function Conselhos() {
   };
   const explain = (d) => navigate("/ceo", { state: { ask: `Sobre "${d.title}": ${d.why} — o que me recomendas fazer?` } });
 
-  if (loading || !data) return <div className="flex justify-center py-40"><Loader2 className="w-6 h-6 animate-spin text-[#D4AF37]" /></div>;
+  if (loading || !data) return <div className="flex justify-center py-40"><Loader2 className="w-6 h-6 animate-spin text-[#3B82F6]" /></div>;
 
   return (
     <div className="px-6 md:px-16 py-14 md:py-20 max-w-[900px] mx-auto">

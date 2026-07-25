@@ -9,7 +9,7 @@ import { Loader2, ArrowUpRight, ArrowDownRight, AlertCircle, Sparkles, TrendingD
 const STATUS_COLORS = { green: "#10B981", amber: "#F59E0B", red: "#EF4444" };
 const ICONS = { cash: ArrowUpRight, profit: TrendingDown, clients: Users, tax: Receipt, risk: ShieldAlert, opportunity: Sparkles };
 
-function Ring({ value, max = 100, size = 150, color = "#D4AF37", label, sub }) {
+function Ring({ value, max = 100, size = 150, color = "#3B82F6", label, sub }) {
   const r = size / 2 - 12;
   const c = 2 * Math.PI * r;
   const pct = Math.min(100, (value / max) * 100);
@@ -76,7 +76,7 @@ export default function Dashboard() {
                 })}
               </div>
               <button onClick={() => navigate("/ceo")} data-testid="ask-ceo-btn"
-                className="mt-6 inline-flex items-center gap-2 text-sm text-[#D4AF37] hover:gap-3 transition-all">
+                className="mt-6 inline-flex items-center gap-2 text-sm text-[#3B82F6] hover:gap-3 transition-all">
                 <MessageSquare className="w-4 h-4" /> Falar com o CEO AI
               </button>
             </>
@@ -85,7 +85,7 @@ export default function Dashboard() {
       </div>
 
       {!snap ? (
-        <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-[#D4AF37]" /></div>
+        <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-[#3B82F6]" /></div>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -98,9 +98,9 @@ export default function Dashboard() {
             <div className="surface rounded-3xl p-8 flex flex-col items-center justify-center md:col-span-2" data-testid="value-card">
               <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mb-4">Valor da Empresa Hoje</p>
               <div className="flex items-center gap-10">
-                <Ring value={snap.progress} color="#D4AF37" label={`${snap.progress}%`} sub="do objetivo" size={150} />
+                <Ring value={snap.progress} color="#3B82F6" label={`${snap.progress}%`} sub="do objetivo" size={150} />
                 <div>
-                  <div className="font-serif-lux text-5xl text-[#D4AF37]" data-testid="company-value">{sym}{Number(snap.company_value).toLocaleString("pt-PT")}</div>
+                  <div className="font-serif-lux text-5xl text-[#3B82F6]" data-testid="company-value">{sym}{Number(snap.company_value).toLocaleString("pt-PT")}</div>
                   <div className="text-sm text-muted-foreground mt-2">Objetivo: {sym}{Number(snap.goal_value).toLocaleString("pt-PT")}</div>
                   <div className="flex gap-6 mt-6">
                     <Stat label="Caixa" value={`${sym}${Number(snap.cash_balance).toLocaleString("pt-PT")}`} />

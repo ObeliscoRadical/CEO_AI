@@ -1,0 +1,24 @@
+{
+  "summary": "Frontend-only regression test of the visual redesign (icon-rail sidebar, dark theme, watermark headings). Everything works: admin login reaches Painel (ceo-greeting) with the new watermark 'OBELISCO' behind the title. Icon-rail nav testids nav-painel, nav-conselhos, nav-saude, nav-valor, nav-futuro, nav-ceo, nav-financas, nav-relatorios, nav-empresa (routes to /definicoes), nav-admin all click and navigate without runtime error overlays; active item shows the blue highlight. Rail bottom actions restart-tour-btn (opens tour, dismissible via tour-skip-btn), nav-subscricao, logout-btn all work; company-selector opens a dropdown showing add-company-trigger. Pages Painel(/), Futuro, /ceo, /relatorios, /planos, /admin render cleanly. Pricing shows plan-founder, checkout-founder, plan-professional, plan-enterprise. Admin shows admin-page. Free-tier gating verified with a fresh user registered via /api/auth/register: all six gated rail items (nav-saude/valor/ceo/relatorios/conselhos/futuro) route the free user to /planos; direct /saude and /valor show upgrade-wall; Painel shows premium-locked-block (loads after ~4s). Mobile (390x844): mobile-menu-btn opens the Sheet drawer; drawer contains nav-painel-m, nav-saude-m, nav-conselhos-m, nav-ceo-m, nav-futuro-m, nav-valor-m, nav-relatorios-m, nav-financas-m and navigation works. No 'Uncaught runtime errors' overlay observed on any page. No page-error events fired.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Painel (free user, first paint)", "issues": ["ceo-greeting shows before the priority/health blocks resolve (~3-4s spinner in main content area for the first load). Not a redesign regression; premium-locked-block does appear after the fetch completes."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AppLayout redesign preserves all pre-existing data-testids (desktop) and adds -m variants for the mobile drawer as documented. No regressions detected.",
+    "Note that nav-empresa routes to /definicoes (not /empresa). Confirm this matches the intended IA (spec labels it 'Empresa')."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (frontend-only request)", "frontend": "100% of covered flows"},
+  "test_credentials": "Admin: obeliscoradical@gmail.com / CeoAI2026! ; Free: testfree_1784977697@test.com / Password123! (created via /api/auth/register)",
+  "seed_data_creation": "One free-tier user registered via /api/auth/register for gating tests.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Redesign is stable. If E1 makes further layout tweaks, re-run this same Playwright flow (admin nav sweep + gated free user + mobile drawer). Registration must be done via API POST /api/auth/register — there is no visible /register page with inputs on the current UI (the Login page links to 'Criar conta' but the SPA route uses /registar or similar; using the API is faster and reliable)."
+}

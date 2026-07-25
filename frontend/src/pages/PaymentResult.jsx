@@ -31,7 +31,7 @@ export default function PaymentResult() {
   }, [isCancel, sessionId, poll]);
 
   const cfg = {
-    checking: { icon: <Loader2 className="w-10 h-10 animate-spin text-[#D4AF37]" />, title: "A confirmar o pagamento...", sub: "Um instante, estamos a ativar o teu Premium." },
+    checking: { icon: <Loader2 className="w-10 h-10 animate-spin text-[#3B82F6]" />, title: "A confirmar o pagamento...", sub: "Um instante, estamos a ativar o teu Premium." },
     paid: { icon: <CheckCircle2 className="w-12 h-12 text-[#10B981]" />, title: "Bem-vindo ao Premium!", sub: "O Motor de Futuro está desbloqueado. Vamos olhar para a frente." },
     cancel: { icon: <XCircle className="w-12 h-12 text-muted-foreground" />, title: "Pagamento cancelado", sub: "Sem problema — podes voltar quando quiseres." },
     failed: { icon: <XCircle className="w-12 h-12 text-[#EF4444]" />, title: "Algo correu mal", sub: "O pagamento não foi concluído. Tenta novamente." },
@@ -46,11 +46,11 @@ export default function PaymentResult() {
       <p className="text-muted-foreground mb-8 max-w-md">{cfg.sub}</p>
       <div className="flex gap-3">
         {status === "paid" ? (
-          <Button data-testid="go-future-btn" onClick={() => navigate("/futuro")} className="rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431] px-8">Ir para o Motor de Futuro</Button>
+          <Button data-testid="go-future-btn" onClick={() => navigate("/futuro")} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB] px-8">Ir para o Motor de Futuro</Button>
         ) : status !== "checking" ? (
           <>
             <Button data-testid="go-plans-btn" onClick={() => navigate("/planos")} variant="outline" className="rounded-full">Ver planos</Button>
-            <Button data-testid="go-home-btn" onClick={() => navigate("/")} className="rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431]">Voltar ao dashboard</Button>
+            <Button data-testid="go-home-btn" onClick={() => navigate("/")} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]">Voltar ao dashboard</Button>
           </>
         ) : null}
       </div>

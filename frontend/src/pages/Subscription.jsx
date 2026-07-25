@@ -49,7 +49,7 @@ export default function Subscription() {
       {isPremium ? (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="surface rounded-3xl p-8" data-testid="sub-active">
           <div className="flex items-center gap-4 mb-6">
-            <div className="w-14 h-14 rounded-2xl bg-[#D4AF37]/15 flex items-center justify-center"><Crown className="w-7 h-7 text-[#D4AF37]" /></div>
+            <div className="w-14 h-14 rounded-2xl bg-[#3B82F6]/15 flex items-center justify-center"><Crown className="w-7 h-7 text-[#3B82F6]" /></div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-serif-lux text-2xl">{subscription?.plan || "CEO AI Premium"}</h2>
@@ -87,7 +87,7 @@ export default function Subscription() {
           <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3"><Sparkles className="w-4 h-4" /> Plano Grátis</span>
           <h2 className="font-serif-lux text-3xl mb-2">Estás no plano grátis</h2>
           <p className="text-muted-foreground max-w-md mx-auto mb-8">Tens o briefing diário, a Empresa Viva, o CEO AI e o CEO Score. Passa a Premium para desbloquear o Motor de Futuro e o Relatório de Investimento.</p>
-          <Button data-testid="upgrade-btn" onClick={() => navigate("/planos")} className="rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431] px-8 py-6 font-medium">
+          <Button data-testid="upgrade-btn" onClick={() => navigate("/planos")} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB] px-8 py-6 font-medium">
             <Crown className="w-4 h-4 mr-2" /> Ver planos Premium
           </Button>
         </div>

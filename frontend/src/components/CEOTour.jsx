@@ -177,14 +177,14 @@ export function CEOTour() {
           animate={{ top: rect.top - 8, left: rect.left - 8, width: rect.width + 16, height: rect.height + 16 }}
           transition={{ type: "spring", stiffness: 260, damping: 30 }}
           className="absolute rounded-2xl pointer-events-none"
-          style={{ boxShadow: "0 0 0 9999px rgba(0,0,0,0.78), 0 0 0 2px #D4AF37", background: "transparent" }}
+          style={{ boxShadow: "0 0 0 9999px rgba(0,0,0,0.78), 0 0 0 2px #3B82F6", background: "transparent" }}
         />
       )}
 
       {/* progress + skip */}
       <div className="absolute top-5 left-1/2 -translate-x-1/2 flex items-center gap-2">
         {steps.map((_, i) => (
-          <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i <= step ? "w-8 bg-[#D4AF37]" : "w-4 bg-white/25"}`} />
+          <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i <= step ? "w-8 bg-[#3B82F6]" : "w-4 bg-white/25"}`} />
         ))}
       </div>
       <button data-testid="tour-skip-btn" onClick={() => finishTour(false)}
@@ -204,7 +204,7 @@ export function CEOTour() {
             : "absolute"}
           style={centered ? {} : cardStyle}
         >
-          <div className="bg-[hsl(var(--card))] border border-[#D4AF37]/30 rounded-3xl p-7 shadow-2xl">
+          <div className="bg-[hsl(var(--card))] border border-[#3B82F6]/30 rounded-3xl p-7 shadow-2xl">
             {centered && (
               <div className="flex justify-center mb-5"><CEOOrb size={84} mood="gold" /></div>
             )}
@@ -216,7 +216,7 @@ export function CEOTour() {
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors">Saltar</button>
               )}
               <button data-testid="tour-next-btn" onClick={next}
-                className="ml-auto inline-flex items-center gap-2 rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431] font-medium px-6 py-3 transition-colors">
+                className="ml-auto inline-flex items-center gap-2 rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB] font-medium px-6 py-3 transition-colors">
                 {cur.ctaIcon && <Upload className="w-4 h-4" />}
                 {cur.cta}
                 {!cur.ctaIcon && <ArrowRight className="w-4 h-4" />}

@@ -27,7 +27,7 @@ export function DecisionCard({ d, index = 0, onAct, onExplain }) {
         <div className="inline-flex items-center gap-1.5 text-sm text-[#10B981] mb-6"><ArrowUpRight className="w-4 h-4" />{d.impact}</div>
       )}
       <div className="flex flex-wrap gap-3">
-        <Button data-testid={`decision-do-${index}`} onClick={() => onAct(d, "done")} className="rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431]">
+        <Button data-testid={`decision-do-${index}`} onClick={() => onAct(d, "done")} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]">
           <Check className="w-4 h-4 mr-2" /> Fazer isto
         </Button>
         <Button data-testid={`decision-explain-${index}`} variant="outline" onClick={() => onExplain(d)} className="rounded-full">

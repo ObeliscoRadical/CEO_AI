@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 
 const COLORS = {
-  gold: "#D4AF37",
+  gold: "#3B82F6",
   emerald: "#10B981",
   amber: "#F59E0B",
   ruby: "#EF4444",

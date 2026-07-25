@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { useTheme } from "@/context/ThemeContext";
 import { useAppData } from "@/context/AppDataContext";
-import { Home, Lightbulb, HeartPulse, Coins, MessageSquare, Wallet, TrendingUp, FileText, Settings as SettingsIcon, LogOut, Sun, Moon, Building2, Plus, Crown, ChevronsUpDown, Check, Menu, Compass, Lock, Shield } from "lucide-react";
+import { Home, Lightbulb, HeartPulse, Coins, MessageSquare, Wallet, TrendingUp, FileText, Settings as SettingsIcon, LogOut, Building2, Plus, Crown, Check, Menu, Compass, Lock, Shield, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -27,20 +26,20 @@ const NAV = [
   { to: "/definicoes", label: "Empresa", icon: SettingsIcon, testid: "nav-empresa" },
 ];
 
+const Logo = () => (
+  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 shadow-[0_0_20px_rgba(59,130,246,0.4)] flex items-center justify-center text-white font-serif-lux text-lg">C</div>
+);
+
 export function AppLayout() {
   const { user, logout } = useAuth();
-  const { theme, toggle } = useTheme();
   const { companies, activeCompanyId, isPremium, isAdmin, switchCompany, createCompany } = useAppData();
   const navigate = useNavigate();
+  const location = useLocation();
   const [newOpen, setNewOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [form, setForm] = useState({ name: "", region: "PT", currency: "EUR", sector: "" });
 
-  const doLogout = async () => {
-    await logout();
-    navigate("/login");
-  };
-
+  const doLogout = async () => { await logout(); navigate("/login"); };
   const active = companies.find((c) => c.id === activeCompanyId);
 
   const addCompany = async (e) => {
@@ -52,141 +51,116 @@ export function AppLayout() {
     navigate("/");
   };
 
-  const SidebarContent = ({ onNavigate = () => {} }) => (
-    <div className="flex flex-col h-full">
-      <div className="mb-6">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-[#D4AF37] shadow-[0_0_12px_#D4AF37]" />
-          <span className="font-serif-lux text-2xl tracking-tight">CEO AI</span>
-          {isPremium && <Crown className="w-4 h-4 text-[#D4AF37] ml-auto" />}
-        </div>
-        <p className="text-xs text-muted-foreground mt-1 tracking-[0.15em] uppercase">Diretor Executivo Digital</p>
+  const go = (to) => { navigate(to); setMobileOpen(false); };
+  const isActive = (n) => (n.end ? location.pathname === n.to : location.pathname.startsWith(n.to));
+
+  // ---- Desktop icon rail ----
+  const RailItem = ({ n }) => {
+    const locked = n.gated && !isPremium && !isAdmin;
+    const activeItem = isActive(n);
+    return (
+      <button
+        data-testid={n.testid}
+        title={n.label}
+        onClick={() => go(locked ? "/planos" : n.to)}
+        className={`relative w-12 h-12 rounded-xl flex items-center justify-center mb-1 transition-colors duration-300 group ${
+          activeItem ? "text-blue-400 bg-blue-500/10" : "text-slate-500 hover:text-blue-400 hover:bg-blue-500/10"
+        }`}
+      >
+        {activeItem && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-blue-500" />}
+        <n.icon className="w-[20px] h-[20px]" />
+        {locked && <Lock className="w-3 h-3 absolute top-1.5 right-1.5 text-blue-400/80" />}
+        {(n.premium && !isPremium && !isAdmin) && !locked && <Crown className="w-3 h-3 absolute top-1.5 right-1.5 text-blue-400/80" />}
+        <span className="pointer-events-none absolute left-16 px-2.5 py-1.5 rounded-lg bg-[#0b0c14] border border-white/10 text-xs text-white whitespace-nowrap opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 z-50 shadow-xl">{n.label}</span>
+      </button>
+    );
+  };
+
+  const DesktopRail = (
+    <aside className="hidden md:flex w-20 h-screen fixed left-0 top-0 flex-col items-center py-6 border-r border-white/[0.08] bg-[#05050A]/90 backdrop-blur-xl z-40">
+      <div className="flex flex-col items-center gap-1.5 mb-10">
+        <Logo />
+        <span className="text-[9px] font-bold tracking-[0.2em] text-white/70 uppercase">CEO AI</span>
       </div>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button data-testid="company-selector" className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl border border-border hover:bg-accent transition-colors mb-6 text-left">
-            <div className="w-7 h-7 rounded-lg bg-[#D4AF37]/15 flex items-center justify-center text-[#D4AF37] shrink-0"><Building2 className="w-4 h-4" /></div>
-            <span className="text-sm truncate flex-1">{active?.name || "Empresa"}</span>
-            <ChevronsUpDown className="w-4 h-4 text-muted-foreground" />
+          <button data-testid="company-selector" title={active?.name || "Empresa"}
+            className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors">
+            <Building2 className="w-[18px] h-[18px]" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-[212px]" align="start">
+        <DropdownMenuContent className="w-[220px]" align="start" side="right">
           {companies.map((c) => (
-            <DropdownMenuItem key={c.id} data-testid={`company-option-${c.id}`} onClick={() => { switchCompany(c.id).then(() => navigate("/")); onNavigate(); }} className="cursor-pointer">
-              <Check className={`w-4 h-4 mr-2 ${c.id === activeCompanyId ? "opacity-100 text-[#D4AF37]" : "opacity-0"}`} />
+            <DropdownMenuItem key={c.id} data-testid={`company-option-${c.id}`} onClick={() => switchCompany(c.id).then(() => navigate("/"))} className="cursor-pointer">
+              <Check className={`w-4 h-4 mr-2 ${c.id === activeCompanyId ? "opacity-100 text-blue-400" : "opacity-0"}`} />
               <span className="truncate">{c.name}</span>
             </DropdownMenuItem>
           ))}
-          <DropdownMenuItem data-testid="add-company-trigger" onClick={() => { setNewOpen(true); onNavigate(); }} className="cursor-pointer text-[#D4AF37]">
+          <DropdownMenuItem data-testid="add-company-trigger" onClick={() => setNewOpen(true)} className="cursor-pointer text-blue-400">
             <Plus className="w-4 h-4 mr-2" /> Nova empresa
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
+      <nav className="flex-1 flex flex-col items-center overflow-y-auto no-scrollbar">
+        {NAV.map((n) => <RailItem key={n.to} n={n} />)}
+        {isAdmin && <RailItem n={{ to: "/admin", label: "Administração", icon: Shield, testid: "nav-admin" }} />}
+      </nav>
+
+      <div className="flex flex-col items-center gap-1 mt-4 pt-4 border-t border-white/[0.08] w-12">
+        <button data-testid="restart-tour-btn" title="Tour guiado" onClick={() => window.dispatchEvent(new Event("start-ceo-tour"))} className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"><Compass className="w-[18px] h-[18px]" /></button>
+        <button data-testid="nav-subscricao" title={isPremium ? "Subscrição" : "Passar a Premium"} onClick={() => go("/subscricao")} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${isPremium ? "text-blue-400" : "text-slate-500 hover:text-blue-400 hover:bg-blue-500/10"}`}><Crown className="w-[18px] h-[18px]" /></button>
+        <button data-testid="logout-btn" title="Sair" onClick={doLogout} className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"><LogOut className="w-[18px] h-[18px]" /></button>
+      </div>
+    </aside>
+  );
+
+  // ---- Mobile labeled drawer ----
+  const DrawerNav = () => (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center gap-3 mb-8">
+        <Logo />
+        <div><span className="font-serif-lux text-xl">CEO AI</span><p className="text-[10px] text-slate-400 uppercase tracking-[0.15em]">Diretor Executivo Digital</p></div>
+      </div>
+      <button data-testid="company-selector-mobile" onClick={() => { setNewOpen(true); }} className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl border border-white/10 hover:bg-white/[0.04] transition-colors mb-4 text-left">
+        <Building2 className="w-4 h-4 text-blue-400" /><span className="text-sm truncate flex-1">{active?.name || "Empresa"}</span><Plus className="w-4 h-4 text-slate-400" />
+      </button>
       <nav className="flex-1 flex flex-col gap-1 overflow-y-auto">
         {NAV.map((n) => {
           const locked = n.gated && !isPremium && !isAdmin;
-          if (locked) {
-            return (
-              <button key={n.to} data-testid={n.testid} onClick={() => { onNavigate(); navigate("/planos"); }}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-200">
-                <n.icon className="w-[18px] h-[18px]" />
-                {n.label}
-                <Lock className="w-3.5 h-3.5 ml-auto text-[#D4AF37]" />
-              </button>
-            );
-          }
           return (
-            <NavLink
-              key={n.to}
-              to={n.to}
-              end={n.end}
-              data-testid={n.testid}
-              onClick={onNavigate}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors duration-200 ${
-                  isActive ? "bg-[#D4AF37]/12 text-[#D4AF37]" : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                }`
-              }
-            >
-              <n.icon className="w-[18px] h-[18px]" />
-              {n.label}
-              {(n.to === "/futuro" || n.premium) && !isPremium && !isAdmin && <Crown className="w-3.5 h-3.5 ml-auto text-[#D4AF37]" />}
-            </NavLink>
+            <button key={n.to} data-testid={`${n.testid}-m`} onClick={() => go(locked ? "/planos" : n.to)}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors ${isActive(n) ? "bg-blue-500/10 text-blue-400" : "text-slate-400 hover:text-white hover:bg-white/[0.04]"}`}>
+              <n.icon className="w-[18px] h-[18px]" />{n.label}{locked && <Lock className="w-3.5 h-3.5 ml-auto text-blue-400" />}
+            </button>
           );
         })}
-        {isAdmin && (
-          <NavLink to="/admin" data-testid="nav-admin" onClick={onNavigate} className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors mt-1 ${isActive ? "bg-[#D4AF37]/12 text-[#D4AF37]" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}>
-            <Shield className="w-[18px] h-[18px]" /> Administração
-          </NavLink>
-        )}
-        {!isPremium && !isAdmin && (
-          <NavLink to="/planos" data-testid="nav-planos" onClick={onNavigate} className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors mt-1 border border-[#D4AF37]/30 ${isActive ? "bg-[#D4AF37]/12 text-[#D4AF37]" : "text-[#D4AF37] hover:bg-[#D4AF37]/10"}`}>
-            <Crown className="w-[18px] h-[18px]" /> Passar a Premium
-          </NavLink>
-        )}
+        {isAdmin && <button data-testid="nav-admin-m" onClick={() => go("/admin")} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/[0.04]"><Shield className="w-[18px] h-[18px]" /> Administração</button>}
+        {!isPremium && !isAdmin && <button data-testid="nav-planos-m" onClick={() => go("/planos")} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm mt-1 border border-blue-500/30 text-blue-400"><Crown className="w-[18px] h-[18px]" /> Passar a Premium</button>}
       </nav>
-
-      <div className="mt-6 pt-6 border-t border-border">
-        <button data-testid="restart-tour-btn" onClick={() => { onNavigate(); window.dispatchEvent(new Event("start-ceo-tour")); }}
-          className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-xs mb-3 text-muted-foreground hover:bg-accent transition-colors">
-          <Compass className="w-4 h-4" /> <span className="flex-1 text-left">Tour guiado do CEO</span>
-        </button>
-        <NavLink to="/subscricao" data-testid="nav-subscricao" onClick={onNavigate} className={({ isActive }) => `flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs mb-4 transition-colors ${isActive ? "bg-[#D4AF37]/12 text-[#D4AF37]" : "text-muted-foreground hover:bg-accent"}`}>
-          <Crown className={`w-4 h-4 ${isPremium ? "text-[#D4AF37]" : ""}`} />
-          <span className="flex-1">{isPremium ? "Subscrição Premium" : "Plano Grátis"}</span>
-          <span className="text-[10px] uppercase tracking-wider">{isPremium ? "Gerir" : "Upgrade"}</span>
-        </NavLink>
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-9 h-9 rounded-full bg-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37] font-medium">
-            {(user?.name || "?")[0].toUpperCase()}
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm truncate">{user?.name}</p>
-            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={toggle} data-testid="theme-toggle" className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground transition-colors">
-            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            {theme === "dark" ? "Claro" : "Escuro"}
-          </button>
-          <button onClick={doLogout} data-testid="logout-btn" className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg border border-border text-xs text-muted-foreground hover:text-[#EF4444] transition-colors">
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
+      <div className="pt-4 border-t border-white/10 flex gap-2">
+        <button onClick={() => { go("/subscricao"); }} className="flex-1 py-2 rounded-lg border border-white/10 text-xs text-slate-400">{isPremium ? "Subscrição" : "Upgrade"}</button>
+        <button onClick={doLogout} data-testid="logout-btn-m" className="py-2 px-3 rounded-lg border border-white/10 text-xs text-slate-400 hover:text-red-400"><LogOut className="w-4 h-4" /></button>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground relative z-10">
-      {/* Desktop sidebar */}
-      <aside className="w-[260px] hidden md:flex flex-col fixed h-screen border-r border-border bg-[hsl(var(--card))] p-6">
-        <SidebarContent />
-      </aside>
+    <div className="min-h-screen bg-background text-foreground relative">
+      {DesktopRail}
 
-      {/* Mobile top bar */}
-      <header className="md:hidden fixed top-0 left-0 right-0 h-14 z-30 flex items-center justify-between px-4 border-b border-border bg-[hsl(var(--card))]">
-        <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-[#D4AF37] shadow-[0_0_10px_#D4AF37]" />
-          <span className="font-serif-lux text-xl tracking-tight">CEO AI</span>
-          {isPremium && <Crown className="w-3.5 h-3.5 text-[#D4AF37]" />}
-        </div>
-        <button onClick={() => setMobileOpen(true)} data-testid="mobile-menu-btn" className="w-10 h-10 flex items-center justify-center rounded-xl border border-border text-foreground">
-          <Menu className="w-5 h-5" />
-        </button>
+      <header className="md:hidden fixed top-0 left-0 right-0 h-14 z-30 flex items-center justify-between px-4 border-b border-white/[0.08] bg-[#05050A]/90 backdrop-blur-xl">
+        <div className="flex items-center gap-2"><Logo /><span className="font-serif-lux text-lg">CEO AI</span></div>
+        <button onClick={() => setMobileOpen(true)} data-testid="mobile-menu-btn" className="w-10 h-10 flex items-center justify-center rounded-xl border border-white/10"><Menu className="w-5 h-5" /></button>
       </header>
 
-      {/* Mobile drawer */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="w-[284px] p-6 bg-[hsl(var(--card))] border-border overflow-y-auto">
-          <SidebarContent onNavigate={() => setMobileOpen(false)} />
+        <SheetContent side="left" className="w-[288px] p-6 bg-[#07070d] border-white/10 overflow-y-auto">
+          <DrawerNav />
         </SheetContent>
       </Sheet>
 
-      {/* Nova empresa dialog (single instance) */}
       <Dialog open={newOpen} onOpenChange={setNewOpen}>
         <DialogContent className="surface">
           <DialogHeader><DialogTitle className="font-serif-lux text-2xl">Nova empresa</DialogTitle>
@@ -203,12 +177,12 @@ export function AppLayout() {
               </div>
               <div><Label className="text-xs text-muted-foreground">Setor</Label><Input data-testid="new-company-sector" value={form.sector} onChange={(e) => setForm({ ...form, sector: e.target.value })} className="mt-1 bg-transparent" /></div>
             </div>
-            <Button data-testid="create-company-btn" type="submit" className="w-full rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431]">Criar empresa</Button>
+            <Button data-testid="create-company-btn" type="submit" className="w-full rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]">Criar empresa</Button>
           </form>
         </DialogContent>
       </Dialog>
 
-      <main className="flex-1 md:ml-[260px] min-h-screen pt-14 md:pt-0">
+      <main className="md:pl-20 min-h-screen pt-14 md:pt-0 relative z-10">
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
           <Outlet />
         </motion.div>

@@ -89,7 +89,7 @@ export default function Chat() {
     <div className="flex h-screen">
       {/* Sessions panel */}
       <div className="w-[240px] hidden lg:flex flex-col border-r border-border p-4">
-        <Button data-testid="new-chat-btn" onClick={newChat} className="rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431] mb-4">
+        <Button data-testid="new-chat-btn" onClick={newChat} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB] mb-4">
           <Plus className="w-4 h-4 mr-2" /> Nova conversa
         </Button>
         <p className="text-xs text-muted-foreground uppercase tracking-[0.15em] mb-2 px-2">Histórico</p>
@@ -97,7 +97,7 @@ export default function Chat() {
           {sessions.length === 0 && <p className="text-xs text-muted-foreground px-2">Sem conversas ainda.</p>}
           {sessions.map((s) => (
             <div key={s.session_id} onClick={() => openSession(s.session_id)} data-testid={`session-${s.session_id}`}
-              className={`group flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer text-sm transition-colors ${s.session_id === sessionId ? "bg-[#D4AF37]/12 text-[#D4AF37]" : "text-muted-foreground hover:bg-accent"}`}>
+              className={`group flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer text-sm transition-colors ${s.session_id === sessionId ? "bg-[#3B82F6]/12 text-[#3B82F6]" : "text-muted-foreground hover:bg-accent"}`}>
               <MessageSquare className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate flex-1">{s.title}</span>
               <button onClick={(e) => removeSession(s.session_id, e)} data-testid={`del-session-${s.session_id}`} className="opacity-0 group-hover:opacity-100 hover:text-[#EF4444] transition-opacity"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -114,13 +114,13 @@ export default function Chat() {
             <h1 className="font-serif-lux text-4xl mt-8 mb-3">Fala comigo.</h1>
             <p className="text-muted-foreground mb-8 max-w-md">Pergunta o que quiseres, como falarias com um CEO ao teu lado. Sem termos técnicos.</p>
             <Button data-testid="open-voice-btn" onClick={() => setVoiceOpen(true)}
-              className="rounded-full mb-10 h-12 px-7 bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431] text-base">
+              className="rounded-full mb-10 h-12 px-7 bg-[#3B82F6] text-white hover:bg-[#2563EB] text-base">
               <Mic className="w-5 h-5 mr-2" /> Falar com o CEO
             </Button>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
               {SUGGESTIONS.map((s, i) => (
                 <button key={i} data-testid={`suggestion-${i}`} onClick={() => send(s)}
-                  className="text-left text-sm p-4 rounded-xl border border-border hover:border-[#D4AF37]/50 hover:bg-accent transition-colors">
+                  className="text-left text-sm p-4 rounded-xl border border-border hover:border-[#3B82F6]/50 hover:bg-accent transition-colors">
                   {s}
                 </button>
               ))}
@@ -131,8 +131,8 @@ export default function Chat() {
             {messages.map((m, i) => (
               <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                 className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`} data-testid={`msg-${m.role}-${i}`}>
-                {m.role === "assistant" && <div className="w-8 h-8 rounded-full bg-[#D4AF37]/20 shrink-0 mr-3 flex items-center justify-center"><div className="w-3 h-3 rounded-full bg-[#D4AF37]" /></div>}
-                <div className={`max-w-[80%] px-5 py-3.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${m.role === "user" ? "bg-[#D4AF37] text-[#0B0C10]" : "surface"}`}>
+                {m.role === "assistant" && <div className="w-8 h-8 rounded-full bg-[#3B82F6]/20 shrink-0 mr-3 flex items-center justify-center"><div className="w-3 h-3 rounded-full bg-[#3B82F6]" /></div>}
+                <div className={`max-w-[80%] px-5 py-3.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${m.role === "user" ? "bg-[#3B82F6] text-white" : "surface"}`}>
                   {m.content || <Loader2 className="w-4 h-4 animate-spin" />}
                 </div>
               </motion.div>
@@ -146,11 +146,11 @@ export default function Chat() {
             <Input data-testid="chat-input" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Escreve a tua pergunta..."
               className="border-0 bg-transparent focus-visible:ring-0 shadow-none" />
             <Button data-testid="voice-mic-inline" type="button" onClick={() => setVoiceOpen(true)} variant="ghost"
-              className="rounded-full w-11 h-11 p-0 text-[#D4AF37] hover:bg-[#D4AF37]/10" title="Falar com o CEO">
+              className="rounded-full w-11 h-11 p-0 text-[#3B82F6] hover:bg-[#3B82F6]/10" title="Falar com o CEO">
               <Mic className="w-5 h-5" />
             </Button>
             <Button data-testid="chat-send-btn" type="submit" disabled={streaming || !input.trim()}
-              className="rounded-full w-11 h-11 p-0 bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431]">
+              className="rounded-full w-11 h-11 p-0 bg-[#3B82F6] text-white hover:bg-[#2563EB]">
               {streaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>
           </form>

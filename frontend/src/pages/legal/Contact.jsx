@@ -28,7 +28,7 @@ export default function Contact() {
 
   return (
     <LegalShell title="Fala connosco">
-      <p className="flex items-center gap-2"><Mail className="w-4 h-4 text-[#D4AF37]" /> Preferes email direto? <strong>{CONTACT_EMAIL}</strong></p>
+      <p className="flex items-center gap-2"><Mail className="w-4 h-4 text-[#3B82F6]" /> Preferes email direto? <strong>{CONTACT_EMAIL}</strong></p>
 
       {sent ? (
         <div className="mt-6 p-6 rounded-2xl border border-[#10B981]/40 bg-[#10B981]/10 flex items-center gap-3" data-testid="contact-success">
@@ -40,7 +40,7 @@ export default function Contact() {
           <div><Label className="text-xs text-muted-foreground">Nome</Label><Input data-testid="contact-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="mt-1 bg-transparent" /></div>
           <div><Label className="text-xs text-muted-foreground">Email</Label><Input data-testid="contact-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required className="mt-1 bg-transparent" /></div>
           <div><Label className="text-xs text-muted-foreground">Mensagem</Label><Textarea data-testid="contact-message" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} required className="mt-1 bg-transparent min-h-[120px]" /></div>
-          <Button data-testid="contact-submit" type="submit" disabled={loading} className="rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431]">
+          <Button data-testid="contact-submit" type="submit" disabled={loading} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Enviar mensagem"}
           </Button>
         </form>

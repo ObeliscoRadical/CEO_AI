@@ -117,7 +117,7 @@ export default function Settings() {
     finally { setSendingEmail(false); }
   };
 
-  if (!settings || !company) return <div className="flex justify-center py-32"><Loader2 className="w-6 h-6 animate-spin text-[#D4AF37]" /></div>;
+  if (!settings || !company) return <div className="flex justify-center py-32"><Loader2 className="w-6 h-6 animate-spin text-[#3B82F6]" /></div>;
 
   const prof = company.profile || {};
 
@@ -127,10 +127,10 @@ export default function Settings() {
       <p className="text-muted-foreground text-sm mb-8">Quanto mais o teu CEO souber, melhores serão as decisões. Preenche o que puderes — em linguagem simples.</p>
 
       <div className="surface rounded-3xl p-8 mb-6">
-        <div className="flex items-center gap-2 mb-1"><Building2 className="w-5 h-5 text-[#D4AF37]" /><h2 className="font-serif-lux text-2xl">A tua empresa</h2></div>
+        <div className="flex items-center gap-2 mb-1"><Building2 className="w-5 h-5 text-[#3B82F6]" /><h2 className="font-serif-lux text-2xl">A tua empresa</h2></div>
         <p className="text-muted-foreground text-sm mb-6">Esta informação alimenta todas as análises do CEO AI (saúde, valor, conselhos e relatórios).</p>
 
-        <div className="rounded-2xl border border-[#D4AF37]/25 p-5 mb-8" data-testid="import-card">
+        <div className="rounded-2xl border border-[#3B82F6]/25 p-5 mb-8" data-testid="import-card">
           <p className="text-sm font-medium mb-1">Preencher automaticamente</p>
           <p className="text-xs text-muted-foreground mb-4">Escreve o NIF da empresa ou carrega a certidão permanente (PDF) — eu preencho o que conseguir. Revê sempre antes de guardar.</p>
           <div className="flex flex-col sm:flex-row gap-3">
@@ -147,7 +147,7 @@ export default function Settings() {
           </div>
         </div>
 
-        <p className="text-xs uppercase tracking-[0.18em] text-[#D4AF37] mb-3">O básico</p>
+        <p className="text-xs uppercase tracking-[0.18em] text-[#3B82F6] mb-3">O básico</p>
         <div className="grid md:grid-cols-2 gap-5 mb-8">
           <div><Label className="text-xs text-muted-foreground">Nome da empresa</Label>
             <Input data-testid="co-name" value={company.name || ""} onChange={(e) => upC({ name: e.target.value })} className="mt-1 bg-transparent" /></div>
@@ -163,7 +163,7 @@ export default function Settings() {
             <Textarea data-testid="co-model" value={prof.business_model || ""} onChange={(e) => upProf({ business_model: e.target.value })} placeholder="Ex: vendemos bolos por encomenda e temos uma loja física" className="mt-1 bg-transparent" rows={2} /></div>
         </div>
 
-        <p className="text-xs uppercase tracking-[0.18em] text-[#D4AF37] mb-3">Pessoas e clientes</p>
+        <p className="text-xs uppercase tracking-[0.18em] text-[#3B82F6] mb-3">Pessoas e clientes</p>
         <div className="grid md:grid-cols-2 gap-5 mb-8">
           <div><Label className="text-xs text-muted-foreground">Quantas pessoas trabalham contigo</Label>
             <Input data-testid="co-employees" type="number" min="0" value={company.employees_count || 0} onChange={(e) => upC({ employees_count: Number(e.target.value) })} className="mt-1 bg-transparent" /></div>
@@ -183,7 +183,7 @@ export default function Settings() {
             </Select></div>
         </div>
 
-        <p className="text-xs uppercase tracking-[0.18em] text-[#D4AF37] mb-3">Dinheiro</p>
+        <p className="text-xs uppercase tracking-[0.18em] text-[#3B82F6] mb-3">Dinheiro</p>
         <div className="grid md:grid-cols-2 gap-5 mb-8">
           <div><Label className="text-xs text-muted-foreground">Dinheiro em caixa hoje</Label>
             <Input data-testid="co-cash" type="number" value={company.bank_balance || 0} onChange={(e) => upC({ bank_balance: Number(e.target.value) })} className="mt-1 bg-transparent" /></div>
@@ -202,7 +202,7 @@ export default function Settings() {
             <Input data-testid="co-season" value={prof.seasonality || ""} onChange={(e) => upProf({ seasonality: e.target.value })} placeholder="Ex: verão é forte, janeiro é fraco" className="mt-1 bg-transparent" /></div>
         </div>
 
-        <p className="text-xs uppercase tracking-[0.18em] text-[#D4AF37] mb-3">Objetivos e futuro</p>
+        <p className="text-xs uppercase tracking-[0.18em] text-[#3B82F6] mb-3">Objetivos e futuro</p>
         <div className="grid md:grid-cols-2 gap-5 mb-6">
           <div className="md:col-span-2"><Label className="text-xs text-muted-foreground">O que queres para a empresa?</Label>
             <Select value={prof.main_goal || ""} onValueChange={(v) => upProf({ main_goal: v })}>
@@ -217,7 +217,7 @@ export default function Settings() {
             <Textarea data-testid="co-worry" value={prof.main_worry || ""} onChange={(e) => upProf({ main_worry: e.target.value })} placeholder="Ex: as vendas pararam de crescer" className="mt-1 bg-transparent" rows={2} /></div>
         </div>
 
-        <Button data-testid="save-company-btn" onClick={saveCompany} disabled={savingCompany} className="rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431]">
+        <Button data-testid="save-company-btn" onClick={saveCompany} disabled={savingCompany} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]">
           {savingCompany ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null} Guardar informação da empresa
         </Button>
       </div>
@@ -258,13 +258,13 @@ export default function Settings() {
             </Select>
           </div>
         </div>
-        <Button data-testid="save-settings-btn" onClick={save} disabled={saving} className="rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431]">
+        <Button data-testid="save-settings-btn" onClick={save} disabled={saving} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]">
           {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null} Guardar
         </Button>
       </div>
 
       <div className="surface rounded-3xl p-8 mb-6">
-        <div className="flex items-center gap-2 mb-2"><Mail className="w-5 h-5 text-[#D4AF37]" /><h2 className="font-serif-lux text-2xl">Briefing por email</h2></div>
+        <div className="flex items-center gap-2 mb-2"><Mail className="w-5 h-5 text-[#3B82F6]" /><h2 className="font-serif-lux text-2xl">Briefing por email</h2></div>
         <p className="text-muted-foreground text-sm mb-6">O CEO AI acorda contigo: recebe o briefing diário no email às 07:00 (UTC), mesmo sem abrir a app.</p>
         <div className="flex items-center justify-between p-4 rounded-xl border border-border mb-4">
           <div>
@@ -272,7 +272,7 @@ export default function Settings() {
             <div className="text-xs text-muted-foreground mt-0.5">Enviado para a tua conta de email</div>
           </div>
           <button data-testid="email-briefing-toggle" onClick={() => toggleEmail(!settings.email_briefing)}
-            className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${settings.email_briefing ? "bg-[#D4AF37]" : "bg-border"}`}>
+            className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${settings.email_briefing ? "bg-[#3B82F6]" : "bg-border"}`}>
             <span className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all ${settings.email_briefing ? "left-6" : "left-1"}`} />
           </button>
         </div>
@@ -282,17 +282,17 @@ export default function Settings() {
       </div>
 
       <div className="surface rounded-3xl p-8">
-        <div className="flex items-center gap-2 mb-2"><Brain className="w-5 h-5 text-[#D4AF37]" /><h2 className="font-serif-lux text-2xl">CEO Memory</h2></div>
+        <div className="flex items-center gap-2 mb-2"><Brain className="w-5 h-5 text-[#3B82F6]" /><h2 className="font-serif-lux text-2xl">CEO Memory</h2></div>
         <p className="text-muted-foreground text-sm mb-6">O que queres que o teu CEO nunca esqueça. Cada conselho vai considerar isto.</p>
         <div className="flex gap-3 mb-5">
           <Input data-testid="mem-input" value={newMem} onChange={(e) => setNewMem(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addMem()} placeholder="Ex: odeio empréstimos; quero contratar 2 técnicos" className="bg-transparent" />
-          <Button data-testid="add-mem-btn" onClick={addMem} className="rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431]"><Plus className="w-4 h-4" /></Button>
+          <Button data-testid="add-mem-btn" onClick={addMem} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]"><Plus className="w-4 h-4" /></Button>
         </div>
         <div className="space-y-2">
           {memories.length === 0 && <p className="text-sm text-muted-foreground">Ainda sem memórias.</p>}
           {memories.map((m) => (
             <div key={m.id} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border" data-testid={`mem-${m.id}`}>
-              <div className="w-2 h-2 rounded-full bg-[#D4AF37]" />
+              <div className="w-2 h-2 rounded-full bg-[#3B82F6]" />
               <span className="flex-1 text-sm">{m.content}</span>
               <button onClick={() => delMem(m.id)} data-testid={`del-mem-${m.id}`} className="text-muted-foreground hover:text-[#EF4444] transition-colors"><Trash2 className="w-4 h-4" /></button>
             </div>

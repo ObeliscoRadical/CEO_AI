@@ -3,13 +3,14 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { Loader2, Printer, AlertTriangle, Sparkles, Shield, TriangleAlert } from "lucide-react";
+import { Watermark } from "@/components/Watermark";
 
 export default function Relatorios() {
   const [data, setData] = useState(null);
   useEffect(() => { api.get("/report").then(({ data }) => setData(data)); }, []);
   if (!data) return (
     <div className="flex flex-col items-center justify-center py-40 gap-4">
-      <Loader2 className="w-6 h-6 animate-spin text-[#D4AF37]" />
+      <Loader2 className="w-6 h-6 animate-spin text-[#3B82F6]" />
       <p className="text-sm text-muted-foreground">O CEO AI está a preparar o teu relatório estratégico...</p>
     </div>
   );
@@ -19,10 +20,13 @@ export default function Relatorios() {
   return (
     <div className="px-6 md:px-16 py-14 md:py-20 max-w-[900px] mx-auto">
       <div className="flex items-start justify-between gap-4 mb-2">
-        <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Relatório Estratégico da Empresa</p>
+        <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Relatórios Executivos</p>
         <Button data-testid="print-btn" onClick={() => window.print()} variant="outline" size="sm" className="rounded-full"><Printer className="w-4 h-4 mr-2" />Exportar</Button>
       </div>
-      <h1 className="font-serif-lux text-4xl md:text-5xl mb-2">{data.company_name}</h1>
+      <div className="relative mb-2 pt-2">
+        <Watermark text={data.company_name} />
+        <h1 className="font-serif-lux text-4xl md:text-6xl relative z-10 leading-[1.05]">{data.company_name}</h1>
+      </div>
       <p className="text-muted-foreground mb-12">{date} · Preparado pelo CEO AI · Saúde {data.health}/100 · Valor {sym}{Number(data.company_value).toLocaleString("pt-PT")}</p>
 
       <Section title="Situação atual"><p className="leading-relaxed text-[15px]">{data.situacao_atual}</p></Section>
@@ -31,11 +35,11 @@ export default function Relatorios() {
         <ListCard title="Pontos fortes" items={data.pontos_fortes} Icon={Shield} tone="#10B981" />
         <ListCard title="Pontos fracos" items={data.pontos_fracos} Icon={TriangleAlert} tone="#F59E0B" />
         <ListCard title="Riscos" items={data.riscos} Icon={AlertTriangle} tone="#EF4444" />
-        <ListCard title="Oportunidades" items={data.oportunidades} Icon={Sparkles} tone="#D4AF37" />
+        <ListCard title="Oportunidades" items={data.oportunidades} Icon={Sparkles} tone="#3B82F6" />
       </div>
 
       <Section title="Valor da empresa">
-        <div className="font-serif-lux text-3xl text-[#D4AF37] mb-2">{data.valor?.atual}</div>
+        <div className="font-serif-lux text-3xl text-[#3B82F6] mb-2">{data.valor?.atual}</div>
         <p className="leading-relaxed text-[15px]">{data.valor?.comentario}</p>
       </Section>
 
@@ -45,7 +49,7 @@ export default function Relatorios() {
         <div className="space-y-3">
           {(data.plano_acao || []).map((p, i) => (
             <div key={i} className="flex gap-4 surface rounded-2xl p-5" data-testid={`plan-${i}`}>
-              <div className="w-7 h-7 rounded-lg bg-[#D4AF37]/15 text-[#D4AF37] flex items-center justify-center text-sm font-medium shrink-0">{i + 1}</div>
+              <div className="w-7 h-7 rounded-lg bg-[#3B82F6]/15 text-[#3B82F6] flex items-center justify-center text-sm font-medium shrink-0">{i + 1}</div>
               <div className="flex-1">
                 <div className="font-medium">{p.acao}</div>
                 <div className="text-sm text-muted-foreground mt-1">Prazo: {p.prazo} · Impacto: {p.impacto}</div>
@@ -58,7 +62,7 @@ export default function Relatorios() {
       <Section title="Recomendações do CEO AI">
         <div className="surface rounded-3xl p-7 space-y-3">
           {(data.recomendacoes || []).map((r, i) => (
-            <div key={i} className="flex gap-3 text-[15px]"><span className="text-[#D4AF37]">—</span><span className="leading-relaxed">{r}</span></div>
+            <div key={i} className="flex gap-3 text-[15px]"><span className="text-[#3B82F6]">—</span><span className="leading-relaxed">{r}</span></div>
           ))}
         </div>
       </Section>

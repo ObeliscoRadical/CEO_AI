@@ -34,7 +34,7 @@ function Protected({ children }) {
   if (user === null)
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-[#D4AF37]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[#3B82F6]" />
       </div>
     );
   if (!user) return <Navigate to="/login" replace />;
@@ -42,7 +42,7 @@ function Protected({ children }) {
 }
 
 function Spinner() {
-  return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-[#D4AF37]" /></div>;
+  return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-[#3B82F6]" /></div>;
 }
 
 function PremiumRoute({ children }) {

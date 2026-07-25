@@ -115,23 +115,23 @@ export default function Login() {
               <Input data-testid="password-input" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required className="mt-1 bg-transparent" placeholder="••••••••" />
             </div>
             <Button data-testid="submit-btn" type="submit" disabled={loading}
-              className="w-full rounded-full bg-[#D4AF37] text-[#0B0C10] hover:bg-[#c9a431] hover:-translate-y-0.5 transition-transform font-medium py-6">
+              className="w-full rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB] hover:-translate-y-0.5 transition-transform font-medium py-6">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : mode === "login" ? "Entrar" : "Criar conta"}
             </Button>
           </form>
 
           <p className="text-sm text-muted-foreground mt-6 text-center">
             {mode === "login" ? "Ainda não tem conta?" : "Já tem conta?"}{" "}
-            <button data-testid="toggle-mode-btn" onClick={() => setMode(mode === "login" ? "register" : "login")} className="text-[#D4AF37] hover:underline">
+            <button data-testid="toggle-mode-btn" onClick={() => setMode(mode === "login" ? "register" : "login")} className="text-[#3B82F6] hover:underline">
               {mode === "login" ? "Criar conta" : "Entrar"}
             </button>
           </p>
           <div className="flex items-center justify-center gap-4 mt-8 text-xs text-muted-foreground">
-            <a href="/termos" data-testid="footer-terms" className="hover:text-[#D4AF37] transition-colors">Termos</a>
+            <a href="/termos" data-testid="footer-terms" className="hover:text-[#3B82F6] transition-colors">Termos</a>
             <span>·</span>
-            <a href="/privacidade" data-testid="footer-privacy" className="hover:text-[#D4AF37] transition-colors">Privacidade</a>
+            <a href="/privacidade" data-testid="footer-privacy" className="hover:text-[#3B82F6] transition-colors">Privacidade</a>
             <span>·</span>
-            <a href="/contacto" data-testid="footer-contact" className="hover:text-[#D4AF37] transition-colors">Contacto</a>
+            <a href="/contacto" data-testid="footer-contact" className="hover:text-[#3B82F6] transition-colors">Contacto</a>
           </div>
         </motion.div>
       </div>

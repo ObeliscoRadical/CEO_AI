@@ -8,7 +8,7 @@ export function LegalShell({ title, updated, children }) {
   return (
     <div className="min-h-screen bg-background text-foreground relative z-10 grain">
       <div className="max-w-[820px] mx-auto px-6 py-16">
-        <Link to="/login" data-testid="legal-back" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-[#D4AF37] transition-colors mb-10">
+        <Link to="/login" data-testid="legal-back" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-[#3B82F6] transition-colors mb-10">
           <ArrowLeft className="w-4 h-4" /> Voltar
         </Link>
         <h1 className="font-serif-lux text-5xl mb-2">{title}</h1>
