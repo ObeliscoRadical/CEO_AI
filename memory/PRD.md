@@ -120,6 +120,13 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ Verificado: restaurante → food cost, ementa, rotação de mesas, turnos; construção → obras, empreitadas, adjudicações, mão-de-obra, materiais. Muda de vocabulário ao mudar o setor (cache invalidada ao guardar a empresa).
 - ✅ Testado (iteration_15): backend 5/5. Zero bugs.
 
+## Implemented — Fase 15: Onboarding inteligente conduzido pelo CEO AI (2026-07-25)
+- ✅ **Tour guiado por spotlight** (`/app/frontend/src/components/CEOTour.jsx`, montado no `AppLayout`) que ilumina os elementos reais: boas-vindas ("👋 Bem-vindo ao CEO AI, olá {Nome}") → Painel do CEO → Prioridade Máxima → Saúde Empresarial → Conversar com o CEO → Relatório → CTA final "Carregar os meus dados" (→ /financas).
+- ✅ **Aparece de ambas as formas**: automaticamente na 1ª chegada ao Painel após onboarding (GET /api/settings → tour_completed) E via botão manual "Tour guiado do CEO" na sidebar (evento `start-ceo-tour`).
+- ✅ **Copy adaptada ao setor** (construção: margens por obra/prazos/tesouraria; restauração: food cost/ocupação/desperdício; clínica: agenda/faturação por especialidade; genérico) via `sectorKey()` sobre o setor da empresa ativa.
+- ✅ **Persistência por utilizador**: PUT /api/settings {tour_completed:true} ao concluir ou saltar; não reabre em logins seguintes. `SettingsInput` e DEFAULT_SETTINGS atualizados.
+- ✅ Fallback gracioso: spotlight de itens do menu só em desktop; em mobile mostra cartão centrado. Testado (iteration_16): frontend 100%, 8/8 casos, zero bugs.
+
 ## Backlog atualizado
 - P2: Open banking real por região (UE/PT, BR).
 - P2 (opcional): usar figuras extraídas dos documentos para recalcular o valuation base (atualmente alimentam o rationale/rating, não o valor base do snapshot).
