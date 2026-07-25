@@ -26,25 +26,31 @@ const NAV = [
   { to: "/definicoes", label: "Empresa", icon: SettingsIcon, testid: "nav-empresa" },
 ];
 
-const Logo = ({ size = 40 }) => (
-  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className="shrink-0" aria-hidden="true">
-    <defs>
-      <linearGradient id="cube-top" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stopColor="#93C5FD" /><stop offset="1" stopColor="#3B82F6" />
-      </linearGradient>
-      <linearGradient id="cube-left" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stopColor="#2563EB" /><stop offset="1" stopColor="#1E3A8A" />
-      </linearGradient>
-      <linearGradient id="cube-right" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stopColor="#3B82F6" /><stop offset="1" stopColor="#1D4ED8" />
-      </linearGradient>
-    </defs>
-    <path d="M24 4 L42 14 L24 24 L6 14 Z" fill="url(#cube-top)" />
-    <path d="M6 14 L24 24 L24 44 L6 34 Z" fill="url(#cube-left)" />
-    <path d="M42 14 L24 24 L24 44 L42 34 Z" fill="url(#cube-right)" />
-    <path d="M24 4 L42 14 L24 24 L6 14 Z" fill="none" stroke="#BFDBFE" strokeOpacity="0.4" strokeWidth="0.6" />
-  </svg>
-);
+const Logo = ({ size = 40 }) => {
+  const bars = [0.45, 0.8, 1, 0.65, 0.35];
+  return (
+    <div className="relative flex items-center justify-center" style={{ width: size, height: size }} aria-hidden="true">
+      <div className="absolute inset-0 rounded-xl" style={{ background: "radial-gradient(circle at 50% 60%, rgba(59,130,246,0.45), transparent 70%)", filter: "blur(6px)" }} />
+      <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className="relative">
+        <defs>
+          <linearGradient id="eq-grad" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0" stopColor="#1D4ED8" /><stop offset="0.6" stopColor="#3B82F6" /><stop offset="1" stopColor="#93C5FD" />
+          </linearGradient>
+        </defs>
+        {bars.map((h, i) => (
+          <motion.rect
+            key={i}
+            x={7 + i * 8} width="4.5" rx="2.25"
+            fill="url(#eq-grad)"
+            initial={{ height: 8 * h, y: 24 - 4 * h }}
+            animate={{ height: [8 * h, 30 * h, 12 * h, 26 * h, 8 * h], y: [24 - 4 * h, 24 - 15 * h, 24 - 6 * h, 24 - 13 * h, 24 - 4 * h] }}
+            transition={{ duration: 1.6 + i * 0.2, repeat: Infinity, ease: "easeInOut", delay: i * 0.12 }}
+          />
+        ))}
+      </svg>
+    </div>
+  );
+};
 
 export function AppLayout() {
   const { user, logout } = useAuth();
