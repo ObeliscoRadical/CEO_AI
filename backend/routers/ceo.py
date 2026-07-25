@@ -111,7 +111,7 @@ async def send_briefing_email(request: Request, user: dict = Depends(get_current
     return {"sent": True, "to": user["email"]}
 
 @router.get("/decisions")
-async def decisions(user: dict = Depends(get_current_user)):
+async def decisions(user: dict = Depends(premium_user)):
     uid = user["id"]
     cid = await active_company_id(uid)
     snap = await build_snapshot(uid)
@@ -143,7 +143,7 @@ async def decisions(user: dict = Depends(get_current_user)):
             "currency_symbol": snap["currency_symbol"], "company_name": snap["company_name"]}
 
 @router.post("/decisions/act")
-async def decisions_act(inp: DecisionActInput, user: dict = Depends(get_current_user)):
+async def decisions_act(inp: DecisionActInput, user: dict = Depends(premium_user)):
     cid = await active_company_id(user["id"])
     today = datetime.now(timezone.utc).date().isoformat()
     await db.decision_feedback.update_one(

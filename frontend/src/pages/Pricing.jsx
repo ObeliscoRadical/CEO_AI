@@ -109,7 +109,7 @@ export default function Pricing() {
                 <span className="font-medium" data-testid="founder-count">{claimed} de {limit}</span>
               </div>
               <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-                <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 0.9, ease: "easeOut" }}
+                <motion.div initial={{ width: 0 }} animate={{ width: `${Math.max(progress, 4)}%` }} transition={{ duration: 0.9, ease: "easeOut" }}
                   className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] to-[#f0d375]" data-testid="founder-progress" />
               </div>
               <p className="text-xs text-[#D4AF37] mt-2" data-testid="founder-remaining">
