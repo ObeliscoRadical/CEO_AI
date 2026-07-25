@@ -71,7 +71,10 @@ export default function Login() {
       {/* Left: brand */}
       <div className="hidden lg:flex flex-col justify-center items-center p-16 relative overflow-hidden border-r border-border">
         <div className="absolute inset-0 opacity-[0.12]" style={{ background: "url('https://images.unsplash.com/photo-1747673002516-f11a48cb0ce2?crop=entropy&cs=srgb&fm=jpg&q=85') center/cover" }} />
-        <VoiceSphere size={220} ripple />
+        <div className="relative" style={{ width: 260, height: 260 }}>
+          <div className="absolute inset-0 rounded-[2rem]" style={{ background: "radial-gradient(circle, rgba(59,130,246,0.5), transparent 68%)", filter: "blur(28px)" }} />
+          <img src="/logo512.png" alt="CEO AI" className="relative w-full h-full object-cover rounded-[2rem] ring-1 ring-blue-400/25 shadow-[0_0_60px_-10px_rgba(59,130,246,0.6)]" />
+        </div>
         <h1 className="font-serif-lux text-5xl mt-12 text-center leading-tight tracking-tight">
           O CEO que trabalha<br />24 horas pela sua empresa
         </h1>
@@ -83,7 +86,12 @@ export default function Login() {
       {/* Right: form */}
       <div className="flex items-center justify-center p-8">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm">
-          <div className="lg:hidden flex justify-center mb-8"><VoiceSphere size={120} ripple /></div>
+          <div className="lg:hidden flex justify-center mb-8">
+            <div className="relative" style={{ width: 128, height: 128 }}>
+              <div className="absolute inset-0 rounded-3xl" style={{ background: "radial-gradient(circle, rgba(59,130,246,0.5), transparent 68%)", filter: "blur(18px)" }} />
+              <img src="/logo512.png" alt="CEO AI" className="relative w-full h-full object-cover rounded-3xl ring-1 ring-blue-400/25 shadow-[0_0_40px_-8px_rgba(59,130,246,0.6)]" />
+            </div>
+          </div>
           <h2 className="font-serif-lux text-4xl mb-2">{mode === "login" ? "Bem-vindo de volta" : "Comece agora"}</h2>
           <p className="text-muted-foreground text-sm mb-8">
             {mode === "login" ? "Entre para falar com o seu CEO AI." : "Crie a sua conta e conheça o seu Diretor Executivo Digital."}
