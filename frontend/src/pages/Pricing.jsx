@@ -52,7 +52,7 @@ export default function Pricing() {
     } catch (err) {
       const detail = err.response?.data?.detail;
       if (detail === "founder_closed") {
-        toast.error("A última vaga de Empresa Fundadora acabou de ser ativada. O Plano Professional continua disponível por 79 €/mês.");
+        toast.error("A última vaga de Empresa Fundadora acabou de ser ativada. O Plano Professional continua disponível por 59 €/mês.");
         loadStatus();
       } else if (detail === "founder_used") {
         toast.error("Já utilizaste o preço de Empresa Fundadora anteriormente.");
@@ -98,7 +98,7 @@ export default function Pricing() {
               <span className="font-serif-lux text-5xl text-[#3B82F6]">29 €</span>
               <span className="text-muted-foreground mb-2">/mês</span>
             </div>
-            <p className="text-sm text-muted-foreground line-through mb-5">79 €/mês</p>
+            <p className="text-sm text-muted-foreground line-through mb-5">59 €/mês</p>
             <p className="text-sm text-muted-foreground leading-relaxed mb-6">
               Ajude-nos a construir o futuro do CEO AI. Estamos a abrir a plataforma apenas para as primeiras 15 empresas — que terão o preço mais baixo que alguma vez existirá. Enquanto mantiverem a subscrição ativa, este preço nunca aumentará.
             </p>
@@ -142,7 +142,7 @@ export default function Pricing() {
           className="rounded-3xl p-8 border border-[#4a83ff]/30 surface hover:-translate-y-1 transition-transform duration-300">
           <h3 className="font-serif-lux text-2xl">Professional</h3>
           <div className="flex items-end gap-2 mt-4 mb-5">
-            <span className="font-serif-lux text-5xl text-[#7aa2ff]">79 €</span>
+            <span className="font-serif-lux text-5xl text-[#7aa2ff]">59 €</span>
             <span className="text-muted-foreground mb-2">/mês</span>
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed mb-6">
@@ -165,7 +165,7 @@ export default function Pricing() {
           className="rounded-3xl p-8 border border-border surface hover:-translate-y-1 transition-transform duration-300">
           <h3 className="font-serif-lux text-2xl">Enterprise</h3>
           <div className="flex items-end gap-2 mt-4 mb-5">
-            <span className="font-serif-lux text-4xl">Desde 199 €</span>
+            <span className="font-serif-lux text-4xl">Desde 159,99 €</span>
             <span className="text-muted-foreground mb-1">/mês</span>
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed mb-6">
