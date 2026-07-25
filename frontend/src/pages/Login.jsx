@@ -67,10 +67,11 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-background text-foreground relative z-10">
+    <div className="min-h-screen grid lg:grid-cols-2 text-foreground relative z-10 overflow-hidden"
+      style={{ background: "radial-gradient(70% 90% at 25% 20%, rgba(59,130,246,0.14), transparent 60%), radial-gradient(60% 80% at 90% 90%, rgba(30,58,138,0.18), transparent 60%), #05050A" }}>
       {/* Left: brand */}
-      <div className="hidden lg:flex flex-col justify-center items-center p-16 relative overflow-hidden border-r border-border">
-        <div className="absolute inset-0 opacity-[0.12]" style={{ background: "url('https://images.unsplash.com/photo-1747673002516-f11a48cb0ce2?crop=entropy&cs=srgb&fm=jpg&q=85') center/cover" }} />
+      <div className="hidden lg:flex flex-col justify-center items-center p-16 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.08]" style={{ background: "url('https://images.unsplash.com/photo-1747673002516-f11a48cb0ce2?crop=entropy&cs=srgb&fm=jpg&q=85') center/cover" }} />
         <div className="relative" style={{ width: 260, height: 260 }}>
           <div className="absolute inset-0 rounded-[2rem]" style={{ background: "radial-gradient(circle, rgba(59,130,246,0.5), transparent 68%)", filter: "blur(28px)" }} />
           <img src="/logo512.png" alt="CEO AI" className="relative w-full h-full object-cover rounded-[2rem] ring-1 ring-blue-400/25 shadow-[0_0_60px_-10px_rgba(59,130,246,0.6)]" />
