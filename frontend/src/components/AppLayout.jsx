@@ -27,8 +27,9 @@ const NAV = [
 ];
 
 const Logo = ({ size = 40 }) => (
-  <div className="relative flex items-center justify-center rounded-xl overflow-hidden ring-1 ring-blue-400/20 shadow-[0_0_18px_rgba(59,130,246,0.35)]" style={{ width: size, height: size }} aria-hidden="true">
-    <img src="/logo192.png" alt="CEO AI" className="w-full h-full object-cover" />
+  <div className="relative flex items-center justify-center" style={{ width: size, height: size }} aria-hidden="true">
+    <div className="absolute inset-1 rounded-full" style={{ background: "radial-gradient(circle, rgba(59,130,246,0.4), transparent 70%)", filter: "blur(6px)" }} />
+    <img src="/android_cut.png" alt="CEO AI" className="relative w-full h-full object-contain" style={{ filter: "drop-shadow(0 0 6px rgba(59,130,246,0.45))" }} />
   </div>
 );
 
