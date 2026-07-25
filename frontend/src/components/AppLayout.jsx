@@ -15,15 +15,15 @@ import { CEOTour } from "@/components/CEOTour";
 import { toast } from "sonner";
 
 const NAV = [
-  { to: "/", label: "Painel do CEO", icon: Home, end: true, testid: "nav-painel" },
-  { to: "/conselhos", label: "Conselhos", icon: Lightbulb, testid: "nav-conselhos", gated: true },
-  { to: "/saude", label: "Saúde Empresarial", icon: HeartPulse, testid: "nav-saude", gated: true },
-  { to: "/valor", label: "Valor da Empresa", icon: Coins, testid: "nav-valor", gated: true },
-  { to: "/futuro", label: "Futuro", icon: TrendingUp, testid: "nav-futuro", premium: true, gated: true },
-  { to: "/ceo", label: "Conversar com o CEO", icon: MessageSquare, testid: "nav-ceo", gated: true },
-  { to: "/financas", label: "Finanças", icon: Wallet, testid: "nav-financas" },
-  { to: "/relatorios", label: "Relatórios", icon: FileText, testid: "nav-relatorios", gated: true },
-  { to: "/definicoes", label: "Empresa", icon: SettingsIcon, testid: "nav-empresa" },
+  { to: "/", label: "Painel do CEO", short: "Painel", icon: Home, end: true, testid: "nav-painel" },
+  { to: "/conselhos", label: "Conselhos", short: "Conselhos", icon: Lightbulb, testid: "nav-conselhos", gated: true },
+  { to: "/saude", label: "Saúde Empresarial", short: "Saúde", icon: HeartPulse, testid: "nav-saude", gated: true },
+  { to: "/valor", label: "Valor da Empresa", short: "Valor", icon: Coins, testid: "nav-valor", gated: true },
+  { to: "/futuro", label: "Futuro", short: "Futuro", icon: TrendingUp, testid: "nav-futuro", premium: true, gated: true },
+  { to: "/ceo", label: "Conversar com o CEO", short: "CEO", icon: MessageSquare, testid: "nav-ceo", gated: true },
+  { to: "/financas", label: "Finanças", short: "Finanças", icon: Wallet, testid: "nav-financas" },
+  { to: "/relatorios", label: "Relatórios", short: "Relatórios", icon: FileText, testid: "nav-relatorios", gated: true },
+  { to: "/definicoes", label: "Empresa", short: "Definições", icon: SettingsIcon, testid: "nav-empresa" },
 ];
 
 const Logo = ({ size = 40 }) => (
@@ -65,22 +65,24 @@ export function AppLayout() {
         data-testid={n.testid}
         title={n.label}
         onClick={() => go(locked ? "/planos" : n.to)}
-        className={`relative w-12 h-12 rounded-xl flex items-center justify-center mb-1 transition-colors duration-300 group ${
+        className={`relative w-full flex flex-col items-center gap-1 py-2.5 rounded-xl mb-0.5 transition-colors duration-300 ${
           activeItem ? "text-blue-400 bg-blue-500/10" : "text-slate-500 hover:text-blue-400 hover:bg-blue-500/10"
         }`}
       >
         {activeItem && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-blue-500" />}
-        <n.icon className="w-[20px] h-[20px]" />
-        {locked && <Lock className="w-3 h-3 absolute top-1.5 right-1.5 text-blue-400/80" />}
-        {(n.premium && !isPremium && !isAdmin) && !locked && <Crown className="w-3 h-3 absolute top-1.5 right-1.5 text-blue-400/80" />}
-        <span className="pointer-events-none absolute left-16 px-2.5 py-1.5 rounded-lg bg-[#0b0c14] border border-white/10 text-xs text-white whitespace-nowrap opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 z-50 shadow-xl">{n.label}</span>
+        <span className="relative">
+          <n.icon className="w-[19px] h-[19px]" />
+          {locked && <Lock className="w-3 h-3 absolute -top-1.5 -right-2.5 text-blue-400/80" />}
+          {(n.premium && !isPremium && !isAdmin) && !locked && <Crown className="w-3 h-3 absolute -top-1.5 -right-2.5 text-blue-400/80" />}
+        </span>
+        <span className="text-[9.5px] font-medium leading-none text-center">{n.short}</span>
       </button>
     );
   };
 
   const DesktopRail = (
-    <aside className="hidden md:flex w-20 h-screen fixed left-0 top-0 flex-col items-center py-6 border-r border-white/[0.08] bg-[#05050A]/90 backdrop-blur-xl z-40">
-      <div className="flex flex-col items-center gap-1.5 mb-10">
+    <aside className="hidden md:flex w-24 h-screen fixed left-0 top-0 flex-col items-center py-6 px-2 border-r border-white/[0.08] bg-[#05050A]/90 backdrop-blur-xl z-40">
+      <div className="flex flex-col items-center gap-1.5 mb-8">
         <Logo />
         <span className="text-[9px] font-bold tracking-[0.2em] text-white/70 uppercase">CEO AI</span>
       </div>
@@ -88,8 +90,9 @@ export function AppLayout() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button data-testid="company-selector" title={active?.name || "Empresa"}
-            className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors">
+            className="w-full flex flex-col items-center gap-1 py-2.5 rounded-xl mb-3 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors">
             <Building2 className="w-[18px] h-[18px]" />
+            <span className="text-[9.5px] font-medium leading-none">Trocar</span>
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-[220px]" align="start" side="right">
@@ -105,15 +108,15 @@ export function AppLayout() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <nav className="flex-1 flex flex-col items-center overflow-y-auto no-scrollbar">
+      <nav className="flex-1 flex flex-col items-center w-full overflow-y-auto no-scrollbar">
         {NAV.map((n) => <RailItem key={n.to} n={n} />)}
-        {isAdmin && <RailItem n={{ to: "/admin", label: "Administração", icon: Shield, testid: "nav-admin" }} />}
+        {isAdmin && <RailItem n={{ to: "/admin", label: "Administração", short: "Admin", icon: Shield, testid: "nav-admin" }} />}
       </nav>
 
-      <div className="flex flex-col items-center gap-1 mt-4 pt-4 border-t border-white/[0.08] w-12">
-        <button data-testid="restart-tour-btn" title="Tour guiado" onClick={() => window.dispatchEvent(new Event("start-ceo-tour"))} className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"><Compass className="w-[18px] h-[18px]" /></button>
-        <button data-testid="nav-subscricao" title={isPremium ? "Subscrição" : "Passar a Premium"} onClick={() => go("/subscricao")} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${isPremium ? "text-blue-400" : "text-slate-500 hover:text-blue-400 hover:bg-blue-500/10"}`}><Crown className="w-[18px] h-[18px]" /></button>
-        <button data-testid="logout-btn" title="Sair" onClick={doLogout} className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"><LogOut className="w-[18px] h-[18px]" /></button>
+      <div className="flex flex-col items-center gap-0.5 mt-4 pt-4 border-t border-white/[0.08] w-full">
+        <button data-testid="restart-tour-btn" title="Tour guiado" onClick={() => window.dispatchEvent(new Event("start-ceo-tour"))} className="w-full flex flex-col items-center gap-1 py-2 rounded-xl text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"><Compass className="w-[18px] h-[18px]" /><span className="text-[9.5px] font-medium leading-none">Tour</span></button>
+        <button data-testid="nav-subscricao" title={isPremium ? "Subscrição" : "Passar a Premium"} onClick={() => go("/subscricao")} className={`w-full flex flex-col items-center gap-1 py-2 rounded-xl transition-colors ${isPremium ? "text-blue-400" : "text-slate-500 hover:text-blue-400 hover:bg-blue-500/10"}`}><Crown className="w-[18px] h-[18px]" /><span className="text-[9.5px] font-medium leading-none">{isPremium ? "Plano" : "Premium"}</span></button>
+        <button data-testid="logout-btn" title="Sair" onClick={doLogout} className="w-full flex flex-col items-center gap-1 py-2 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"><LogOut className="w-[18px] h-[18px]" /><span className="text-[9.5px] font-medium leading-none">Sair</span></button>
       </div>
     </aside>
   );
@@ -184,7 +187,7 @@ export function AppLayout() {
         </DialogContent>
       </Dialog>
 
-      <main className="md:pl-20 min-h-screen pt-14 md:pt-0 relative z-10">
+      <main className="md:pl-24 min-h-screen pt-14 md:pt-0 relative z-10">
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
           <Outlet />
         </motion.div>
