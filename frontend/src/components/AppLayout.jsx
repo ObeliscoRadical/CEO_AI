@@ -26,8 +26,24 @@ const NAV = [
   { to: "/definicoes", label: "Empresa", icon: SettingsIcon, testid: "nav-empresa" },
 ];
 
-const Logo = () => (
-  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 shadow-[0_0_20px_rgba(59,130,246,0.4)] flex items-center justify-center text-white font-serif-lux text-lg">C</div>
+const Logo = ({ size = 40 }) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className="shrink-0" aria-hidden="true">
+    <defs>
+      <linearGradient id="cube-top" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stopColor="#93C5FD" /><stop offset="1" stopColor="#3B82F6" />
+      </linearGradient>
+      <linearGradient id="cube-left" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#2563EB" /><stop offset="1" stopColor="#1E3A8A" />
+      </linearGradient>
+      <linearGradient id="cube-right" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#3B82F6" /><stop offset="1" stopColor="#1D4ED8" />
+      </linearGradient>
+    </defs>
+    <path d="M24 4 L42 14 L24 24 L6 14 Z" fill="url(#cube-top)" />
+    <path d="M6 14 L24 24 L24 44 L6 34 Z" fill="url(#cube-left)" />
+    <path d="M42 14 L24 24 L24 44 L42 34 Z" fill="url(#cube-right)" />
+    <path d="M24 4 L42 14 L24 24 L6 14 Z" fill="none" stroke="#BFDBFE" strokeOpacity="0.4" strokeWidth="0.6" />
+  </svg>
 );
 
 export function AppLayout() {
