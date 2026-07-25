@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api, streamChat } from "@/lib/api";
 import { VoiceSphere } from "@/components/VoiceSphere";
+import { CEOOrb } from "@/components/CEOOrb";
 import { VoiceMode } from "@/components/VoiceMode";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -110,9 +111,9 @@ export default function Chat() {
       <div className="flex-1 flex flex-col max-w-3xl mx-auto px-6 w-full">
         {messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center">
-            <VoiceSphere size={170} />
-            <h1 className="font-serif-lux text-4xl mt-8 mb-3">Fala comigo.</h1>
-            <p className="text-muted-foreground mb-8 max-w-md">Pergunta o que quiseres, como falarias com um CEO ao teu lado. Sem termos técnicos.</p>
+            <CEOOrb size={170} />
+            <h1 className="font-serif-lux text-4xl md:text-5xl mt-8 mb-3">O teu CEO está a ouvir.</h1>
+            <p className="text-muted-foreground mb-8 max-w-md">Estou pronto a analisar a tua empresa e a decidir contigo. Expõe a situação — respondo como um sócio experiente, sem termos técnicos.</p>
             <Button data-testid="open-voice-btn" onClick={() => setVoiceOpen(true)}
               className="rounded-full mb-10 h-12 px-7 bg-[#3B82F6] text-white hover:bg-[#2563EB] text-base">
               <Mic className="w-5 h-5 mr-2" /> Falar com o CEO
