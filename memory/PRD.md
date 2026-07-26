@@ -48,6 +48,12 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ `PainelCEO.jsx`: banner premium no topo ("A tua empresa vale €X — mais/menos €Y (±Z%) que em [mês]"), verde para subida / vermelho para descida, com subtexto e botão fechar. Dispensa persistida por mês em localStorage (`va-dismiss-<mês>`).
 - ✅ Verificado: subida €103.600 (+10,6%) renderiza o banner verde no painel. Sem dados fabricados (histórico real acumula automaticamente).
 
+## Diagnóstico: valor fica na caixa quando falta Perfil Financeiro (2026-07-26)
+- 🔎 Causa raiz de "valor só €3000": a conta não tem `financial_profiles` preenchido (ex.: obeliscoradical@gmail.com tem empresa mas sem perfil financeiro). Sem faturação/ativos/passivos, `compute_valuation` só tem a caixa → valor = caixa. Admin (com perfil) mostra valor real. NÃO é bug do cálculo.
+- ✅ Poupança de créditos: `/api/valuation` deixa de chamar a IA quando `has_balance` é falso; devolve `needs_financials: True` sem custo de LLM.
+- ✅ `Valor.jsx`: quando `needs_financials`, mostra CTA "Ainda estou a usar só a tua caixa → Preencher Perfil Financeiro" em vez dos fatores IA.
+- ⚠️ Ação do utilizador: preencher Finanças (faturação, ativos, passivos) para o valor real aparecer; depois redeploy para produção.
+
 ## Email mensal automático do valor da empresa (2026-07-26)
 - ✅ `core.py`: `compute_value_alert` (helper reutilizado pelo endpoint), `build_value_alert_html` (template Resend, azul, sobe=verde/desce=vermelho), `send_monthly_value_alerts` (cron).
 - ✅ Cron mensal registado em `server.py` (APScheduler existente): `CronTrigger(day=1, hour=8)` → `monthly_value_alerts`. Idempotente por mês via flag `alert_emailed` no doc de `equity_history`. Respeita opt-out `email_value_alert`.

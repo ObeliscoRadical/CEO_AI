@@ -31,6 +31,14 @@ export default function Valor() {
         )}
       </div>
 
+      {data.needs_financials ? (
+        <div className="surface rounded-3xl p-8 border border-[#3B82F6]/30" data-testid="valuation-needs-financials">
+          <h2 className="font-serif-lux text-2xl mb-2">Ainda estou a usar só a tua caixa</h2>
+          <p className="text-muted-foreground mb-6">Para calcular o valor <strong>real</strong> da tua empresa preciso dos teus números: faturação mensal, ativos (viatura, ferramentas, equipamentos, stock, clientes a receber) e passivos (dívidas, impostos, fornecedores). Assim que preencheres o Perfil Financeiro, recalculo o valor na hora — e sem gastar créditos de IA.</p>
+          <Button data-testid="go-financas-btn" onClick={() => navigate("/financas")} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]">Preencher Perfil Financeiro</Button>
+        </div>
+      ) : (
+      <>
       <h2 className="font-serif-lux text-3xl mb-2">Como chegámos a este valor?</h2>
       <p className="text-muted-foreground mb-8">Cada fator influencia o valuation, para cima ou para baixo.</p>
       <div className="space-y-3 mb-16">
@@ -73,6 +81,8 @@ export default function Valor() {
         </div>
         <Button data-testid="open-investment-grade" onClick={() => navigate("/relatorio")} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB] shrink-0">Ver avaliação formal</Button>
       </div>
+      </>
+      )}
     </div>
   );
 }
