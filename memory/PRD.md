@@ -144,6 +144,12 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ VoiceSphere e CEOOrb recoloridos para azul.
 - ✅ Testado: iteration_18 (frontend 100%, navegação icon-rail + gating grátis + drawer mobile, sem erros de runtime).
 
+## Atualização (Jun 2026) — Dívida + Balanço/Património (Finanças > Perfil)
+- ✅ Campo "Dívida total (empréstimos/financiamentos)" no Perfil Financeiro; métricas Dívida total (em meses de faturação) e Posição líquida (caixa − dívida).
+- ✅ Balanço/Património: listas dinâmicas de Ativos (veículos, ferramentas, stock, contas a receber...) e Passivos (fornecedores, impostos, outros empréstimos). Backend: total_assets = caixa + ativos; total_liabilities = dívida + passivos; net_worth = ativos − passivos. Secção "Património (Balanço)" com 3 tiles + breakdown.
+- ✅ A dívida, ativos, passivos e património líquido são passados à Análise do CEO e guardados em memories p/ o chat. Resolve a "foto distorcida" (empresa deixa de valer só a caixa).
+- ✅ Testado: iteration_21 (frontend balance-sheet 100%) + curl (ativos/passivos/net worth corretos). Modelo FinancialProfileInput ampliado (total_debt, assets[], liabilities[]).
+
 ## Atualização (Jun 2026) — Perfil Financeiro + Análise do CEO (Finanças)
 - ✅ Nova aba "Perfil Financeiro" em /financas (a par de "Movimentos"): o dono insere faturamento mensal, custos fixos (lista dinâmica nome+valor), custos variáveis (% da receita) e saldo em caixa.
 - ✅ Métricas calculadas no backend (compute_profile_metrics): custos totais, lucro, margem líquida %, ponto de equilíbrio (fixos/(1-var%)), runway (caixa/burn), maior custo, meta vs realidade (target anual do DNA /12).
