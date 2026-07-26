@@ -160,6 +160,11 @@ def compute_profile_metrics(p: dict, target_annual: float = 0):
     debt = float(p.get("total_debt", 0) or 0)
     net_position = cash - debt
     debt_revenue_months = (debt / revenue) if revenue > 0 and debt > 0 else None
+    assets = [{"name": (a.get("name") or "Ativo"), "amount": float(a.get("amount", 0) or 0)} for a in (p.get("assets") or [])]
+    liabilities = [{"name": (l.get("name") or "Passivo"), "amount": float(l.get("amount", 0) or 0)} for l in (p.get("liabilities") or [])]
+    total_assets = cash + sum(a["amount"] for a in assets)
+    total_liabilities = debt + sum(l["amount"] for l in liabilities)
+    net_worth = total_assets - total_liabilities
     target_month = (target_annual / 12.0) if target_annual else 0.0
     gap = (target_month - revenue) if target_month else 0.0
     gap_pct = (revenue / target_month * 100.0) if target_month > 0 else 0.0
@@ -174,6 +179,9 @@ def compute_profile_metrics(p: dict, target_annual: float = 0):
         "target_gap": round(gap, 2), "target_progress_pct": round(min(100.0, gap_pct), 1),
         "total_debt": round(debt, 2), "net_position": round(net_position, 2),
         "debt_revenue_months": (round(debt_revenue_months, 1) if debt_revenue_months is not None else None),
+        "assets": assets, "liabilities": liabilities,
+        "total_assets": round(total_assets, 2), "total_liabilities": round(total_liabilities, 2),
+        "net_worth": round(net_worth, 2),
     }
 
 async def _profile_target(uid):
@@ -204,7 +212,8 @@ async def save_finance_profile(inp: FinancialProfileInput, user: dict = Depends(
                   "content": (f"Faturamento mensal {m['monthly_revenue']}, custos totais {m['total_costs']}, "
                               f"lucro {m['profit']} ({m['margin_pct']}% margem), caixa {m['cash_balance']}, "
                               f"divida total {m['total_debt']}, posicao liquida {m['net_position']}, "
-                              f"ponto de equilibrio {m['break_even_revenue']}."),
+                              f"ponto de equilibrio {m['break_even_revenue']}, patrimonio liquido {m['net_worth']} "
+                              f"(ativos {m['total_assets']}, passivos {m['total_liabilities']})."),
                   "created_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
     await invalidate_ai_cache(user["id"])
     return {"ok": True}
@@ -232,6 +241,9 @@ async def finance_profile_analysis(user: dict = Depends(get_current_user)):
         f"Ponto de equilibrio (faturamento): {m['break_even_revenue']}\n"
         f"Saldo em caixa: {m['cash_balance']} | Runway: {m['runway_months']} meses\n"
         f"Divida total (emprestimos/financiamentos): {m['total_debt']} | Posicao liquida (caixa menos divida): {m['net_position']}\n"
+        f"Ativos totais: {m['total_assets']} (caixa + {json.dumps(m['assets'], ensure_ascii=False)})\n"
+        f"Passivos totais: {m['total_liabilities']} (divida + {json.dumps(m['liabilities'], ensure_ascii=False)})\n"
+        f"Patrimonio liquido (ativos menos passivos): {m['net_worth']}\n"
         f"Meta de faturamento mensal: {m['target_revenue_month']} | Progresso: {m['target_progress_pct']}%\n\n"
         "Devolve JSON: {\"diagnostico\": string (2-3 frases, direto), "
         "\"riscos\": [ate 3 strings], \"prioridades\": [ate 3 strings], "
@@ -239,3 +251,4 @@ async def finance_profile_analysis(user: dict = Depends(get_current_user)):
     )
     payload = await cached_ai("profile_analysis", user["id"], cid, system, prompt)
     return {"empty": False, "premium_locked": False, "metrics": m, "analysis": payload}
+

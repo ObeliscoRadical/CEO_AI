@@ -31,7 +31,7 @@ export default function Finances() {
   const [profile, setProfile] = useState(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [pf, setPf] = useState({ monthly_revenue: "", cash_balance: "", variable_costs_pct: "", total_debt: "", fixed_costs: [] });
+  const [pf, setPf] = useState({ monthly_revenue: "", cash_balance: "", variable_costs_pct: "", total_debt: "", fixed_costs: [], assets: [], liabilities: [] });
   const [analysis, setAnalysis] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
 
@@ -69,6 +69,8 @@ export default function Finances() {
       cash_balance: profile?.cash_balance || "",
       variable_costs_pct: profile?.variable_costs_pct || "",
       total_debt: profile?.total_debt || "",
+      assets: profile?.assets?.length ? profile.assets : [],
+      liabilities: profile?.liabilities?.length ? profile.liabilities : [],
       fixed_costs: (profile?.fixed_costs?.length ? profile.fixed_costs : [{ name: "", amount: "" }]),
     });
     setEditing(true);
@@ -76,6 +78,9 @@ export default function Finances() {
   const setCost = (i, k, v) => setPf((s) => ({ ...s, fixed_costs: s.fixed_costs.map((c, idx) => idx === i ? { ...c, [k]: v } : c) }));
   const addCost = () => setPf((s) => ({ ...s, fixed_costs: [...s.fixed_costs, { name: "", amount: "" }] }));
   const rmCost = (i) => setPf((s) => ({ ...s, fixed_costs: s.fixed_costs.filter((_, idx) => idx !== i) }));
+  const setItem = (key, i, k, v) => setPf((s) => ({ ...s, [key]: (s[key] || []).map((c, idx) => idx === i ? { ...c, [k]: v } : c) }));
+  const addItem = (key) => setPf((s) => ({ ...s, [key]: [...(s[key] || []), { name: "", amount: "" }] }));
+  const rmItem = (key, i) => setPf((s) => ({ ...s, [key]: (s[key] || []).filter((_, idx) => idx !== i) }));
   const saveProfile = async () => {
     setSaving(true);
     try {
@@ -83,7 +88,10 @@ export default function Finances() {
         monthly_revenue: Number(pf.monthly_revenue) || 0,
         cash_balance: Number(pf.cash_balance) || 0,
         variable_costs_pct: Number(pf.variable_costs_pct) || 0,
+        total_debt: Number(pf.total_debt) || 0,
         fixed_costs: pf.fixed_costs.filter((c) => c.name || c.amount).map((c) => ({ name: c.name || "Custo", amount: Number(c.amount) || 0 })),
+        assets: (pf.assets || []).filter((c) => c.name || c.amount).map((c) => ({ name: c.name || "Ativo", amount: Number(c.amount) || 0 })),
+        liabilities: (pf.liabilities || []).filter((c) => c.name || c.amount).map((c) => ({ name: c.name || "Passivo", amount: Number(c.amount) || 0 })),
       });
       toast.success("Perfil financeiro guardado");
       setEditing(false); setAnalysis(null); await loadProfile();
@@ -177,6 +185,34 @@ export default function Finances() {
                     {profile.variable_costs_value > 0 && (
                       <div className="pt-2 text-xs text-muted-foreground">+ Custos variáveis: {profile.variable_costs_pct}% da receita = {money(profile.variable_costs_value, cur)}/mês</div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Património / Balanço */}
+              {(profile.total_assets > 0 || profile.total_liabilities > 0) && (
+                <div className="surface rounded-2xl p-6" data-testid="balance-sheet">
+                  <h3 className="text-sm font-semibold mb-4">Património (Balanço)</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                    <div className="rounded-xl bg-[#10B981]/10 p-4"><p className="text-xs text-muted-foreground mb-1">Total de ativos</p><div className="font-serif-lux text-2xl text-[#10B981]">{money(profile.total_assets, cur)}</div></div>
+                    <div className="rounded-xl bg-[#EF4444]/10 p-4"><p className="text-xs text-muted-foreground mb-1">Total de passivos</p><div className="font-serif-lux text-2xl text-[#EF4444]">{money(profile.total_liabilities, cur)}</div></div>
+                    <div className={`rounded-xl p-4 ${profile.net_worth >= 0 ? "bg-[#3B82F6]/10" : "bg-[#EF4444]/10"}`}><p className="text-xs text-muted-foreground mb-1">Património líquido</p><div className="font-serif-lux text-2xl" style={{ color: profile.net_worth >= 0 ? "#3B82F6" : "#EF4444" }}>{money(profile.net_worth, cur)}</div></div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
+                    <div>
+                      <div className="text-xs font-semibold text-[#10B981] mb-2">Ativos</div>
+                      <ul className="space-y-1.5">
+                        <li className="flex justify-between"><span className="text-muted-foreground">Caixa</span><span>{money(profile.cash_balance, cur)}</span></li>
+                        {profile.assets?.map((a, i) => <li key={i} className="flex justify-between"><span className="text-muted-foreground">{a.name}</span><span>{money(a.amount, cur)}</span></li>)}
+                      </ul>
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-[#EF4444] mb-2">Passivos</div>
+                      <ul className="space-y-1.5">
+                        {profile.total_debt > 0 && <li className="flex justify-between"><span className="text-muted-foreground">Dívida / financiamentos</span><span>{money(profile.total_debt, cur)}</span></li>}
+                        {profile.liabilities?.map((l, i) => <li key={i} className="flex justify-between"><span className="text-muted-foreground">{l.name}</span><span>{money(l.amount, cur)}</span></li>)}
+                      </ul>
+                    </div>
                   </div>
                 </div>
               )}
@@ -302,6 +338,34 @@ export default function Finances() {
                     <Input value={c.name} onChange={(e) => setCost(i, "name", e.target.value)} className="bg-transparent flex-1" placeholder="Ex: Salários, Renda, Software" data-testid={`cost-name-${i}`} />
                     <Input type="number" step="0.01" value={c.amount} onChange={(e) => setCost(i, "amount", e.target.value)} className="bg-transparent w-32" placeholder="Valor" data-testid={`cost-amount-${i}`} />
                     <button type="button" onClick={() => rmCost(i)} className="text-muted-foreground hover:text-[#EF4444] px-1" data-testid={`cost-remove-${i}`}><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1"><Label className="text-xs text-muted-foreground">Ativos (o que a empresa tem)</Label>
+                <button type="button" data-testid="add-asset-btn" onClick={() => addItem("assets")} className="text-xs text-[#3B82F6] hover:underline flex items-center gap-1"><Plus className="w-3 h-3" />Adicionar</button></div>
+              <p className="text-[11px] text-muted-foreground/70 mb-2">Ex.: veículos (valor de mercado atual), ferramentas, stock, equipamento, contas a receber. A caixa já está acima.</p>
+              <div className="space-y-2">
+                {(pf.assets || []).map((c, i) => (
+                  <div key={i} className="flex gap-2" data-testid={`asset-row-${i}`}>
+                    <Input value={c.name} onChange={(e) => setItem("assets", i, "name", e.target.value)} className="bg-transparent flex-1" placeholder="Ex: Carrinhas, Ferramentas, Stock" data-testid={`asset-name-${i}`} />
+                    <Input type="number" step="0.01" value={c.amount} onChange={(e) => setItem("assets", i, "amount", e.target.value)} className="bg-transparent w-32" placeholder="Valor" data-testid={`asset-amount-${i}`} />
+                    <button type="button" onClick={() => rmItem("assets", i)} className="text-muted-foreground hover:text-[#EF4444] px-1" data-testid={`asset-remove-${i}`}><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1"><Label className="text-xs text-muted-foreground">Passivos (o que a empresa deve)</Label>
+                <button type="button" data-testid="add-liability-btn" onClick={() => addItem("liabilities")} className="text-xs text-[#3B82F6] hover:underline flex items-center gap-1"><Plus className="w-3 h-3" />Adicionar</button></div>
+              <p className="text-[11px] text-muted-foreground/70 mb-2">Ex.: fornecedores a pagar, impostos a pagar, outros empréstimos. Os financiamentos já estão no campo "Dívida total".</p>
+              <div className="space-y-2">
+                {(pf.liabilities || []).map((c, i) => (
+                  <div key={i} className="flex gap-2" data-testid={`liability-row-${i}`}>
+                    <Input value={c.name} onChange={(e) => setItem("liabilities", i, "name", e.target.value)} className="bg-transparent flex-1" placeholder="Ex: Fornecedores, Impostos a pagar" data-testid={`liability-name-${i}`} />
+                    <Input type="number" step="0.01" value={c.amount} onChange={(e) => setItem("liabilities", i, "amount", e.target.value)} className="bg-transparent w-32" placeholder="Valor" data-testid={`liability-amount-${i}`} />
+                    <button type="button" onClick={() => rmItem("liabilities", i)} className="text-muted-foreground hover:text-[#EF4444] px-1" data-testid={`liability-remove-${i}`}><Trash2 className="w-4 h-4" /></button>
                   </div>
                 ))}
               </div>
