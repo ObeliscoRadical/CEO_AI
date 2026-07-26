@@ -9,6 +9,7 @@ import { motion } from "framer-motion";
 import { Loader2, HeartPulse, Coins, TrendingUp, Landmark, Waves, ArrowRight, Sparkles, AlertTriangle, Flag, AlertOctagon, ShieldAlert, Lightbulb, Target, Info } from "lucide-react";
 
 const STATUS = { green: "#10B981", amber: "#F59E0B", red: "#EF4444", gold: "#3B82F6" };
+const fmt = (n) => Number(n || 0).toLocaleString("pt-PT", { useGrouping: "always", maximumFractionDigits: 0 });
 const SIGNAL = {
   critical: { Icon: AlertOctagon, color: "#EF4444" },
   attention: { Icon: AlertTriangle, color: "#F59E0B" },
@@ -115,10 +116,10 @@ export default function PainelCEO() {
         <div className="mb-16" data-testid="value-card">
           <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground mb-5">Balanço &amp; Património</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-            <BalTile label="Caixa disponível" value={`${sym}${Number(bal.cash_available || 0).toLocaleString("pt-PT")}`} color="#3B82F6" testid="bal-cash" />
-            <BalTile label="Total de ativos" value={`${sym}${Number(bal.total_assets || 0).toLocaleString("pt-PT")}`} color="#10B981" testid="bal-assets" />
-            <BalTile label="Total de passivos" value={`${sym}${Number(bal.total_liabilities || 0).toLocaleString("pt-PT")}`} color="#EF4444" testid="bal-liabilities" />
-            <BalTile label="Património líquido" value={`${sym}${Number(bal.net_worth || 0).toLocaleString("pt-PT")}`} color={(bal.net_worth || 0) >= 0 ? "#3B82F6" : "#EF4444"} tip="Corresponde ao total de ativos menos o total de passivos registados." testid="company-value" />
+            <BalTile label="Caixa disponível" value={`${sym}${fmt(bal.cash_available)}`} color="#3B82F6" testid="bal-cash" />
+            <BalTile label="Total de ativos" value={`${sym}${fmt(bal.total_assets)}`} color="#10B981" testid="bal-assets" />
+            <BalTile label="Total de passivos" value={`${sym}${fmt(bal.total_liabilities)}`} color="#EF4444" testid="bal-liabilities" />
+            <BalTile label="Património líquido" value={`${sym}${fmt(bal.net_worth)}`} color={(bal.net_worth || 0) >= 0 ? "#3B82F6" : "#EF4444"} tip="Corresponde ao total de ativos menos o total de passivos registados." testid="company-value" />
             <BalTile label="Valor estimado da empresa" value="Avaliação ainda não calculada" small color="#94a3b8" tip="Estimativa baseada em desempenho, risco, crescimento, dívida e múltiplos de mercado. Pode ser diferente do património líquido." testid="bal-estimated" />
           </div>
           {!bal.has_balance && <p className="text-[11px] text-amber-400 mt-3" data-testid="fill-balance-hint">Preenche o Perfil Financeiro em Finanças para veres o valor real da tua empresa →</p>}

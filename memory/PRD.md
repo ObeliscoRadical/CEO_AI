@@ -18,6 +18,17 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 ## User Choices
 - Web app; Auth Google + email/senha; modelos Claude/GPT/Gemini selecionáveis; todas as features; inserção manual + import CSV com leitura por IA.
 
+## Correção Balanço & Património no Painel CEO (2026-07-26)
+- ✅ Painel principal (rota `/` = `PainelCEO.jsx`) mostra 5 cartões separados: Caixa disponível, Total de ativos, Total de passivos, Património líquido (= ativos − passivos), Valor estimado ("Avaliação ainda não calculada").
+- ✅ `company-value` (testid) representa **património líquido**, nunca caixa.
+- ✅ Cálculo centralizado no backend: `core.py::compute_balance` (fonte única) consumido por `/api/dashboard` (`build_snapshot`) e pelo Perfil Financeiro.
+- ✅ `build_snapshot` passou a usar `bal["cash"]` como base de caixa → resolveu incoerência dos sinais ("sem caixa €0" vs €3.000).
+- ✅ Atualização em tempo real: editar ativos/passivos em `/financas` reflete-se no painel sem refresh (invalidate_ai_cache no save).
+- ✅ Testes: `backend/tests/test_balance.py` (4 casos, inc. €86.300 − €58.200 = €28.100) + testing_agent iteration 24 frontend 100% (fluxo autenticado + update em tempo real + coerência de sinais).
+- ⚠️ Limitação honesta: não existe motor de valuation independente nem lifecycle contábil transacional (AR→caixa, amortizações). O painel reflete o Perfil Financeiro agregado.
+- 📌 Dívida técnica: `Dashboard.jsx` (rota `/empresa-viva`) duplica a lógica do painel — consolidar numa única fonte no futuro.
+
+
 ## Implemented (2026-07-22)
 - ✅ Autenticação email/senha (JWT) + Google (Emergent); seeding admin.
 - ✅ CEO DNA onboarding (empresa + entrevista pessoal + escolha de modo).
