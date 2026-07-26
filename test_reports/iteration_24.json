@@ -1,0 +1,26 @@
+{
+  "summary": "Frontend re-test PASSED for the Balanço & Património section on route '/'. Login as adminceoai@gmail.com → PainelCEO renders the 5 required tiles ([data-testid=value-card] with bal-cash/bal-assets/bal-liabilities/company-value/bal-estimated) with correct values: €3.000 / €86.300 / €52.700 / €33.600 (= 86300-52700, patrimônio líquido) / 'Avaliação ainda não calculada'. Real-time update verified: added asset 'Imóvel'=10000 via Finanças edit-profile-btn + save-profile-btn, returned to '/', bal-assets became €96.300 and company-value became €43.600 without manual refresh. Signals coherence verified: top signals correctly reference '€3.000 em caixa' (not 'sem caixa €0'). Cleanup performed: 'Imóvel' asset removed via edit-profile-btn, dashboard returned to €86.300 / €33.600.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "PainelCEO — bal-cash tile", "issues": ["'€3000' is shown without pt-PT thousands separator while all other tiles use '€86 300'/'€52 700'. Cosmetic only — Number(3000).toLocaleString('pt-PT') yields '3000'. Consider forcing minimumIntegerDigits or manual formatter for consistency."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PainelCEO.jsx and Dashboard.jsx still coexist as two dashboard implementations (Dashboard.jsx mounted on /empresa-viva). Consolidate to a single source of truth to avoid the wrong-file bug that occurred in iterations 22–23.",
+    "Dashboard endpoint /api/dashboard is fetched in parallel with /ceo-daily and /signals but has no client-side cache invalidation; a small mutation event (or key-based refetch) would remove the 1–2s gap when the user saves the profile in another tab.",
+    "bal-cash tile formats €3000 without a thousands separator (pt-PT default) — trivially fix by using a formatter that adds separators for values < 10000 for visual consistency across the 5 tiles."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "100%"},
+  "test_credentials": "adminceoai@gmail.com / 12345 — login OK via 'Entrar' button (email/password form). Note: 'Continuar com Google' is the first button in the login form; automated tests must select the 'Entrar' button explicitly to avoid being redirected to Google OAuth.",
+  "seed_data_creation": "Temporary asset 'Imóvel'=10000 was added and then removed during test; admin profile restored to original state (5 fixed_costs, 4 assets: Clientes a receber, Stock, Ferramentas, Carrinhas).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All 5 acceptance criteria for the CEO panel balance section are satisfied on route '/'. If future changes touch either PainelCEO.jsx (route '/') or Dashboard.jsx (route '/empresa-viva') the same 5 testids should remain wired to /api/dashboard's cash_available / total_assets / total_liabilities / net_worth. Backend snapshot values at the time of test: cash=3000, assets=86300, liabilities=52700, net_worth=33600.",
+  "rca of the issue": "N/A — iteration 23 root cause (fix applied to Dashboard.jsx while route '/' renders PainelCEO.jsx) has been resolved by porting the 5-BalTile block + /api/dashboard fetch into PainelCEO.jsx (lines 24, 30, 113-127). Signals text now consistently uses cash_balance from the snapshot, so previous incoherence '€0 saldo' vs €3.000 caixa no longer appears."
+}

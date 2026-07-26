@@ -214,15 +214,15 @@ async def build_snapshot(user_id: str):
     m_expense = sum(e["amount"] for e in entries if e["type"] == "expense" and str(e.get("date", "")).startswith(month_key))
     net = income - expense
     m_net = m_income - m_expense
-    bank = float(company.get("bank_balance", 0)) + net
+    profile = await db.financial_profiles.find_one({"user_id": user_id, "company_id": cid}) if cid else None
+    bal = compute_balance(company, profile, net)
+    bank = bal["cash"]
     monthly_burn = m_expense if m_expense > 0 else (expense / 12 if expense else 1)
     runway = bank / monthly_burn if monthly_burn > 0 else 99
     profit_margin = (m_net / m_income * 100) if m_income > 0 else 0
     tax_reserve = float(company.get("monthly_tax_estimate", 0))
     payroll = sum(e["amount"] for e in entries if e["type"] == "expense" and "salári" in str(e.get("category", "")).lower())
     currency = company.get("currency", "EUR")
-    profile = await db.financial_profiles.find_one({"user_id": user_id, "company_id": cid}) if cid else None
-    bal = compute_balance(company, profile, net)
 
     vitals = [
         {"key": "cashflow", "label": "Fluxo de Caixa", "value": round(m_net, 2), "unit": CURRENCY_SYMBOL.get(currency, "€"),

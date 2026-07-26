@@ -21,11 +21,13 @@ export default function PainelCEO() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [sig, setSig] = useState(null);
+  const [bal, setBal] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const load = () => Promise.all([
     api.get("/ceo-daily").then(({ data }) => setData(data)).catch(() => {}),
     api.get("/signals").then(({ data }) => setSig(data)).catch(() => {}),
+    api.get("/dashboard").then(({ data }) => setBal(data)).catch(() => {}),
   ]).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
@@ -174,6 +176,15 @@ export default function PainelCEO() {
           <LockedBlock title="Recomendações do dia" description="As decisões concretas que eu tomaria hoje fazem parte dos planos pagos." />
         </>
       ) : null}
+    </div>
+  );
+}
+
+function BalTile({ label, value, color, tip, small, testid }) {
+  return (
+    <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] p-4" title={tip || ""} data-testid={testid}>
+      <p className="text-[11px] text-muted-foreground mb-1.5 flex items-center gap-1">{label}{tip ? <Info className="w-3 h-3 opacity-60" /> : null}</p>
+      <div className={`font-serif-lux ${small ? "text-sm leading-snug" : "text-2xl"}`} style={{ color }}>{value}</div>
     </div>
   );
 }
