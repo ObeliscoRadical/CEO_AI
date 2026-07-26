@@ -144,6 +144,13 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ VoiceSphere e CEOOrb recoloridos para azul.
 - ✅ Testado: iteration_18 (frontend 100%, navegação icon-rail + gating grátis + drawer mobile, sem erros de runtime).
 
+## Atualização (Jun 2026) — Perfil Financeiro + Análise do CEO (Finanças)
+- ✅ Nova aba "Perfil Financeiro" em /financas (a par de "Movimentos"): o dono insere faturamento mensal, custos fixos (lista dinâmica nome+valor), custos variáveis (% da receita) e saldo em caixa.
+- ✅ Métricas calculadas no backend (compute_profile_metrics): custos totais, lucro, margem líquida %, ponto de equilíbrio (fixos/(1-var%)), runway (caixa/burn), maior custo, meta vs realidade (target anual do DNA /12).
+- ✅ "Análise do CEO" (premium): GET /api/finance/profile/analysis devolve diagnóstico + riscos + prioridades + ações (JSON, cached diário via cached_ai); free tier recebe premium_locked → CTA Premium.
+- ✅ Endpoints: GET/POST /api/finance/profile, GET /api/finance/profile/analysis. Modelo FinancialProfileInput; figuras guardadas em memories (categoria financas_perfil) p/ o chat do CEO ficar ciente.
+- ✅ Testado: iteration_20 (frontend 100%, math verificada) + curl backend. Ficheiro Finances.jsx com tabs.
+
 ## Atualização (Jun 2026) — Ícone, Sidebar premium e Admin único
 - ✅ Ícone app/PWA + login + sidebar unificados no android executivo transparente (`/android_cut.png`); favicon/logo192/512/maskable/apple-touch regenerados (fundo preto full-bleed).
 - ✅ Admin ÚNICO = adminceoai@gmail.com / 12345 (ADMIN_EMAIL); antigo owner (obeliscoradical) deixou de ser admin. Seed idempotente + empresa e DNA default → admin vai direto ao Painel (não onboarding).

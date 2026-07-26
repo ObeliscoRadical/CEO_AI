@@ -184,7 +184,9 @@ export default function Finances() {
                   <h3 className="text-sm font-semibold flex items-center gap-2"><Sparkles className="w-4 h-4 text-[#3B82F6]" />Análise do CEO</h3>
                   {!analysis && <Button data-testid="analyze-btn" size="sm" onClick={runAnalysis} disabled={analyzing} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]">{analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Analisar agora"}</Button>}
                 </div>
-                {!analysis ? (
+                {analyzing ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="analysis-loading"><Loader2 className="w-4 h-4 animate-spin text-[#3B82F6]" />A analisar a tua empresa…</div>
+                ) : !analysis ? (
                   <p className="text-sm text-muted-foreground">Pede ao teu CEO AI um diagnóstico com riscos e ações concretas para este mês.</p>
                 ) : analysis.premium_locked ? (
                   <div className="text-center py-4" data-testid="analysis-locked">
