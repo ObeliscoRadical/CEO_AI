@@ -144,6 +144,14 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ VoiceSphere e CEOOrb recoloridos para azul.
 - ✅ Testado: iteration_18 (frontend 100%, navegação icon-rail + gating grátis + drawer mobile, sem erros de runtime).
 
+## Atualização (Jun 2026) — Ícone, Sidebar premium e Admin único
+- ✅ Ícone app/PWA + login + sidebar unificados no android executivo transparente (`/android_cut.png`); favicon/logo192/512/maskable/apple-touch regenerados (fundo preto full-bleed).
+- ✅ Admin ÚNICO = adminceoai@gmail.com / 12345 (ADMIN_EMAIL); antigo owner (obeliscoradical) deixou de ser admin. Seed idempotente + empresa e DNA default → admin vai direto ao Painel (não onboarding).
+- ✅ Gestão de contas no /admin: editar (nome/email/premium), apagar (+ dados associados, não apaga admin), repor senha via email com link seguro (token 1h, uso único). Endpoints: PATCH/DELETE /admin/customers/{uid}, POST /admin/customers/{uid}/reset-password, GET/POST /api/auth/reset-password[/validate]. Nova página /reset-password.
+- ✅ Sidebar redesenhada: rail 96px → sidebar premium 256px (header de marca, seletor de empresa, nav com rótulos + acento ativo/glow, secções Menu/Conta, CTA Premium para grátis, rodapé com perfil + logout). main md:pl-64. Testids preservados.
+- ✅ Testado: iteration_19 (sidebar 100%); reset/edit/delete/admin-gating por curl end-to-end; Admin.jsx state + seed corrigidos.
+- ⚠️ Senha admin `12345` é fraca (a pedido do utilizador). No deploy, FRONTEND_URL deve apontar para produção p/ os links de reset funcionarem.
+
 ## Backlog atualizado
 - P1: Confirmar entrega dos emails admin/briefing (chave Emergent Email devolveu 401).
 - P2: Open banking real por região (UE/PT, BR).

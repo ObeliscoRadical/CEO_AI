@@ -60,6 +60,19 @@ async def startup():
             if existing.get("password_hash") and not verify_password(admin_password, existing["password_hash"]):
                 upd["password_hash"] = hash_password(admin_password)
             await db.users.update_one({"_id": existing["_id"]}, {"$set": upd})
+        admin_doc = await db.users.find_one({"email": admin_email})
+        if admin_doc and not await db.companies.find_one({"user_id": str(admin_doc["_id"])}):
+            await db.companies.insert_one({
+                "user_id": str(admin_doc["_id"]), "name": "CEO AI (Admin)",
+                "region": "PT", "currency": "EUR", "sector": "", "employees_count": 0,
+                "clients_count": 0, "bank_balance": 0, "monthly_tax_estimate": 0,
+                "profile": {}, "created_at": datetime.now(timezone.utc).isoformat()})
+        if admin_doc and not await db.ceo_dna.find_one({"user_id": str(admin_doc["_id"])}):
+            await db.ceo_dna.insert_one({
+                "user_id": str(admin_doc["_id"]), "completed": True, "answers": {},
+                "dream": "", "target_revenue": 0, "work_hours": "", "exit_plan": "",
+                "five_year_vision": "", "ceo_mode": "crescimento",
+                "created_at": datetime.now(timezone.utc).isoformat()})
     try:
         init_storage()
         logger.info("Storage initialized")

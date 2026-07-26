@@ -29,6 +29,10 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [noteFor, setNoteFor] = useState(null);
   const [noteText, setNoteText] = useState("");
+  const [editFor, setEditFor] = useState(null);
+  const [editForm, setEditForm] = useState({ name: "", email: "", is_premium: false });
+  const [deleteFor, setDeleteFor] = useState(null);
+  const [busy, setBusy] = useState(false);
 
   const load = async () => {
     setLoading(true);
