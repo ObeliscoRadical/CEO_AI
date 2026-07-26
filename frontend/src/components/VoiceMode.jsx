@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { VoiceSphere } from "@/components/VoiceSphere";
+import { CEOOrb } from "@/components/CEOOrb";
 import { api } from "@/lib/api";
 import { Mic, X, Loader2 } from "lucide-react";
 
@@ -137,7 +137,7 @@ export function VoiceMode({ open, onClose, sessionId, onSession }) {
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         className="fixed inset-0 z-[100] flex flex-col items-center justify-center"
-        style={{ background: "radial-gradient(circle at 50% 40%, #14110A, #08090C 70%)" }}
+        style={{ background: "radial-gradient(circle at 50% 40%, #0A0F1E, #05060C 70%)" }}
         data-testid="voice-mode"
       >
         <button onClick={onClose} data-testid="voice-close" className="absolute top-6 right-6 w-11 h-11 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors">
@@ -146,7 +146,7 @@ export function VoiceMode({ open, onClose, sessionId, onSession }) {
 
         <motion.div animate={{ scale }} transition={{ type: "spring", stiffness: 120, damping: 18 }} className="relative">
           <div className="absolute rounded-full" style={{ inset: -40, background: `radial-gradient(circle, rgba(59,130,246,${0.15 + amp * 0.4}), transparent 70%)`, filter: "blur(20px)" }} />
-          <VoiceSphere size={230} />
+          <CEOOrb size={230} />
         </motion.div>
 
         <p className="mt-12 text-white/50 text-sm tracking-[0.2em] uppercase h-5" data-testid="voice-status">{STATUS_LABEL[status]}</p>
