@@ -6,7 +6,8 @@ import { DecisionCard } from "@/components/DecisionCard";
 import { LockedBlock } from "@/components/Premium";
 import { Watermark } from "@/components/Watermark";
 import { motion } from "framer-motion";
-import { Loader2, HeartPulse, Coins, TrendingUp, Landmark, Waves, ArrowRight, Sparkles, AlertTriangle, Flag, AlertOctagon, ShieldAlert, Lightbulb, Target, Info } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { Loader2, HeartPulse, Coins, TrendingUp, TrendingDown, Landmark, Waves, ArrowRight, Sparkles, AlertTriangle, Flag, AlertOctagon, ShieldAlert, Lightbulb, Target, Info } from "lucide-react";
 
 const STATUS = { green: "#10B981", amber: "#F59E0B", red: "#EF4444", gold: "#3B82F6" };
 const fmt = (n) => Number(n || 0).toLocaleString("pt-PT", { useGrouping: "always", maximumFractionDigits: 0 });
@@ -23,12 +24,14 @@ export default function PainelCEO() {
   const [data, setData] = useState(null);
   const [sig, setSig] = useState(null);
   const [bal, setBal] = useState(null);
+  const [hist, setHist] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const load = () => Promise.all([
     api.get("/ceo-daily").then(({ data }) => setData(data)).catch(() => {}),
     api.get("/signals").then(({ data }) => setSig(data)).catch(() => {}),
     api.get("/dashboard").then(({ data }) => setBal(data)).catch(() => {}),
+    api.get("/equity-history").then(({ data }) => setHist(data)).catch(() => {}),
   ]).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
@@ -122,6 +125,36 @@ export default function PainelCEO() {
             <BalTile label="Património líquido" value={`${sym}${fmt(bal.net_worth)}`} color={(bal.net_worth || 0) >= 0 ? "#3B82F6" : "#EF4444"} tip="Corresponde ao total de ativos menos o total de passivos registados." testid="company-value" />
             <BalTile label="Valor estimado da empresa" value="Avaliação ainda não calculada" small color="#94a3b8" tip="Estimativa baseada em desempenho, risco, crescimento, dívida e múltiplos de mercado. Pode ser diferente do património líquido." testid="bal-estimated" />
           </div>
+          {hist?.points?.length >= 2 && (
+            <div className="mt-5 surface rounded-2xl p-5" data-testid="equity-history">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Evolução do património líquido</p>
+                {hist.delta != null && (
+                  <span className={`inline-flex items-center gap-1 text-xs font-medium ${hist.delta >= 0 ? "text-emerald-400" : "text-red-400"}`} data-testid="equity-delta">
+                    {hist.delta >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                    {hist.delta >= 0 ? "+" : "−"}{sym}{fmt(Math.abs(hist.delta))} este mês
+                  </span>
+                )}
+              </div>
+              <ResponsiveContainer width="100%" height={160}>
+                <AreaChart data={hist.points} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="eq" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.45} />
+                      <stop offset="100%" stopColor="#3B82F6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis hide domain={["dataMin", "dataMax"]} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12 }} formatter={(val) => [`${sym}${fmt(val)}`, "Património"]} />
+                  <Area type="monotone" dataKey="net_worth" stroke="#3B82F6" strokeWidth={2.5} fill="url(#eq)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          {hist?.points?.length === 1 && bal.has_balance && (
+            <p className="text-[11px] text-muted-foreground mt-3" data-testid="equity-hint">A evolução do teu património vai aparecer aqui à medida que os meses passam.</p>
+          )}
           {!bal.has_balance && <p className="text-[11px] text-amber-400 mt-3" data-testid="fill-balance-hint">Preenche o Perfil Financeiro em Finanças para veres o valor real da tua empresa →</p>}
           <p className="text-[11px] text-muted-foreground mt-2">O património líquido = total de ativos − total de passivos. Não representa necessariamente o preço de venda da empresa.</p>
         </div>

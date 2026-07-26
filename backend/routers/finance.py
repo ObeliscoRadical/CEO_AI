@@ -116,7 +116,22 @@ async def bank_connect(user: dict = Depends(get_current_user)):
 
 @router.get("/dashboard")
 async def dashboard(user: dict = Depends(get_current_user)):
-    return await build_snapshot(user["id"])
+    snap = await build_snapshot(user["id"])
+    cid = await active_company_id(user["id"])
+    await record_equity(user["id"], cid, snap)
+    return snap
+
+MONTH_ABBR = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
+
+@router.get("/equity-history")
+async def equity_history(user: dict = Depends(get_current_user)):
+    cid = await active_company_id(user["id"])
+    rows = await get_equity_history(user["id"], cid)
+    company = await resolve_company(user["id"]) or {}
+    sym = CURRENCY_SYMBOL.get(company.get("currency", "EUR"), "€")
+    points = [{"month": MONTH_ABBR[int(r["month"][5:7]) - 1], "net_worth": r.get("net_worth", 0)} for r in rows]
+    delta = round(points[-1]["net_worth"] - points[-2]["net_worth"], 2) if len(points) >= 2 else None
+    return {"points": points, "delta": delta, "currency_symbol": sym}
 
 # ---------------------------------------------------------------- CEO Score
 @router.get("/score")
@@ -217,6 +232,8 @@ async def save_finance_profile(inp: FinancialProfileInput, user: dict = Depends(
                               f"(ativos {m['total_assets']}, passivos {m['total_liabilities']})."),
                   "created_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
     await invalidate_ai_cache(user["id"])
+    await record_equity(user["id"], cid, {"has_balance": True, "net_worth": m["net_worth"],
+                                          "total_assets": m["total_assets"], "total_liabilities": m["total_liabilities"]})
     return {"ok": True}
 
 @router.get("/finance/profile/analysis")

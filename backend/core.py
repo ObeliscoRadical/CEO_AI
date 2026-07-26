@@ -263,6 +263,28 @@ async def build_snapshot(user_id: str):
         "has_balance": bool(profile), "equity_progress": equity_progress,
     }
 
+async def record_equity(user_id: str, cid, snap: dict):
+    """Record this month's net worth so the panel can show equity evolution."""
+    if not cid or not snap.get("has_balance"):
+        return
+    month = datetime.now(timezone.utc).strftime("%Y-%m")
+    await db.equity_history.update_one(
+        {"user_id": user_id, "company_id": cid, "month": month},
+        {"$set": {"user_id": user_id, "company_id": cid, "month": month,
+                  "net_worth": round(snap.get("net_worth", 0), 2),
+                  "total_assets": round(snap.get("total_assets", 0), 2),
+                  "total_liabilities": round(snap.get("total_liabilities", 0), 2),
+                  "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True)
+
+
+async def get_equity_history(user_id: str, cid):
+    if not cid:
+        return []
+    rows = await db.equity_history.find({"user_id": user_id, "company_id": cid}).sort("month", 1).to_list(24)
+    return rows[-12:]
+
+
 MODE_PROMPTS = {
     "conservador": "És prudente e avesso ao risco. Priorizas estabilidade, reservas de caixa e evitas dívida.",
     "crescimento": "És focado em crescimento sustentável. Equilibras oportunidade e risco.",

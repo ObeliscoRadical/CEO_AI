@@ -28,6 +28,12 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ⚠️ Limitação honesta: não existe motor de valuation independente nem lifecycle contábil transacional (AR→caixa, amortizações). O painel reflete o Perfil Financeiro agregado.
 - 📌 Dívida técnica: `Dashboard.jsx` (rota `/empresa-viva`) duplica a lógica do painel — consolidar numa única fonte no futuro.
 
+## Mini-gráfico de evolução do património líquido (2026-07-26)
+- ✅ `equity_history` (nova coleção): snapshot mensal do património líquido, gravado ao abrir `/api/dashboard` e ao gravar o Perfil Financeiro (`record_equity` em `core.py`, upsert por mês/empresa).
+- ✅ Novo endpoint `GET /api/equity-history` → `{ points:[{month,net_worth}], delta, currency_symbol }` (últimos 12 meses).
+- ✅ `PainelCEO.jsx`: mini AreaChart (recharts) "Evolução do património líquido" + badge de variação mensal ("+€X este mês", verde/vermelho). Mostra a partir de 2 meses; com 1 mês exibe dica de que a evolução aparece com o tempo.
+- ✅ Verificado visualmente (gráfico + delta) e endpoint testado por curl. Dados começam a acumular automaticamente; sem histórico fabricado (honesto).
+
 
 ## Implemented (2026-07-22)
 - ✅ Autenticação email/senha (JWT) + Google (Emergent); seeding admin.
