@@ -157,6 +157,9 @@ def compute_profile_metrics(p: dict, target_annual: float = 0):
     cash = float(p.get("cash_balance", 0) or 0)
     runway = (cash / burn) if burn > 0 else None
     biggest = max(fixed, key=lambda c: c["amount"], default=None)
+    debt = float(p.get("total_debt", 0) or 0)
+    net_position = cash - debt
+    debt_revenue_months = (debt / revenue) if revenue > 0 and debt > 0 else None
     target_month = (target_annual / 12.0) if target_annual else 0.0
     gap = (target_month - revenue) if target_month else 0.0
     gap_pct = (revenue / target_month * 100.0) if target_month > 0 else 0.0
@@ -169,6 +172,8 @@ def compute_profile_metrics(p: dict, target_annual: float = 0):
         "runway_months": (round(runway, 1) if runway is not None else None),
         "biggest_cost": biggest, "target_revenue_month": round(target_month, 2),
         "target_gap": round(gap, 2), "target_progress_pct": round(min(100.0, gap_pct), 1),
+        "total_debt": round(debt, 2), "net_position": round(net_position, 2),
+        "debt_revenue_months": (round(debt_revenue_months, 1) if debt_revenue_months is not None else None),
     }
 
 async def _profile_target(uid):
@@ -198,6 +203,7 @@ async def save_finance_profile(inp: FinancialProfileInput, user: dict = Depends(
         {"$set": {"user_id": user["id"], "category": "financas_perfil",
                   "content": (f"Faturamento mensal {m['monthly_revenue']}, custos totais {m['total_costs']}, "
                               f"lucro {m['profit']} ({m['margin_pct']}% margem), caixa {m['cash_balance']}, "
+                              f"divida total {m['total_debt']}, posicao liquida {m['net_position']}, "
                               f"ponto de equilibrio {m['break_even_revenue']}."),
                   "created_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
     await invalidate_ai_cache(user["id"])
@@ -225,6 +231,7 @@ async def finance_profile_analysis(user: dict = Depends(get_current_user)):
         f"Custos totais: {m['total_costs']} | Lucro mensal: {m['profit']} | Margem: {m['margin_pct']}%\n"
         f"Ponto de equilibrio (faturamento): {m['break_even_revenue']}\n"
         f"Saldo em caixa: {m['cash_balance']} | Runway: {m['runway_months']} meses\n"
+        f"Divida total (emprestimos/financiamentos): {m['total_debt']} | Posicao liquida (caixa menos divida): {m['net_position']}\n"
         f"Meta de faturamento mensal: {m['target_revenue_month']} | Progresso: {m['target_progress_pct']}%\n\n"
         "Devolve JSON: {\"diagnostico\": string (2-3 frases, direto), "
         "\"riscos\": [ate 3 strings], \"prioridades\": [ate 3 strings], "

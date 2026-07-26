@@ -31,7 +31,7 @@ export default function Finances() {
   const [profile, setProfile] = useState(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [pf, setPf] = useState({ monthly_revenue: "", cash_balance: "", variable_costs_pct: "", fixed_costs: [] });
+  const [pf, setPf] = useState({ monthly_revenue: "", cash_balance: "", variable_costs_pct: "", total_debt: "", fixed_costs: [] });
   const [analysis, setAnalysis] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
 
@@ -68,6 +68,7 @@ export default function Finances() {
       monthly_revenue: profile?.monthly_revenue || "",
       cash_balance: profile?.cash_balance || "",
       variable_costs_pct: profile?.variable_costs_pct || "",
+      total_debt: profile?.total_debt || "",
       fixed_costs: (profile?.fixed_costs?.length ? profile.fixed_costs : [{ name: "", amount: "" }]),
     });
     setEditing(true);
@@ -138,6 +139,8 @@ export default function Finances() {
                 <Metric icon={Timer} tone={profile.runway_months == null ? "#10B981" : profile.runway_months >= 6 ? "#10B981" : profile.runway_months >= 3 ? "#F59E0B" : "#EF4444"} label="Runway (caixa)" value={profile.runway_months == null ? "Saudável" : `${profile.runway_months} meses`} />
                 <Metric icon={Wallet} tone="#3B82F6" label="Saldo em caixa" value={money(profile.cash_balance, cur)} />
                 <Metric icon={AlertTriangle} tone="#F59E0B" label="Maior custo" value={profile.biggest_cost ? money(profile.biggest_cost.amount, cur) : "—"} sub={profile.biggest_cost?.name || ""} />
+                <Metric icon={Landmark} tone={profile.total_debt > 0 ? "#EF4444" : "#10B981"} label="Dívida total" value={money(profile.total_debt, cur)} sub={profile.debt_revenue_months ? `${profile.debt_revenue_months} meses de faturação` : "sem dívida"} />
+                <Metric icon={Scale} tone={profile.net_position >= 0 ? "#10B981" : "#EF4444"} label="Posição líquida" value={money(profile.net_position, cur)} sub="caixa − dívida" />
               </div>
 
               {/* Metas vs Realidade */}
@@ -289,6 +292,7 @@ export default function Finances() {
               <div><Label className="text-xs text-muted-foreground">Saldo em caixa</Label><Input data-testid="pf-cash" type="number" step="0.01" value={pf.cash_balance} onChange={(e) => setPf({ ...pf, cash_balance: e.target.value })} className="mt-1 bg-transparent" placeholder="Ex: 40000" /></div>
             </div>
             <div><Label className="text-xs text-muted-foreground">Custos variáveis (% da receita)</Label><Input data-testid="pf-varpct" type="number" step="0.1" value={pf.variable_costs_pct} onChange={(e) => setPf({ ...pf, variable_costs_pct: e.target.value })} className="mt-1 bg-transparent" placeholder="Ex: 30 (matérias-primas, comissões...)" /></div>
+            <div><Label className="text-xs text-muted-foreground">Dívida total (empréstimos, financiamentos)</Label><Input data-testid="pf-debt" type="number" step="0.01" value={pf.total_debt} onChange={(e) => setPf({ ...pf, total_debt: e.target.value })} className="mt-1 bg-transparent" placeholder="Ex: 55000 (inclui financiamento da viatura)" /></div>
             <div>
               <div className="flex items-center justify-between mb-2"><Label className="text-xs text-muted-foreground">Custos fixos mensais</Label>
                 <button type="button" data-testid="add-cost-btn" onClick={addCost} className="text-xs text-[#3B82F6] hover:underline flex items-center gap-1"><Plus className="w-3 h-3" />Adicionar</button></div>

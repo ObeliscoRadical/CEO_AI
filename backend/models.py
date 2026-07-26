@@ -103,3 +103,4 @@ class FinancialProfileInput(BaseModel):
     fixed_costs: List[CostItem] = []
     variable_costs_pct: float = 0
     cash_balance: float = 0
+    total_debt: float = 0
