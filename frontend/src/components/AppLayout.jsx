@@ -2,7 +2,7 @@ import { useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useAppData } from "@/context/AppDataContext";
-import { Home, Lightbulb, HeartPulse, Coins, MessageSquare, Wallet, TrendingUp, FileText, Settings as SettingsIcon, LogOut, Building2, Plus, Crown, Check, Menu, Compass, Lock, Shield, X } from "lucide-react";
+import { Home, Lightbulb, HeartPulse, Coins, MessageSquare, Wallet, TrendingUp, FileText, Settings as SettingsIcon, LogOut, Building2, Plus, Crown, Check, Menu, Compass, Lock, Shield, X, ChevronDown } from "lucide-react";
 import { motion } from "framer-motion";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -57,67 +57,104 @@ export function AppLayout() {
   const go = (to) => { navigate(to); setMobileOpen(false); };
   const isActive = (n) => (n.end ? location.pathname === n.to : location.pathname.startsWith(n.to));
 
-  // ---- Desktop icon rail ----
-  const RailItem = ({ n }) => {
+  // ---- Desktop sidebar ----
+  const SidebarItem = ({ n }) => {
     const locked = n.gated && !isPremium && !isAdmin;
     const activeItem = isActive(n);
+    const showCrown = n.premium && !isPremium && !isAdmin && !locked;
     return (
       <button
         data-testid={n.testid}
-        title={n.label}
         onClick={() => go(locked ? "/planos" : n.to)}
-        className={`relative w-full flex flex-col items-center gap-1 py-2.5 rounded-xl mb-0.5 transition-colors duration-300 ${
-          activeItem ? "text-blue-400 bg-blue-500/10" : "text-slate-500 hover:text-blue-400 hover:bg-blue-500/10"
+        className={`group relative w-full flex items-center gap-3 pl-4 pr-3 py-2.5 rounded-xl text-[13.5px] font-medium transition-all duration-200 ${
+          activeItem
+            ? "text-white bg-blue-500/[0.14] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+            : "text-slate-400 hover:text-white hover:bg-white/[0.045]"
         }`}
       >
-        {activeItem && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-blue-500" />}
-        <span className="relative">
-          <n.icon className="w-[19px] h-[19px]" />
-          {locked && <Lock className="w-3 h-3 absolute -top-1.5 -right-2.5 text-blue-400/80" />}
-          {(n.premium && !isPremium && !isAdmin) && !locked && <Crown className="w-3 h-3 absolute -top-1.5 -right-2.5 text-blue-400/80" />}
-        </span>
-        <span className="text-[9.5px] font-medium leading-none text-center">{n.short}</span>
+        {activeItem && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.7)]" />}
+        <n.icon className={`w-[18px] h-[18px] shrink-0 transition-colors ${activeItem ? "text-blue-400" : "text-slate-500 group-hover:text-blue-400"}`} />
+        <span className="truncate flex-1 text-left">{n.label}</span>
+        {locked && <Lock className="w-3.5 h-3.5 text-slate-500 group-hover:text-blue-400" />}
+        {showCrown && <Crown className="w-3.5 h-3.5 text-amber-400/80" />}
       </button>
     );
   };
 
+  const initials = (user?.name || user?.email || "?").trim().slice(0, 2).toUpperCase();
+
   const DesktopRail = (
-    <aside className="hidden md:flex w-24 h-screen fixed left-0 top-0 flex-col items-center py-6 px-2 border-r border-white/[0.08] bg-[#05050A]/90 backdrop-blur-xl z-40">
-      <div className="flex flex-col items-center gap-1.5 mb-8">
-        <Logo />
-        <span className="text-[9px] font-bold tracking-[0.2em] text-white/70 uppercase">CEO AI</span>
+    <aside className="hidden md:flex w-64 h-screen fixed left-0 top-0 flex-col border-r border-white/[0.06] bg-gradient-to-b from-[#0a0a13]/95 to-[#05050A]/95 backdrop-blur-2xl z-40">
+      {/* Brand */}
+      <div className="flex items-center gap-3 px-5 pt-6 pb-5">
+        <Logo size={38} />
+        <div className="leading-tight">
+          <div className="font-serif-lux text-lg">CEO AI</div>
+          <div className="text-[9.5px] text-slate-500 uppercase tracking-[0.18em]">Diretor Executivo</div>
+        </div>
       </div>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button data-testid="company-selector" title={active?.name || "Empresa"}
-            className="w-full flex flex-col items-center gap-1 py-2.5 rounded-xl mb-3 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors">
-            <Building2 className="w-[18px] h-[18px]" />
-            <span className="text-[9.5px] font-medium leading-none">Trocar</span>
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-[220px]" align="start" side="right">
-          {companies.map((c) => (
-            <DropdownMenuItem key={c.id} data-testid={`company-option-${c.id}`} onClick={() => switchCompany(c.id).then(() => navigate("/"))} className="cursor-pointer">
-              <Check className={`w-4 h-4 mr-2 ${c.id === activeCompanyId ? "opacity-100 text-blue-400" : "opacity-0"}`} />
-              <span className="truncate">{c.name}</span>
+      {/* Company switcher */}
+      <div className="px-3 mb-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button data-testid="company-selector"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-white/[0.07] bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/[0.12] transition-colors text-left">
+              <div className="w-7 h-7 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0"><Building2 className="w-4 h-4 text-blue-400" /></div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[9.5px] text-slate-500 uppercase tracking-wider leading-none mb-1">Empresa ativa</div>
+                <div className="text-[13px] font-medium truncate">{active?.name || "Selecionar"}</div>
+              </div>
+              <ChevronDown className="w-4 h-4 text-slate-500 shrink-0" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-[236px]" align="start" side="bottom">
+            {companies.map((c) => (
+              <DropdownMenuItem key={c.id} data-testid={`company-option-${c.id}`} onClick={() => switchCompany(c.id).then(() => navigate("/"))} className="cursor-pointer">
+                <Check className={`w-4 h-4 mr-2 ${c.id === activeCompanyId ? "opacity-100 text-blue-400" : "opacity-0"}`} />
+                <span className="truncate">{c.name}</span>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuItem data-testid="add-company-trigger" onClick={() => setNewOpen(true)} className="cursor-pointer text-blue-400">
+              <Plus className="w-4 h-4 mr-2" /> Nova empresa
             </DropdownMenuItem>
-          ))}
-          <DropdownMenuItem data-testid="add-company-trigger" onClick={() => setNewOpen(true)} className="cursor-pointer text-blue-400">
-            <Plus className="w-4 h-4 mr-2" /> Nova empresa
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
-      <nav className="flex-1 flex flex-col items-center w-full overflow-y-auto no-scrollbar">
-        {NAV.map((n) => <RailItem key={n.to} n={n} />)}
-        {isAdmin && <RailItem n={{ to: "/admin", label: "Administração", short: "Admin", icon: Shield, testid: "nav-admin" }} />}
+      {/* Nav */}
+      <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto no-scrollbar">
+        <div className="px-4 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Menu</div>
+        {NAV.map((n) => <SidebarItem key={n.to} n={n} />)}
+        {isAdmin && <SidebarItem n={{ to: "/admin", label: "Administração", icon: Shield, testid: "nav-admin" }} />}
+        <div className="px-4 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Conta</div>
+        <button data-testid="restart-tour-btn" onClick={() => window.dispatchEvent(new Event("start-ceo-tour"))} className="group w-full flex items-center gap-3 pl-4 pr-3 py-2.5 rounded-xl text-[13.5px] font-medium text-slate-400 hover:text-white hover:bg-white/[0.045] transition-all"><Compass className="w-[18px] h-[18px] text-slate-500 group-hover:text-blue-400" /> Tour guiado</button>
+        <button data-testid="nav-subscricao" onClick={() => go("/subscricao")} className="group w-full flex items-center gap-3 pl-4 pr-3 py-2.5 rounded-xl text-[13.5px] font-medium text-slate-400 hover:text-white hover:bg-white/[0.045] transition-all"><Crown className={`w-[18px] h-[18px] ${isPremium ? "text-amber-400" : "text-slate-500 group-hover:text-blue-400"}`} /> {isPremium ? "A minha subscrição" : "Ver planos"}</button>
       </nav>
 
-      <div className="flex flex-col items-center gap-0.5 mt-4 pt-4 border-t border-white/[0.08] w-full">
-        <button data-testid="restart-tour-btn" title="Tour guiado" onClick={() => window.dispatchEvent(new Event("start-ceo-tour"))} className="w-full flex flex-col items-center gap-1 py-2 rounded-xl text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"><Compass className="w-[18px] h-[18px]" /><span className="text-[9.5px] font-medium leading-none">Tour</span></button>
-        <button data-testid="nav-subscricao" title={isPremium ? "Subscrição" : "Passar a Premium"} onClick={() => go("/subscricao")} className={`w-full flex flex-col items-center gap-1 py-2 rounded-xl transition-colors ${isPremium ? "text-blue-400" : "text-slate-500 hover:text-blue-400 hover:bg-blue-500/10"}`}><Crown className="w-[18px] h-[18px]" /><span className="text-[9.5px] font-medium leading-none">{isPremium ? "Plano" : "Premium"}</span></button>
-        <button data-testid="logout-btn" title="Sair" onClick={doLogout} className="w-full flex flex-col items-center gap-1 py-2 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"><LogOut className="w-[18px] h-[18px]" /><span className="text-[9.5px] font-medium leading-none">Sair</span></button>
+      {/* Premium CTA */}
+      {!isPremium && !isAdmin && (
+        <div className="px-3 pb-3 pt-1">
+          <button onClick={() => go("/planos")} data-testid="sidebar-premium-cta"
+            className="w-full rounded-xl p-3.5 text-left relative overflow-hidden border border-blue-500/30 bg-gradient-to-br from-blue-600/25 to-blue-900/10 hover:from-blue-600/35 transition-colors">
+            <div className="flex items-center gap-2 mb-1"><Crown className="w-4 h-4 text-amber-400" /><span className="text-[13px] font-semibold">Passar a Premium</span></div>
+            <p className="text-[11px] text-slate-400 leading-snug">Desbloqueia decisões, saúde e relatórios do teu CEO.</p>
+          </button>
+        </div>
+      )}
+
+      {/* User */}
+      <div className="px-3 py-3 border-t border-white/[0.06]">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-[12px] font-bold text-white shrink-0 shadow-[0_0_12px_rgba(59,130,246,0.4)] overflow-hidden">
+            {user?.picture ? <img src={user.picture} alt="" className="w-full h-full object-cover" /> : initials}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-medium truncate">{user?.name || "Utilizador"}</div>
+            <div className="text-[11px] text-slate-500 truncate">{user?.email}</div>
+          </div>
+          <button data-testid="logout-btn" title="Sair" onClick={doLogout} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"><LogOut className="w-[17px] h-[17px]" /></button>
+        </div>
       </div>
     </aside>
   );
@@ -188,7 +225,7 @@ export function AppLayout() {
         </DialogContent>
       </Dialog>
 
-      <main className="md:pl-24 min-h-screen pt-14 md:pt-0 relative z-10">
+      <main className="md:pl-64 min-h-screen pt-14 md:pt-0 relative z-10">
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
           <Outlet />
         </motion.div>

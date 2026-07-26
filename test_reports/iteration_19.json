@@ -1,0 +1,30 @@
+{
+  "summary": "Frontend-only verification of the redesigned 256px premium desktop sidebar for admin (adminceoai@gmail.com/12345). Sidebar renders beautifully with all required sections (brand header, company switcher, Menu nav, Administração, Conta, user footer). All data-testids present and visible. Navigation to /financas, /relatorios, /definicoes, /conselhos, /saude, /valor, /futuro, /ceo, /subscricao and back to / works with proper blue active highlight + accent bar. Company switcher opens and shows 'Nova empresa'. Logout returns to /login. NO console errors on sidebar/nav. NO sidebar-premium-cta shown for admin (correct). Sidebar width=256px (fixed), main content padded via md:pl-64 (no overlap). CRITICAL BUG: navigating to /admin throws Uncaught ReferenceError: editFor is not defined — Admin.jsx is missing useState declarations for editFor/setEditFor and editForm/setEditForm. NOTE: admin login lands on /onboarding because seeded admin has 0 companies (company-option count = 0) — sidebar company selector shows 'Selecionar' as active. Not a sidebar bug, but seed/UX issue.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Admin page (/admin)", "issue": "Uncaught ReferenceError: 'editFor is not defined' — page crashes with red runtime error overlay. Missing useState hooks for editFor/setEditFor and editForm/setEditForm in /app/frontend/src/pages/Admin.jsx (used on lines 68, 69, 73, 267, 268, 272, 275, 278, 282 but never declared). Blocks the entire Administração route from admin sidebar.", "selector": "[data-testid=\"nav-admin\"] -> /admin route", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [
+      {"flow": "Admin login → dashboard", "issue": "Admin account is redirected to /onboarding on login because it has no companies seeded. Sidebar company selector shows 'Selecionar' and dropdown lists 0 companies. Not a sidebar bug but affects the requested test happy-path (login → Painel do CEO at /).", "affected_selectors": ["[data-testid=\"company-selector\"]"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Fix Admin.jsx: add `const [editFor, setEditFor] = useState(null); const [editForm, setEditForm] = useState({ name: '', email: '', is_premium: false });` near the other useState hooks (~line 31). This is required for the /admin route to render at all.",
+    "Seed the admin (adminceoai@gmail.com) with a default active company so login lands on / (Painel do CEO) instead of /onboarding, matching the described UX."
+  ],
+  "critical_code_review_comments": [
+    "Admin.jsx references editFor/setEditFor and editForm/setEditForm without declaring the corresponding useState — silent bug in dev builds, blocks admin panel entirely.",
+    "AppLayout.jsx (237 lines) is fine size-wise; sidebar structure is clean and matches spec. data-testids are comprehensive."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped)", "frontend": "90% (sidebar 100% pass; /admin route crash is separate page bug)"},
+  "test_credentials": "adminceoai@gmail.com / 12345",
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Sidebar redesign verified working. Only outstanding issues: (1) Admin.jsx missing useState for editFor/editForm — /admin crashes; (2) admin has no seeded company so lands on /onboarding after login (worked around with page.goto('/') + localStorage tour-seen flag).",
+  "rca of the issue": "Admin.jsx uses setEditFor(c.id) at line 69 and editFor variable at lines 73/267/268/282, plus setEditForm at lines 68/272/275/278 — but the useState<any>(null) declarations for both were never added. React throws ReferenceError at render time whenever the Admin component mounts (i.e., whenever /admin is visited). Fix: add missing useState lines alongside the other declarations around line 30-31."
+}
