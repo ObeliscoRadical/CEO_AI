@@ -71,7 +71,7 @@ export function CEOTour() {
       body: SAUDE[sk], cta: "Continuar",
     },
     {
-      key: "chat", selectors: ['[data-testid="nav-ceo"]'], title: "Conversar com o CEO",
+      key: "chat", selectors: ['[data-testid="nav-ceo"]'], title: "Reunião com CEO",
       body: CHAT[sk], cta: "Continuar",
     },
     {

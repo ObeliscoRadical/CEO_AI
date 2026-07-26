@@ -20,7 +20,7 @@ const NAV = [
   { to: "/saude", label: "Saúde Empresarial", short: "Saúde", icon: HeartPulse, testid: "nav-saude", gated: true },
   { to: "/valor", label: "Valor da Empresa", short: "Valor", icon: Coins, testid: "nav-valor", gated: true },
   { to: "/futuro", label: "Futuro", short: "Futuro", icon: TrendingUp, testid: "nav-futuro", premium: true, gated: true },
-  { to: "/ceo", label: "Conversar com o CEO", short: "CEO", icon: MessageSquare, testid: "nav-ceo", gated: true },
+  { to: "/ceo", label: "Reunião com CEO", short: "CEO", icon: MessageSquare, testid: "nav-ceo", gated: true },
   { to: "/financas", label: "Finanças", short: "Finanças", icon: Wallet, testid: "nav-financas" },
   { to: "/relatorios", label: "Relatórios", short: "Relatórios", icon: FileText, testid: "nav-relatorios", gated: true },
   { to: "/definicoes", label: "Empresa", short: "Definições", icon: SettingsIcon, testid: "nav-empresa" },
