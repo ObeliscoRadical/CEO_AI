@@ -188,6 +188,20 @@ def rag(value, good, warn, reverse=False):
     if value >= warn: return "amber"
     return "red"
 
+def compute_balance(company: dict, profile: dict, entries_net: float = 0.0):
+    """Single source of truth for the company balance sheet."""
+    profile = profile or {}
+    has = bool(profile)
+    cash = float(profile.get("cash_balance", 0) or 0) if has else (float((company or {}).get("bank_balance", 0) or 0) + entries_net)
+    assets_items = sum(float(a.get("amount", 0) or 0) for a in (profile.get("assets") or []))
+    liab_items = sum(float(l.get("amount", 0) or 0) for l in (profile.get("liabilities") or []))
+    debt = float(profile.get("total_debt", 0) or 0)
+    total_assets = cash + assets_items
+    total_liabilities = debt + liab_items
+    return {"cash": round(cash, 2), "total_assets": round(total_assets, 2),
+            "total_liabilities": round(total_liabilities, 2),
+            "net_worth": round(total_assets - total_liabilities, 2)}
+
 async def build_snapshot(user_id: str):
     company = await resolve_company(user_id) or {}
     cid = str(company["_id"]) if company.get("_id") else None
@@ -207,6 +221,8 @@ async def build_snapshot(user_id: str):
     tax_reserve = float(company.get("monthly_tax_estimate", 0))
     payroll = sum(e["amount"] for e in entries if e["type"] == "expense" and "salári" in str(e.get("category", "")).lower())
     currency = company.get("currency", "EUR")
+    profile = await db.financial_profiles.find_one({"user_id": user_id, "company_id": cid}) if cid else None
+    bal = compute_balance(company, profile, net)
 
     vitals = [
         {"key": "cashflow", "label": "Fluxo de Caixa", "value": round(m_net, 2), "unit": CURRENCY_SYMBOL.get(currency, "€"),
@@ -231,6 +247,7 @@ async def build_snapshot(user_id: str):
     dna = await db.ceo_dna.find_one({"user_id": user_id}) or {}
     goal_value = float(dna.get("target_revenue", 0)) or 1000000
     progress = min(100, round(company_value / goal_value * 100)) if goal_value else 0
+    equity_progress = min(100, round(bal["net_worth"] / goal_value * 100)) if goal_value and bal["net_worth"] > 0 else 0
 
     return {
         "health": health, "vitals": vitals, "currency": currency,
@@ -241,6 +258,9 @@ async def build_snapshot(user_id: str):
         "monthly_income": round(m_income, 2), "monthly_expense": round(m_expense, 2),
         "runway": round(runway, 1), "profit_margin": round(profit_margin, 1),
         "total_income": round(income, 2), "total_expense": round(expense, 2),
+        "cash_available": bal["cash"], "total_assets": bal["total_assets"],
+        "total_liabilities": bal["total_liabilities"], "net_worth": bal["net_worth"],
+        "has_balance": bool(profile), "equity_progress": equity_progress,
     }
 
 MODE_PROMPTS = {

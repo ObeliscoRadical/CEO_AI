@@ -1,0 +1,33 @@
+{
+  "summary": "Dashboard fix validation FAILED. Frontend Dashboard.jsx does not compile (parse error at line 153) and even ignoring the syntax error the intended fix was never applied: the value-card still renders a single 'Valor da Empresa Hoje' tile with snap.company_value (= €0/€3.000 depending on data) using the old Ring layout. The 5 BalTile tiles (bal-cash, bal-assets, bal-liabilities, company-value=Património líquido, bal-estimated) are NOT rendered anywhere — BalTile is defined but never used. Backend is correct (GET /api/dashboard returns cash_available=3000, total_assets=86300, total_liabilities=58200, net_worth=28100, has_balance=true). Because frontend does not build, no browser-based UI testing was possible.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Dashboard.jsx", "issue": "Syntax/parse error at line 153: stale leftover JSX (lines 152-169: '</motion.div>))}</div></>' plus a duplicated Stat function and second default export closure) after the intended file body. webpack fails to compile: 'Parsing error: Unexpected token (153:15)'. Frontend is broken for ALL routes, not just dashboard.", "selector": "n/a", "priority": "CRITICAL"},
+      {"component": "Dashboard value-card", "issue": "The claimed fix was NOT applied. Lines 98-111 still contain the OLD single-tile block: <div data-testid='value-card'> with title 'Valor da Empresa Hoje' rendering a Ring for progress and a font-serif-lux div with data-testid='company-value' bound to {sym}{snap.company_value}. The 5 required tiles bal-cash / bal-assets / bal-liabilities / company-value (Património líquido) / bal-estimated are never rendered. BalTile component is defined (lines 135-142) but has zero call sites.", "selector": "[data-testid='value-card']", "priority": "CRITICAL"},
+      {"component": "Dashboard.jsx", "issue": "Duplicate Stat function declared twice (lines 144-151 and again 162-169).", "selector": "n/a", "priority": "HIGH"}
+    ],
+    "integration_issues": [
+      {"flow": "Login → Dashboard render", "issue": "Cannot be tested — frontend fails to compile. Public preview URL serves the webpack error overlay instead of the app.", "affected_selectors": ["[data-testid='value-card']", "[data-testid='bal-cash']", "[data-testid='bal-assets']", "[data-testid='bal-liabilities']", "[data-testid='company-value']", "[data-testid='bal-estimated']"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "URGENT: Fix Dashboard.jsx — delete stale leftover lines 152-169 (the trailing </motion.div>))}</div></>);}, duplicate Stat, and the second stray closing }). File must have exactly ONE default export and ONE Stat function.",
+    "Actually apply the intended fix: replace the block at lines 98-111 (the value-card 'Valor da Empresa Hoje' with company-value={snap.company_value}) with a 5-tile grid using the already-defined BalTile component. Required data-testids: bal-cash (snap.cash_available), bal-assets (snap.total_assets), bal-liabilities (snap.total_liabilities), company-value (snap.net_worth, label 'Património líquido', with title/tooltip), bal-estimated (has_balance ? valuation : 'Avaliação ainda não calculada', with tooltip). Card wrapper should keep data-testid='value-card' and title should change to 'Balanço & Património'.",
+    "Ensure the 'company-value' testid is bound to snap.net_worth (28100), NOT snap.company_value (0/3000).",
+    "After fix, re-run: login → Finanças (profile already seeded from iteration_21) → navigate to '/' → assert bal-cash=€3.000, bal-assets=€86.300, bal-liabilities=€58.200, company-value=€28.100, bal-estimated shows the 'Avaliação ainda não calculada' fallback."
+  ],
+  "critical_code_review_comments": [
+    "Dashboard.jsx contains two default exports and duplicated Stat — indicates an incomplete/aborted edit was committed. Any repro of this run is blocked until this file compiles.",
+    "BalTile is written but unused — dead code + the actual UI change was skipped. Verify the diff before claiming completion.",
+    "GET /api/dashboard already exposes cash_available/total_assets/total_liabilities/net_worth/has_balance/equity_progress — backend contract is correct; only wiring in the JSX is missing."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "0%"},
+  "seed_data_creation": "None needed — profile data from iteration_21 still present (backend snapshot confirms 3000/86300/58200/28100).",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "After E1 fixes Dashboard.jsx compile + wires 5 BalTiles, log in as adminceoai@gmail.com/12345 and go straight to '/'. Backend already returns the correct numbers so a pure UI-assertion Playwright run on the 5 data-testids is sufficient. Also cover the real-time update case by editing an asset in /financas and re-navigating to '/'."
+}

@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { CEOOrb } from "@/components/CEOOrb";
 import { motion } from "framer-motion";
-import { Loader2, ArrowUpRight, ArrowDownRight, AlertCircle, Sparkles, TrendingDown, Users, Landmark, Receipt, ShieldAlert, MessageSquare } from "lucide-react";
+import { Loader2, ArrowUpRight, ArrowDownRight, AlertCircle, Sparkles, TrendingDown, Users, Landmark, Receipt, ShieldAlert, MessageSquare, Info } from "lucide-react";
 
 const STATUS_COLORS = { green: "#10B981", amber: "#F59E0B", red: "#EF4444" };
 const ICONS = { cash: ArrowUpRight, profit: TrendingDown, clients: Users, tax: Receipt, risk: ShieldAlert, opportunity: Sparkles };
@@ -123,6 +123,33 @@ export default function Dashboard() {
                   {v.unit === "€" || v.unit === "R$" ? `${v.unit}${Number(v.value).toLocaleString("pt-PT")}` : `${v.value}${v.unit ? " " + v.unit : ""}`}
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-2 leading-snug">{v.hint}</p>
+              </motion.div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function BalTile({ label, value, color, tip, small, testid }) {
+  return (
+    <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] p-4" title={tip || ""} data-testid={testid}>
+      <p className="text-[11px] text-muted-foreground mb-1.5 flex items-center gap-1">{label}{tip ? <Info className="w-3 h-3 opacity-60" /> : null}</p>
+      <div className={`font-serif-lux ${small ? "text-sm leading-snug" : "text-2xl"}`} style={{ color }}>{value}</div>
+    </div>
+  );
+}
+
+function Stat({ label, value }) {
+  return (
+    <div>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="text-lg font-medium mt-0.5">{value}</div>
+    </div>
+  );
+}
+
               </motion.div>
             ))}
           </div>
