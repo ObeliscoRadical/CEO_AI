@@ -138,3 +138,97 @@ async def ceo_score(user: dict = Depends(get_current_user)):
     ]
     overall = round(sum(d["score"] for d in dims) / len(dims))
     return {"overall": overall, "dimensions": dims}
+
+
+# ---------------------------------------------------------------- financial profile
+def compute_profile_metrics(p: dict, target_annual: float = 0):
+    revenue = float(p.get("monthly_revenue", 0) or 0)
+    fixed = [{"name": (c.get("name") or "Custo"), "amount": float(c.get("amount", 0) or 0)}
+             for c in (p.get("fixed_costs") or [])]
+    total_fixed = sum(c["amount"] for c in fixed)
+    var_pct = max(0.0, min(100.0, float(p.get("variable_costs_pct", 0) or 0)))
+    var_value = revenue * var_pct / 100.0
+    total_costs = total_fixed + var_value
+    profit = revenue - total_costs
+    margin_pct = (profit / revenue * 100.0) if revenue > 0 else 0.0
+    cm_ratio = 1.0 - var_pct / 100.0
+    break_even = (total_fixed / cm_ratio) if cm_ratio > 0 and total_fixed > 0 else 0.0
+    burn = max(0.0, total_costs - revenue)
+    cash = float(p.get("cash_balance", 0) or 0)
+    runway = (cash / burn) if burn > 0 else None
+    biggest = max(fixed, key=lambda c: c["amount"], default=None)
+    target_month = (target_annual / 12.0) if target_annual else 0.0
+    gap = (target_month - revenue) if target_month else 0.0
+    gap_pct = (revenue / target_month * 100.0) if target_month > 0 else 0.0
+    return {
+        "monthly_revenue": round(revenue, 2), "fixed_costs": fixed,
+        "total_fixed": round(total_fixed, 2), "variable_costs_pct": round(var_pct, 1),
+        "variable_costs_value": round(var_value, 2), "total_costs": round(total_costs, 2),
+        "profit": round(profit, 2), "margin_pct": round(margin_pct, 1),
+        "break_even_revenue": round(break_even, 2), "cash_balance": round(cash, 2),
+        "runway_months": (round(runway, 1) if runway is not None else None),
+        "biggest_cost": biggest, "target_revenue_month": round(target_month, 2),
+        "target_gap": round(gap, 2), "target_progress_pct": round(min(100.0, gap_pct), 1),
+    }
+
+async def _profile_target(uid):
+    dna = await db.ceo_dna.find_one({"user_id": uid}) or {}
+    return float(dna.get("target_revenue", 0) or 0)
+
+@router.get("/finance/profile")
+async def get_finance_profile(user: dict = Depends(get_current_user)):
+    cid = await active_company_id(user["id"])
+    p = await db.financial_profiles.find_one({"user_id": user["id"], "company_id": cid}) or {}
+    company = await resolve_company(user["id"]) or {}
+    target = await _profile_target(user["id"])
+    metrics = compute_profile_metrics(p, target)
+    return {"exists": bool(p.get("monthly_revenue") or p.get("fixed_costs")),
+            "currency": company.get("currency", "EUR"), **metrics}
+
+@router.post("/finance/profile")
+async def save_finance_profile(inp: FinancialProfileInput, user: dict = Depends(get_current_user)):
+    cid = await active_company_id(user["id"])
+    if not cid:
+        raise HTTPException(status_code=400, detail="Cria uma empresa primeiro")
+    data = inp.model_dump()
+    data.update({"user_id": user["id"], "company_id": cid, "updated_at": datetime.now(timezone.utc).isoformat()})
+    await db.financial_profiles.update_one({"user_id": user["id"], "company_id": cid}, {"$set": data}, upsert=True)
+    m = compute_profile_metrics(data)
+    await db.memories.update_one({"user_id": user["id"], "category": "financas_perfil"},
+        {"$set": {"user_id": user["id"], "category": "financas_perfil",
+                  "content": (f"Faturamento mensal {m['monthly_revenue']}, custos totais {m['total_costs']}, "
+                              f"lucro {m['profit']} ({m['margin_pct']}% margem), caixa {m['cash_balance']}, "
+                              f"ponto de equilibrio {m['break_even_revenue']}."),
+                  "created_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
+    await invalidate_ai_cache(user["id"])
+    return {"ok": True}
+
+@router.get("/finance/profile/analysis")
+async def finance_profile_analysis(user: dict = Depends(get_current_user)):
+    cid = await active_company_id(user["id"])
+    p = await db.financial_profiles.find_one({"user_id": user["id"], "company_id": cid})
+    if not p or not (p.get("monthly_revenue") or p.get("fixed_costs")):
+        return {"empty": True, "premium_locked": False, "analysis": None}
+    target = await _profile_target(user["id"])
+    m = compute_profile_metrics(p, target)
+    if not await can_access_premium(user):
+        return {"empty": False, "premium_locked": True, "metrics": m, "analysis": None}
+    company = await resolve_company(user["id"]) or {}
+    cur = company.get("currency", "EUR")
+    system = ("Es um CEO e consultor executivo experiente. Analisas numeros reais de uma PME e "
+              "respondes como um socio, sem jargao tecnico. Responde SEMPRE em JSON valido.")
+    prompt = (
+        f"Empresa: {company.get('name','')}. Setor: {company.get('sector','') or 'n/d'}. Moeda: {cur}.\n"
+        f"Faturamento mensal: {m['monthly_revenue']}\n"
+        f"Custos fixos ({m['total_fixed']}): {json.dumps(m['fixed_costs'], ensure_ascii=False)}\n"
+        f"Custos variaveis: {m['variable_costs_pct']}% = {m['variable_costs_value']}\n"
+        f"Custos totais: {m['total_costs']} | Lucro mensal: {m['profit']} | Margem: {m['margin_pct']}%\n"
+        f"Ponto de equilibrio (faturamento): {m['break_even_revenue']}\n"
+        f"Saldo em caixa: {m['cash_balance']} | Runway: {m['runway_months']} meses\n"
+        f"Meta de faturamento mensal: {m['target_revenue_month']} | Progresso: {m['target_progress_pct']}%\n\n"
+        "Devolve JSON: {\"diagnostico\": string (2-3 frases, direto), "
+        "\"riscos\": [ate 3 strings], \"prioridades\": [ate 3 strings], "
+        "\"acoes\": [ate 3 objetos {\"titulo\": string, \"impacto\": string}]}"
+    )
+    payload = await cached_ai("profile_analysis", user["id"], cid, system, prompt)
+    return {"empty": False, "premium_locked": False, "metrics": m, "analysis": payload}

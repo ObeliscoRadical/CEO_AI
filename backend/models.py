@@ -93,3 +93,13 @@ class AdminUserUpdateInput(BaseModel):
 class ResetPasswordInput(BaseModel):
     token: str
     password: str
+
+class CostItem(BaseModel):
+    name: str = "Custo"
+    amount: float = 0
+
+class FinancialProfileInput(BaseModel):
+    monthly_revenue: float = 0
+    fixed_costs: List[CostItem] = []
+    variable_costs_pct: float = 0
+    cash_balance: float = 0
