@@ -43,18 +43,23 @@ async def startup():
     await db.users.create_index("email", unique=True)
     await db.users.create_index("stripe_subscription_id")
     await db.users.create_index("stripe_customer_id")
+    await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
     await db.counters.update_one({"_id": "founder"}, {"$setOnInsert": {"seq": 0}}, upsert=True)
     await db.app_config.update_one({"_id": "founder_campaign"},
                                    {"$setOnInsert": {"active": True, "milestones_sent": []}}, upsert=True)
-    admin_email = os.environ.get("ADMIN_EMAIL", "admin@example.com").lower()
-    admin_password = os.environ.get("ADMIN_PASSWORD", "admin123")
-    existing = await db.users.find_one({"email": admin_email})
-    if not existing:
-        await db.users.insert_one({"email": admin_email, "password_hash": hash_password(admin_password),
-                                   "name": "Diego", "role": "owner", "auth_provider": "email", "picture": "", "is_premium": False,
-                                   "created_at": datetime.now(timezone.utc).isoformat()})
-    elif existing.get("password_hash") and not verify_password(admin_password, existing["password_hash"]):
-        await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
+    admin_email = os.environ.get("ADMIN_EMAIL", "").lower()
+    admin_password = os.environ.get("ADMIN_PASSWORD", "")
+    if admin_email and admin_password:
+        existing = await db.users.find_one({"email": admin_email})
+        if not existing:
+            await db.users.insert_one({"email": admin_email, "password_hash": hash_password(admin_password),
+                                       "name": "Admin CEO AI", "role": "admin", "auth_provider": "email", "picture": "",
+                                       "is_premium": True, "created_at": datetime.now(timezone.utc).isoformat()})
+        else:
+            upd = {"role": "admin", "is_premium": True}
+            if existing.get("password_hash") and not verify_password(admin_password, existing["password_hash"]):
+                upd["password_hash"] = hash_password(admin_password)
+            await db.users.update_one({"_id": existing["_id"]}, {"$set": upd})
     try:
         init_storage()
         logger.info("Storage initialized")

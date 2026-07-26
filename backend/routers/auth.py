@@ -59,3 +59,32 @@ async def logout(response: Response):
 @router.get("/auth/me")
 async def me(user: dict = Depends(get_current_user)):
     return user
+
+def _reset_valid(rec: dict) -> bool:
+    exp = rec.get("expires_at")
+    if isinstance(exp, str):
+        try:
+            exp = datetime.fromisoformat(exp)
+        except Exception:
+            return False
+    if exp is None:
+        return False
+    if exp.tzinfo is None:
+        exp = exp.replace(tzinfo=timezone.utc)
+    return exp >= datetime.now(timezone.utc)
+
+@router.get("/auth/reset-password/validate")
+async def validate_reset(token: str):
+    rec = await db.password_reset_tokens.find_one({"token_hash": hash_reset_token(token), "used": False})
+    return {"valid": bool(rec and _reset_valid(rec))}
+
+@router.post("/auth/reset-password")
+async def reset_password(inp: ResetPasswordInput):
+    if len(inp.password or "") < 4:
+        raise HTTPException(status_code=400, detail="A senha deve ter pelo menos 4 caracteres")
+    rec = await db.password_reset_tokens.find_one({"token_hash": hash_reset_token(inp.token), "used": False})
+    if not rec or not _reset_valid(rec):
+        raise HTTPException(status_code=400, detail="Ligação inválida, expirada ou já utilizada")
+    await db.users.update_one({"_id": ObjectId(rec["user_id"])}, {"$set": {"password_hash": hash_password(inp.password)}})
+    await db.password_reset_tokens.update_one({"_id": rec["_id"]}, {"$set": {"used": True}})
+    return {"ok": True}

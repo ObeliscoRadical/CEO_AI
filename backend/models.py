@@ -84,3 +84,12 @@ class AdminNoteInput(BaseModel):
 
 class CampaignToggleInput(BaseModel):
     active: bool
+
+class AdminUserUpdateInput(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    is_premium: Optional[bool] = None
+
+class ResetPasswordInput(BaseModel):
+    token: str
+    password: str

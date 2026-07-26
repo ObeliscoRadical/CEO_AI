@@ -11,7 +11,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
-import logging, uuid, jwt, bcrypt, io, json, requests, random, stripe, httpx, hashlib
+import logging, uuid, jwt, bcrypt, io, json, requests, random, stripe, httpx, hashlib, secrets
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 
 # ---------------------------------------------------------------- config
@@ -416,6 +416,39 @@ async def send_email_raw(to_email: str, subject: str, html: str):
     except Exception as e:
         logger.error(f"email send error: {e}")
         return False
+
+# ---------------------------------------------------------------- password reset
+def hash_reset_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+async def create_password_reset(user_id: str) -> str:
+    raw = secrets.token_urlsafe(32)
+    await db.password_reset_tokens.insert_one({
+        "user_id": user_id,
+        "token_hash": hash_reset_token(raw),
+        "used": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
+    })
+    return raw
+
+def build_reset_password_html(name: str, link: str) -> str:
+    who = f", {name}" if name else ""
+    return (f"<div style='font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:24px'>"
+            f"<h2 style='color:#0b0c10'>Redefinicao de senha - CEO AI</h2>"
+            f"<p>Ola{who}, recebemos um pedido para redefinir a senha da tua conta CEO AI.</p>"
+            f"<p style='margin:24px 0'><a href='{link}' style='display:inline-block;background:#3B82F6;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:13px 28px;border-radius:999px;'>Definir nova senha</a></p>"
+            f"<p style='font-size:13px;color:#71717a'>Esta ligacao e valida por 1 hora e so pode ser usada uma vez. Se nao pediste esta alteracao, ignora este email.</p>"
+            f"<p style='font-size:12px;color:#a1a1aa;word-break:break-all'>{link}</p>"
+            f"</div>")
+
+async def send_password_reset_email(user_doc: dict) -> bool:
+    raw = await create_password_reset(str(user_doc["_id"]))
+    frontend = os.environ.get("FRONTEND_URL", "").rstrip("/")
+    link = f"{frontend}/reset-password?token={raw}"
+    html = build_reset_password_html(user_doc.get("name", ""), link)
+    return await send_email_raw(user_doc.get("email", ""), "Redefinicao de senha - CEO AI", html)
+
 
 async def send_daily_briefings():
     today = datetime.now(timezone.utc).date().isoformat()

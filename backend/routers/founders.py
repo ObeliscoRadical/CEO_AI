@@ -232,3 +232,55 @@ async def admin_audit(admin: dict = Depends(get_admin_user)):
     for l in logs:
         l["id"] = str(l.pop("_id"))
     return {"logs": logs}
+
+# ---------------------------------------------------------------- account management
+@router.post("/admin/customers/{uid}/reset-password")
+async def admin_reset_password(uid: str, admin: dict = Depends(get_admin_user)):
+    u = await db.users.find_one({"_id": ObjectId(uid)})
+    if not u:
+        raise HTTPException(404, "Conta não encontrada")
+    if not u.get("email"):
+        raise HTTPException(400, "Esta conta não tem email associado")
+    ok = await send_password_reset_email(u)
+    await audit_log(admin["email"], "reset_password", target=uid)
+    if not ok:
+        raise HTTPException(500, "Não foi possível enviar o email de redefinição")
+    return {"ok": True, "email": u["email"]}
+
+@router.patch("/admin/customers/{uid}")
+async def admin_update_customer(uid: str, inp: AdminUserUpdateInput, admin: dict = Depends(get_admin_user)):
+    u = await db.users.find_one({"_id": ObjectId(uid)})
+    if not u:
+        raise HTTPException(404, "Conta não encontrada")
+    updates = {}
+    if inp.name is not None:
+        updates["name"] = inp.name.strip()
+    if inp.email is not None:
+        new_email = inp.email.lower().strip()
+        if new_email != (u.get("email") or ""):
+            if await db.users.find_one({"email": new_email, "_id": {"$ne": u["_id"]}}):
+                raise HTTPException(400, "Já existe uma conta com esse email")
+            updates["email"] = new_email
+    if inp.is_premium is not None:
+        updates["is_premium"] = bool(inp.is_premium)
+    if updates:
+        await db.users.update_one({"_id": u["_id"]}, {"$set": updates})
+        await audit_log(admin["email"], "update_customer", target=uid,
+                        before={k: u.get(k) for k in updates}, after=updates)
+    return {"ok": True}
+
+@router.delete("/admin/customers/{uid}")
+async def admin_delete_customer(uid: str, admin: dict = Depends(get_admin_user)):
+    u = await db.users.find_one({"_id": ObjectId(uid)})
+    if not u:
+        raise HTTPException(404, "Conta não encontrada")
+    if is_admin_email({"email": u.get("email", "")}):
+        raise HTTPException(400, "Não é possível apagar a conta de administrador")
+    for coll in ("companies", "entries", "chat_sessions", "chat_messages", "settings",
+                 "ai_cache", "documents", "memories", "ceo_dna", "decision_feedback",
+                 "payment_transactions", "password_reset_tokens"):
+        await db[coll].delete_many({"user_id": uid})
+    await db.users.delete_one({"_id": u["_id"]})
+    await audit_log(admin["email"], "delete_customer", target=uid,
+                    before={"email": u.get("email"), "name": u.get("name")})
+    return {"ok": True}

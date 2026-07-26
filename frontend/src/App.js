@@ -25,6 +25,7 @@ import PaymentResult from "@/pages/PaymentResult";
 import Terms from "@/pages/legal/Terms";
 import Privacy from "@/pages/legal/Privacy";
 import Contact from "@/pages/legal/Contact";
+import ResetPassword from "@/pages/ResetPassword";
 import { AppLayout } from "@/components/AppLayout";
 import { UpgradeWall } from "@/components/Premium";
 import { Loader2 } from "lucide-react";
@@ -70,6 +71,7 @@ function App() {
               <Route path="/termos" element={<Terms />} />
               <Route path="/privacidade" element={<Privacy />} />
               <Route path="/contacto" element={<Contact />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/onboarding" element={<Protected><Onboarding /></Protected>} />
               <Route path="/payment/success" element={<Protected><AppDataProvider><PaymentResult /></AppDataProvider></Protected>} />
               <Route path="/payment/cancel" element={<Protected><PaymentResult /></Protected>} />

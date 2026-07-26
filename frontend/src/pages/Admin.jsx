@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { API } from "@/lib/api";
+import { API, formatApiError } from "@/lib/api";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   Users, Crown, TrendingUp, AlertTriangle, Download, Bell, Search, Loader2,
   Building2, CreditCard, XCircle, Power, RefreshCw, FileClock, StickyNote,
+  Pencil, Trash2, KeyRound,
 } from "lucide-react";
 
 const FILTERS = [
@@ -57,6 +58,27 @@ export default function Admin() {
   const resend = async (id) => {
     try { await api.post(`/admin/customers/${id}/resend-notification`); toast.success("Notificação reenviada"); }
     catch (e) { toast.error("Falhou o reenvio"); }
+  };
+  const resetPwd = async (c) => {
+    if (!c.email) return toast.error("Conta sem email associado");
+    try { const r = await api.post(`/admin/customers/${c.id}/reset-password`); toast.success(`Email de redefinição enviado para ${r.data.email}`); }
+    catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+  };
+  const openEdit = (c) => {
+    setEditForm({ name: c.name || "", email: c.email || "", is_premium: ["active", "trialing"].includes(c.subscription_status) });
+    setEditFor(c.id);
+  };
+  const saveEdit = async () => {
+    setBusy(true);
+    try { await api.patch(`/admin/customers/${editFor}`, editForm); toast.success("Conta atualizada"); setEditFor(null); load(); }
+    catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+    finally { setBusy(false); }
+  };
+  const doDelete = async () => {
+    setBusy(true);
+    try { await api.delete(`/admin/customers/${deleteFor.id}`); toast.success("Conta apagada"); setDeleteFor(null); load(); }
+    catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+    finally { setBusy(false); }
   };
   const saveNote = async () => {
     if (!noteText.trim()) return;
@@ -154,8 +176,11 @@ export default function Admin() {
                     <td className="p-3">
                       <div className="flex gap-2">
                         <button onClick={() => setNoteFor(c.id)} title="Nota interna" className="text-muted-foreground hover:text-foreground"><StickyNote className="w-4 h-4" /></button>
+                        <button onClick={() => openEdit(c)} data-testid={`edit-btn-${c.id}`} title="Editar conta" className="text-muted-foreground hover:text-[#3B82F6]"><Pencil className="w-4 h-4" /></button>
+                        <button onClick={() => resetPwd(c)} data-testid={`reset-pwd-btn-${c.id}`} title="Repor senha (envia email ao utilizador)" className="text-muted-foreground hover:text-[#F59E0B]"><KeyRound className="w-4 h-4" /></button>
                         {c.is_founder && <button onClick={() => resend(c.id)} title="Reenviar notificação" className="text-muted-foreground hover:text-[#3B82F6]"><RefreshCw className="w-4 h-4" /></button>}
                         {c.stripe_subscription_id && <button onClick={() => cancelSub(c.id)} title="Cancelar" className="text-muted-foreground hover:text-[#EF4444]"><XCircle className="w-4 h-4" /></button>}
+                        <button onClick={() => setDeleteFor(c)} data-testid={`delete-btn-${c.id}`} title="Apagar conta" className="text-muted-foreground hover:text-[#EF4444]"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </td>
                   </tr>
@@ -237,6 +262,43 @@ export default function Admin() {
           </div>
         </div>
       )}
+
+      {/* Edit account modal */}
+      {editFor && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => setEditFor(null)}>
+          <div className="surface rounded-2xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()} data-testid="edit-modal">
+            <h3 className="font-serif-lux text-2xl mb-4">Editar conta</h3>
+            <label className="text-sm">Nome</label>
+            <input data-testid="edit-name-input" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+              className="mt-1 mb-3 w-full rounded-lg bg-transparent border border-border px-3 py-2.5 text-sm focus:outline-none focus:border-[#3B82F6]" />
+            <label className="text-sm">Email</label>
+            <input data-testid="edit-email-input" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+              className="mt-1 mb-3 w-full rounded-lg bg-transparent border border-border px-3 py-2.5 text-sm focus:outline-none focus:border-[#3B82F6]" />
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" data-testid="edit-premium-toggle" checked={!!editForm.is_premium} onChange={(e) => setEditForm({ ...editForm, is_premium: e.target.checked })} />
+              Acesso Premium manual
+            </label>
+            <div className="flex justify-end gap-3 mt-5">
+              <button onClick={() => setEditFor(null)} className="text-sm text-muted-foreground">Cancelar</button>
+              <button onClick={saveEdit} disabled={busy} data-testid="save-edit-btn" className="rounded-full bg-[#3B82F6] text-white px-5 py-2 text-sm font-medium disabled:opacity-60">{busy ? "A guardar..." : "Guardar"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirm modal */}
+      {deleteFor && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => setDeleteFor(null)}>
+          <div className="surface rounded-2xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()} data-testid="delete-modal">
+            <h3 className="font-serif-lux text-2xl mb-2">Apagar conta</h3>
+            <p className="text-sm text-muted-foreground mb-5">Tens a certeza que queres apagar <b>{deleteFor.name || deleteFor.email}</b>? Esta ação remove a conta e todos os dados associados e é irreversível.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setDeleteFor(null)} className="text-sm text-muted-foreground">Cancelar</button>
+              <button onClick={doDelete} disabled={busy} data-testid="confirm-delete-btn" className="rounded-full bg-[#EF4444] text-white px-5 py-2 text-sm font-medium disabled:opacity-60">{busy ? "A apagar..." : "Apagar definitivamente"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -250,3 +312,4 @@ function Metric({ icon: Icon, label, value, tone }) {
     </motion.div>
   );
 }
+
