@@ -259,7 +259,9 @@ async def valuation(user: dict = Depends(premium_user)):
         "reduzir dependência do fundador, melhorar margem), cada uma com 'uplift' (ex '+45.000 €') e 'note'. Português europeu. Sem texto fora do JSON."
     )
     ai = await cached_ai("valuation", uid, cid, sysmsg, prompt) or {"factors": [], "actions": []}
+    val = snap.get("valuation", {})
     return {"company_value": value, "currency_symbol": sym, "goal_value": snap["goal_value"], "progress": snap["progress"],
+            "net_worth": val.get("net_worth"), "method": val.get("method"), "annual_profit": val.get("annual_profit"),
             "factors": ai.get("factors", []), "actions": ai.get("actions", [])}
 
 @router.get("/report")

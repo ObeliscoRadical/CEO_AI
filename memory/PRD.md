@@ -34,6 +34,14 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ `PainelCEO.jsx`: mini AreaChart (recharts) "Evolução do património líquido" + badge de variação mensal ("+€X este mês", verde/vermelho). Mostra a partir de 2 meses; com 1 mês exibe dica de que a evolução aparece com o tempo.
 - ✅ Verificado visualmente (gráfico + delta) e endpoint testado por curl. Dados começam a acumular automaticamente; sem histórico fabricado (honesto).
 
+## Motor de valuation real — "Valor da Empresa" (2026-07-26)
+- ✅ `core.py::compute_valuation(profile, bal)`: valor estimado = base patrimonial (património líquido, se >0) + goodwill de rendimento (lucro anual × múltiplo). Múltiplo conservador de PME: 2,0 base, +0,5 por cada patamar de margem (10/20/30%), máx 3,5x. Piso na caixa.
+- ✅ `build_snapshot` deixou de usar `company_value = caixa` (bank + 3×lucro=caixa quando lucro=0). Agora `company_value = compute_valuation(...)`. Snapshot devolve `valuation` (value, net_worth, annual_profit, multiple, goodwill, method).
+- ✅ `/api/valuation` devolve também `net_worth`, `method`, `annual_profit`. Fatores IA (Ativos, Marca, Clientes...) regenerados após limpar cache.
+- ✅ `Valor.jsx`: headline mostra o valor real + linha de base patrimonial e método. `PainelCEO.jsx`: cartão "Valor estimado" mostra o valor real (fmt) em vez de "Avaliação ainda não calculada".
+- ✅ Verificado: admin (ativos €86.300, PL €33.600, lucro anual €300k) → valor €1.083.600 (patrimonial + rendimento 3,5x). Empresa sem lucro → valor = património líquido (honesto).
+- ⚠️ É uma ESTIMATIVA (não preço de venda); não substitui avaliação formal.
+
 
 ## Implemented (2026-07-22)
 - ✅ Autenticação email/senha (JWT) + Google (Emergent); seeding admin.

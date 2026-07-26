@@ -123,7 +123,7 @@ export default function PainelCEO() {
             <BalTile label="Total de ativos" value={`${sym}${fmt(bal.total_assets)}`} color="#10B981" testid="bal-assets" />
             <BalTile label="Total de passivos" value={`${sym}${fmt(bal.total_liabilities)}`} color="#EF4444" testid="bal-liabilities" />
             <BalTile label="Património líquido" value={`${sym}${fmt(bal.net_worth)}`} color={(bal.net_worth || 0) >= 0 ? "#3B82F6" : "#EF4444"} tip="Corresponde ao total de ativos menos o total de passivos registados." testid="company-value" />
-            <BalTile label="Valor estimado da empresa" value="Avaliação ainda não calculada" small color="#94a3b8" tip="Estimativa baseada em desempenho, risco, crescimento, dívida e múltiplos de mercado. Pode ser diferente do património líquido." testid="bal-estimated" />
+            <BalTile label="Valor estimado da empresa" value={bal.has_balance ? `${sym}${fmt(bal.company_value)}` : "Avaliação ainda não calculada"} small={!bal.has_balance} color="#3B82F6" tip="Estimativa = base patrimonial (ativos − passivos) + valor de rendimento (lucro anual × múltiplo). Não é necessariamente o preço de venda." testid="bal-estimated" />
           </div>
           {hist?.points?.length >= 2 && (
             <div className="mt-5 surface rounded-2xl p-5" data-testid="equity-history">

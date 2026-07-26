@@ -202,6 +202,32 @@ def compute_balance(company: dict, profile: dict, entries_net: float = 0.0):
             "total_liabilities": round(total_liabilities, 2),
             "net_worth": round(total_assets - total_liabilities, 2)}
 
+def compute_valuation(profile: dict, bal: dict):
+    """Estimated company value = patrimonial floor (net worth) + earnings goodwill.
+    Honest small-business model: assets/liabilities base plus a multiple on positive annual profit."""
+    profile = profile or {}
+    net_worth = bal.get("net_worth", 0)
+    revenue = float(profile.get("monthly_revenue", 0) or 0)
+    fixed = sum(float(c.get("amount", 0) or 0) for c in (profile.get("fixed_costs") or []))
+    var_pct = max(0.0, min(100.0, float(profile.get("variable_costs_pct", 0) or 0)))
+    profit_m = revenue - fixed - revenue * var_pct / 100.0
+    annual_profit = profit_m * 12.0
+    margin = (profit_m / revenue * 100.0) if revenue > 0 else 0.0
+    mult = 0.0
+    if annual_profit > 0:
+        mult = 2.0
+        if margin >= 10: mult += 0.5
+        if margin >= 20: mult += 0.5
+        if margin >= 30: mult += 0.5
+    goodwill = max(0.0, annual_profit) * mult
+    floor = net_worth if net_worth > 0 else 0.0
+    value = round(max(floor + goodwill, bal.get("cash", 0) or 0), 2)
+    method = "patrimonial + rendimento" if goodwill > 0 else "patrimonial"
+    return {"value": value, "net_worth": round(net_worth, 2),
+            "annual_profit": round(annual_profit, 2), "multiple": mult,
+            "goodwill": round(goodwill, 2), "method": method}
+
+
 async def build_snapshot(user_id: str):
     company = await resolve_company(user_id) or {}
     cid = str(company["_id"]) if company.get("_id") else None
@@ -243,7 +269,8 @@ async def build_snapshot(user_id: str):
     status_score = {"green": 100, "amber": 55, "red": 20}
     health = round(sum(status_score[v["status"]] for v in vitals) / len(vitals))
     annual_profit = net if net > 0 else 0
-    company_value = round(bank + annual_profit * 3, 2)
+    val = compute_valuation(profile, bal)
+    company_value = val["value"]
     dna = await db.ceo_dna.find_one({"user_id": user_id}) or {}
     goal_value = float(dna.get("target_revenue", 0)) or 1000000
     progress = min(100, round(company_value / goal_value * 100)) if goal_value else 0
@@ -254,6 +281,7 @@ async def build_snapshot(user_id: str):
         "currency_symbol": CURRENCY_SYMBOL.get(currency, "€"),
         "company_name": company.get("name", "A minha empresa"),
         "company_value": company_value, "goal_value": goal_value, "progress": progress,
+        "valuation": val,
         "cash_balance": round(bank, 2), "monthly_net": round(m_net, 2),
         "monthly_income": round(m_income, 2), "monthly_expense": round(m_expense, 2),
         "runway": round(runway, 1), "profit_margin": round(profit_margin, 1),
