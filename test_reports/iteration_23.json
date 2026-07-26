@@ -1,0 +1,34 @@
+{
+  "summary": "Re-test FAILED. The fix was applied to the wrong file/route. Route '/' in App.js (line 79) renders <PainelCEO /> from /app/frontend/src/pages/PainelCEO.jsx — NOT the Dashboard.jsx file that E1 modified. Dashboard.jsx (with the correct 5-tile BalTile grid, value-card testid, and the Balanço & Património title) is only mounted on route '/empresa-viva' (line 91). Therefore navigating to '/' (sidebar 'Painel do CEO') shows the old PainelCEO page with vital cards (saude/valor/crescimento/tesouraria/fluxo) and no value-card, no bal-cash, no bal-assets, no bal-liabilities, no company-value, no bal-estimated tiles. The dashboard/'/' page also still says '€0 de saldo' and 'Ainda não tenho os teus números' because PainelCEO reads /api/ceo-daily, not /api/dashboard. Frontend compiles fine and login works.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "App.js routing", "issue": "Route '/' is bound to <PainelCEO />, not <Dashboard />. E1 refactored Dashboard.jsx (adding the 5 BalTile grid) but Dashboard.jsx is only used by /empresa-viva. The user-visible 'Painel do CEO' page at '/' is PainelCEO.jsx, which was NOT updated.", "selector": "[data-testid='value-card']", "priority": "CRITICAL"},
+      {"component": "PainelCEO.jsx", "issue": "Does not render any of the required testids (value-card, bal-cash, bal-assets, bal-liabilities, company-value, bal-estimated) and does not call /api/dashboard. Still shows old €0-de-saldo copy and 'Ainda não tenho os teus números' banner even though the backend snapshot returns cash_available=3000/net_worth=28100.", "selector": "[data-testid='value-card']", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [
+      {"flow": "'/' Dashboard render", "issue": "Testids required by the acceptance criteria are absent from the DOM at '/'. Real-time-update test could not be verified because target tiles never render on '/'.", "affected_selectors": ["[data-testid='value-card']", "[data-testid='bal-cash']", "[data-testid='bal-assets']", "[data-testid='bal-liabilities']", "[data-testid='company-value']", "[data-testid='bal-estimated']"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Decide: either (a) change App.js line 79 to `<Route path=\"/\" element={<Dashboard />} />` (and drop or repurpose PainelCEO), or (b) port the 5-BalTile block from Dashboard.jsx into PainelCEO.jsx, wire it to /api/dashboard, and give the card data-testid='value-card' with the 5 tiles (bal-cash/bal-assets/bal-liabilities/company-value=net_worth/bal-estimated).",
+    "Make sure company-value testid is bound to snap.net_worth (28100), NOT cash or company_value=0/3000.",
+    "Confirm sidebar 'Painel do CEO' item navigates to whichever route now hosts the new dashboard.",
+    "After the fix, re-verify: login adminceoai@gmail.com / 12345 → '/' → bal-cash=€3.000, bal-assets=€86.300, bal-liabilities=€58.200, company-value=€28.100, bal-estimated='Avaliação ainda não calculada'; then edit-profile-btn in /financas, add asset Imóvel=10000, save-profile-btn, navigate back to '/', assert bal-assets=€96.300 and company-value=€38.100 without manual refresh."
+  ],
+  "critical_code_review_comments": [
+    "Two dashboard components coexist (Dashboard.jsx on /empresa-viva and PainelCEO.jsx on /). This dual-source-of-truth caused E1 to edit the wrong file two iterations in a row. Consolidate to a single source component for the CEO home.",
+    "Dashboard.jsx now compiles cleanly and the 5 BalTile tiles are correctly wired to snap.cash_available/total_assets/total_liabilities/net_worth with the right testids — the code itself is correct; only the routing wiring is wrong.",
+    "PainelCEO.jsx still relies on /api/ceo-daily and shows 'Ainda não tenho os teus números' + '€0 de saldo' cards even when /api/dashboard has real balance data; the two endpoints appear out of sync."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped)", "frontend": "0%"},
+  "test_credentials": "adminceoai@gmail.com / 12345 (login works, session established)",
+  "seed_data_creation": "None — backend already returns cash_available=3000, total_assets=86300, total_liabilities=58200, net_worth=28100, has_balance=true.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Once E1 either re-routes '/' to Dashboard.jsx or ports the 5-tile block into PainelCEO.jsx, the fix can be validated with a simple Playwright assertion on the 6 testids at '/'. Backend contract at /api/dashboard is confirmed correct (numbers match acceptance criteria). Also verify the real-time propagation after editing the financial profile in /financas.",
+  "rca of the issue": "Router mismatch. In /app/frontend/src/App.js the '/' path is `<Route path=\"/\" element={<PainelCEO />} />` while E1's 5-BalTile refactor was applied to /app/frontend/src/pages/Dashboard.jsx which is only mounted at '/empresa-viva'. As a result the visible CEO home page is unchanged. Reproduction: login as adminceoai@gmail.com/12345, land on '/', inspect DOM — none of value-card / bal-* / company-value testids exist. Mitigation: switch the '/' route to <Dashboard /> or migrate the BalTile block (and /api/dashboard fetch) into PainelCEO.jsx."
+}

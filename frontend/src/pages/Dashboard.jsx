@@ -94,20 +94,20 @@ export default function Dashboard() {
               <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mb-4">Saúde da Empresa</p>
               <Ring value={snap.health} color={STATUS_COLORS[snap.health >= 75 ? "green" : snap.health >= 45 ? "amber" : "red"]} label={snap.health} sub="de 100" />
             </div>
-            {/* Company value + goal */}
-            <div className="surface rounded-3xl p-8 flex flex-col items-center justify-center md:col-span-2" data-testid="value-card">
-              <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mb-4">Valor da Empresa Hoje</p>
-              <div className="flex items-center gap-10">
-                <Ring value={snap.progress} color="#3B82F6" label={`${snap.progress}%`} sub="do objetivo" size={150} />
-                <div>
-                  <div className="font-serif-lux text-5xl text-[#3B82F6]" data-testid="company-value">{sym}{Number(snap.company_value).toLocaleString("pt-PT")}</div>
-                  <div className="text-sm text-muted-foreground mt-2">Objetivo: {sym}{Number(snap.goal_value).toLocaleString("pt-PT")}</div>
-                  <div className="flex gap-6 mt-6">
-                    <Stat label="Caixa" value={`${sym}${Number(snap.cash_balance).toLocaleString("pt-PT")}`} />
-                    <Stat label="Autonomia" value={`${snap.runway} meses`} />
-                  </div>
-                </div>
+            {/* Balance / Património */}
+            <div className="surface rounded-3xl p-8 md:col-span-2" data-testid="value-card">
+              <div className="flex items-center justify-between mb-5">
+                <p className="text-xs text-muted-foreground uppercase tracking-[0.2em]">Balanço &amp; Património</p>
+                {!snap.has_balance && <span className="text-[11px] text-amber-400" data-testid="fill-balance-hint">Preenche o Perfil Financeiro em Finanças →</span>}
               </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <BalTile label="Caixa disponível" value={`${sym}${Number(snap.cash_available).toLocaleString("pt-PT")}`} color="#3B82F6" testid="bal-cash" />
+                <BalTile label="Total de ativos" value={`${sym}${Number(snap.total_assets).toLocaleString("pt-PT")}`} color="#10B981" testid="bal-assets" />
+                <BalTile label="Total de passivos" value={`${sym}${Number(snap.total_liabilities).toLocaleString("pt-PT")}`} color="#EF4444" testid="bal-liabilities" />
+                <BalTile label="Património líquido" value={`${sym}${Number(snap.net_worth).toLocaleString("pt-PT")}`} color={snap.net_worth >= 0 ? "#3B82F6" : "#EF4444"} tip="Corresponde ao total de ativos menos o total de passivos registados." testid="company-value" />
+                <BalTile label="Valor estimado da empresa" value="Avaliação ainda não calculada" small color="#94a3b8" tip="Estimativa baseada em desempenho, risco, crescimento, dívida e múltiplos de mercado. Pode ser diferente do património líquido." testid="bal-estimated" />
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-4">O património líquido = total de ativos − total de passivos. Não representa necessariamente o preço de venda da empresa.</p>
             </div>
           </div>
 
@@ -137,24 +137,6 @@ function BalTile({ label, value, color, tip, small, testid }) {
     <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] p-4" title={tip || ""} data-testid={testid}>
       <p className="text-[11px] text-muted-foreground mb-1.5 flex items-center gap-1">{label}{tip ? <Info className="w-3 h-3 opacity-60" /> : null}</p>
       <div className={`font-serif-lux ${small ? "text-sm leading-snug" : "text-2xl"}`} style={{ color }}>{value}</div>
-    </div>
-  );
-}
-
-function Stat({ label, value }) {
-  return (
-    <div>
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-lg font-medium mt-0.5">{value}</div>
-    </div>
-  );
-}
-
-              </motion.div>
-            ))}
-          </div>
-        </>
-      )}
     </div>
   );
 }
