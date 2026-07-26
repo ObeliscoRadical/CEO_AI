@@ -302,6 +302,7 @@ async def record_equity(user_id: str, cid, snap: dict):
                   "net_worth": round(snap.get("net_worth", 0), 2),
                   "total_assets": round(snap.get("total_assets", 0), 2),
                   "total_liabilities": round(snap.get("total_liabilities", 0), 2),
+                  "company_value": round(snap.get("company_value", 0), 2),
                   "updated_at": datetime.now(timezone.utc).isoformat()}},
         upsert=True)
 

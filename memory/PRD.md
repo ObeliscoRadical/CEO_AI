@@ -42,6 +42,12 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ Verificado: admin (ativos €86.300, PL €33.600, lucro anual €300k) → valor €1.083.600 (patrimonial + rendimento 3,5x). Empresa sem lucro → valor = património líquido (honesto).
 - ⚠️ É uma ESTIMATIVA (não preço de venda); não substitui avaliação formal.
 
+## Notificação mensal de valor da empresa (2026-07-26)
+- ✅ `equity_history` passou a gravar também `company_value` (record_equity, no `/dashboard` e no save do Perfil Financeiro).
+- ✅ Novo endpoint `GET /api/value-alert` → `{ has_alert, current, previous, delta, pct, direction, month_label, prev_month_label }` (compara o valor deste mês com o anterior).
+- ✅ `PainelCEO.jsx`: banner premium no topo ("A tua empresa vale €X — mais/menos €Y (±Z%) que em [mês]"), verde para subida / vermelho para descida, com subtexto e botão fechar. Dispensa persistida por mês em localStorage (`va-dismiss-<mês>`).
+- ✅ Verificado: subida €103.600 (+10,6%) renderiza o banner verde no painel. Sem dados fabricados (histórico real acumula automaticamente).
+
 
 ## Implemented (2026-07-22)
 - ✅ Autenticação email/senha (JWT) + Google (Emergent); seeding admin.

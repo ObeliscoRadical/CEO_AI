@@ -7,7 +7,7 @@ import { LockedBlock } from "@/components/Premium";
 import { Watermark } from "@/components/Watermark";
 import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { Loader2, HeartPulse, Coins, TrendingUp, TrendingDown, Landmark, Waves, ArrowRight, Sparkles, AlertTriangle, Flag, AlertOctagon, ShieldAlert, Lightbulb, Target, Info } from "lucide-react";
+import { Loader2, HeartPulse, Coins, TrendingUp, TrendingDown, Landmark, Waves, ArrowRight, Sparkles, AlertTriangle, Flag, AlertOctagon, ShieldAlert, Lightbulb, Target, Info, X } from "lucide-react";
 
 const STATUS = { green: "#10B981", amber: "#F59E0B", red: "#EF4444", gold: "#3B82F6" };
 const fmt = (n) => Number(n || 0).toLocaleString("pt-PT", { useGrouping: "always", maximumFractionDigits: 0 });
@@ -25,6 +25,8 @@ export default function PainelCEO() {
   const [sig, setSig] = useState(null);
   const [bal, setBal] = useState(null);
   const [hist, setHist] = useState(null);
+  const [valAlert, setValAlert] = useState(null);
+  const [vaDismissed, setVaDismissed] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = () => Promise.all([
@@ -32,8 +34,16 @@ export default function PainelCEO() {
     api.get("/signals").then(({ data }) => setSig(data)).catch(() => {}),
     api.get("/dashboard").then(({ data }) => setBal(data)).catch(() => {}),
     api.get("/equity-history").then(({ data }) => setHist(data)).catch(() => {}),
+    api.get("/value-alert").then(({ data }) => setValAlert(data)).catch(() => {}),
   ]).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (valAlert?.month) setVaDismissed(localStorage.getItem(`va-dismiss-${valAlert.month}`) === "1");
+  }, [valAlert]);
+  const dismissAlert = () => {
+    if (valAlert?.month) localStorage.setItem(`va-dismiss-${valAlert.month}`, "1");
+    setVaDismissed(true);
+  };
 
   const act = async (d, status) => {
     setData((p) => ({ ...p, recomendacoes: p.recomendacoes.filter((x) => x.key !== d.key) }));
@@ -79,6 +89,31 @@ export default function PainelCEO() {
           </p>
         </div>
       </div>
+
+      {/* Monthly value alert */}
+      {valAlert?.has_alert && !vaDismissed && (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+          className="relative mb-10 rounded-2xl p-5 border flex items-center gap-4" data-testid="value-alert"
+          style={{ borderColor: valAlert.direction === "up" ? "rgba(16,185,129,0.35)" : "rgba(239,68,68,0.35)",
+                   background: valAlert.direction === "up" ? "rgba(16,185,129,0.07)" : "rgba(239,68,68,0.07)" }}>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: valAlert.direction === "up" ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)",
+                     color: valAlert.direction === "up" ? "#10B981" : "#EF4444" }}>
+            {valAlert.direction === "up" ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[15px] md:text-base font-medium leading-snug" data-testid="value-alert-text">
+              A tua empresa vale {valAlert.currency_symbol}{fmt(valAlert.current)} — {valAlert.direction === "up" ? "mais" : "menos"} {valAlert.currency_symbol}{fmt(Math.abs(valAlert.delta))}{valAlert.pct != null ? ` (${valAlert.direction === "up" ? "+" : "−"}${Math.abs(valAlert.pct)}%)` : ""} que em {valAlert.prev_month_label}.
+            </p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {valAlert.direction === "up" ? "Continua assim — o valor da tua empresa está a crescer." : "Vale a pena perceber o que fez o valor descer este mês."}
+            </p>
+          </div>
+          <button onClick={dismissAlert} data-testid="value-alert-dismiss" className="shrink-0 text-muted-foreground hover:text-foreground transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </motion.div>
+      )}
 
       {/* Signals — sharp quantified alerts */}
       {sig?.signals?.length > 0 && (

@@ -133,6 +133,26 @@ async def equity_history(user: dict = Depends(get_current_user)):
     delta = round(points[-1]["net_worth"] - points[-2]["net_worth"], 2) if len(points) >= 2 else None
     return {"points": points, "delta": delta, "currency_symbol": sym}
 
+@router.get("/value-alert")
+async def value_alert(user: dict = Depends(get_current_user)):
+    cid = await active_company_id(user["id"])
+    rows = await get_equity_history(user["id"], cid)
+    company = await resolve_company(user["id"]) or {}
+    sym = CURRENCY_SYMBOL.get(company.get("currency", "EUR"), "€")
+    if len(rows) < 2:
+        return {"has_alert": False, "currency_symbol": sym}
+    cur, prev = rows[-1], rows[-2]
+    cv, pv = cur.get("company_value"), prev.get("company_value")
+    if cv is None or pv is None:
+        return {"has_alert": False, "currency_symbol": sym}
+    delta = round(cv - pv, 2)
+    pct = round(delta / pv * 100, 1) if pv else None
+    return {"has_alert": abs(delta) >= 1, "current": cv, "previous": pv, "delta": delta, "pct": pct,
+            "direction": "up" if delta >= 0 else "down", "month": cur["month"],
+            "month_label": MONTH_ABBR[int(cur["month"][5:7]) - 1],
+            "prev_month_label": MONTH_ABBR[int(prev["month"][5:7]) - 1],
+            "currency_symbol": sym}
+
 # ---------------------------------------------------------------- CEO Score
 @router.get("/score")
 async def ceo_score(user: dict = Depends(get_current_user)):
@@ -232,8 +252,10 @@ async def save_finance_profile(inp: FinancialProfileInput, user: dict = Depends(
                               f"(ativos {m['total_assets']}, passivos {m['total_liabilities']})."),
                   "created_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
     await invalidate_ai_cache(user["id"])
+    _val = compute_valuation(data, {"net_worth": m["net_worth"], "cash": m["cash_balance"]})
     await record_equity(user["id"], cid, {"has_balance": True, "net_worth": m["net_worth"],
-                                          "total_assets": m["total_assets"], "total_liabilities": m["total_liabilities"]})
+                                          "total_assets": m["total_assets"], "total_liabilities": m["total_liabilities"],
+                                          "company_value": _val["value"]})
     return {"ok": True}
 
 @router.get("/finance/profile/analysis")
