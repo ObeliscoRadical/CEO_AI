@@ -136,22 +136,24 @@ async def equity_history(user: dict = Depends(get_current_user)):
 @router.get("/value-alert")
 async def value_alert(user: dict = Depends(get_current_user)):
     cid = await active_company_id(user["id"])
-    rows = await get_equity_history(user["id"], cid)
-    company = await resolve_company(user["id"]) or {}
-    sym = CURRENCY_SYMBOL.get(company.get("currency", "EUR"), "€")
-    if len(rows) < 2:
-        return {"has_alert": False, "currency_symbol": sym}
-    cur, prev = rows[-1], rows[-2]
-    cv, pv = cur.get("company_value"), prev.get("company_value")
-    if cv is None or pv is None:
-        return {"has_alert": False, "currency_symbol": sym}
-    delta = round(cv - pv, 2)
-    pct = round(delta / pv * 100, 1) if pv else None
-    return {"has_alert": abs(delta) >= 1, "current": cv, "previous": pv, "delta": delta, "pct": pct,
-            "direction": "up" if delta >= 0 else "down", "month": cur["month"],
-            "month_label": MONTH_ABBR[int(cur["month"][5:7]) - 1],
-            "prev_month_label": MONTH_ABBR[int(prev["month"][5:7]) - 1],
-            "currency_symbol": sym}
+    return await compute_value_alert(user["id"], cid)
+
+@router.post("/value-alert/email")
+async def value_alert_email(user: dict = Depends(get_current_user)):
+    cid = await active_company_id(user["id"])
+    alert = await compute_value_alert(user["id"], cid)
+    if not alert.get("has_alert"):
+        raise HTTPException(status_code=400, detail="Ainda não há variação de valor para enviar. É preciso pelo menos 2 meses de dados.")
+    u = await db.users.find_one({"_id": ObjectId(user["id"])})
+    if not u or not u.get("email"):
+        raise HTTPException(status_code=400, detail="Esta conta não tem email associado")
+    html = build_value_alert_html(u.get("name", ""), alert, os.environ.get("FRONTEND_URL", ""))
+    subj = ("O valor da tua empresa subiu este mês — CEO AI" if alert["direction"] == "up"
+            else "O valor da tua empresa mudou este mês — CEO AI")
+    ok = await send_email_raw(u["email"], subj, html)
+    if not ok:
+        raise HTTPException(status_code=502, detail="Não foi possível enviar o email")
+    return {"ok": True, "to": u["email"]}
 
 # ---------------------------------------------------------------- CEO Score
 @router.get("/score")

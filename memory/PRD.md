@@ -48,6 +48,13 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ `PainelCEO.jsx`: banner premium no topo ("A tua empresa vale €X — mais/menos €Y (±Z%) que em [mês]"), verde para subida / vermelho para descida, com subtexto e botão fechar. Dispensa persistida por mês em localStorage (`va-dismiss-<mês>`).
 - ✅ Verificado: subida €103.600 (+10,6%) renderiza o banner verde no painel. Sem dados fabricados (histórico real acumula automaticamente).
 
+## Email mensal automático do valor da empresa (2026-07-26)
+- ✅ `core.py`: `compute_value_alert` (helper reutilizado pelo endpoint), `build_value_alert_html` (template Resend, azul, sobe=verde/desce=vermelho), `send_monthly_value_alerts` (cron).
+- ✅ Cron mensal registado em `server.py` (APScheduler existente): `CronTrigger(day=1, hour=8)` → `monthly_value_alerts`. Idempotente por mês via flag `alert_emailed` no doc de `equity_history`. Respeita opt-out `email_value_alert`.
+- ✅ `GET /api/value-alert` simplificado para usar o helper. Novo `POST /api/value-alert/email` para envio imediato (teste/preview).
+- ✅ Setting `email_value_alert` (default True) em DEFAULT_SETTINGS + `SettingsInput`. Toggle e botão "Enviar-me o resumo de valor" em `Settings.jsx` (Personalização).
+- ✅ Verificado: scheduler arranca com 2 jobs; `POST /value-alert/email` devolveu `ok:true` (Resend aceitou). Entrega real ao inbox não confirmável no preview.
+
 
 ## Implemented (2026-07-22)
 - ✅ Autenticação email/senha (JWT) + Google (Emergent); seeding admin.

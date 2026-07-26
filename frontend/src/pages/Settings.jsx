@@ -26,6 +26,7 @@ export default function Settings() {
   const [newMem, setNewMem] = useState("");
   const [saving, setSaving] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [sendingVal, setSendingVal] = useState(false);
 
   useEffect(() => {
     api.get("/settings").then(({ data }) => setSettings(data));
@@ -110,11 +111,24 @@ export default function Settings() {
     catch { toast.error("Erro ao guardar"); }
   };
 
+  const toggleValueAlert = async (val) => {
+    update({ email_value_alert: val });
+    try { await api.put("/settings", { ...settings, email_value_alert: val }); toast.success(val ? "Resumo mensal de valor ativado" : "Resumo mensal de valor desativado"); }
+    catch { toast.error("Erro ao guardar"); }
+  };
+
   const sendNow = async () => {
     setSendingEmail(true);
     try { const { data } = await api.post("/briefing/email"); toast.success(`Briefing enviado para ${data.to}`); }
     catch { toast.error("Não foi possível enviar o email"); }
     finally { setSendingEmail(false); }
+  };
+
+  const sendValueNow = async () => {
+    setSendingVal(true);
+    try { const { data } = await api.post("/value-alert/email"); toast.success(`Resumo de valor enviado para ${data.to}`); }
+    catch (e) { toast.error(e?.response?.data?.detail || "Não foi possível enviar o email"); }
+    finally { setSendingVal(false); }
   };
 
   if (!settings || !company) return <div className="flex justify-center py-32"><Loader2 className="w-6 h-6 animate-spin text-[#3B82F6]" /></div>;
@@ -276,8 +290,21 @@ export default function Settings() {
             <span className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all ${settings.email_briefing ? "left-6" : "left-1"}`} />
           </button>
         </div>
+        <div className="flex items-center justify-between p-4 rounded-xl border border-border mb-4">
+          <div>
+            <div className="text-sm font-medium">Resumo mensal do valor da empresa</div>
+            <div className="text-xs text-muted-foreground mt-0.5">No início de cada mês recebes por email se o valor da tua empresa subiu ou desceu</div>
+          </div>
+          <button data-testid="email-value-alert-toggle" onClick={() => toggleValueAlert(!settings.email_value_alert)}
+            className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${settings.email_value_alert ? "bg-[#3B82F6]" : "bg-border"}`}>
+            <span className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all ${settings.email_value_alert ? "left-6" : "left-1"}`} />
+          </button>
+        </div>
         <Button data-testid="send-email-now-btn" onClick={sendNow} disabled={sendingEmail} variant="outline" className="rounded-full">
           {sendingEmail ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />} Enviar-me o briefing agora
+        </Button>
+        <Button data-testid="send-value-email-btn" onClick={sendValueNow} disabled={sendingVal} variant="outline" className="rounded-full ml-0 sm:ml-3 mt-3 sm:mt-0">
+          {sendingVal ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />} Enviar-me o resumo de valor
         </Button>
       </div>
 

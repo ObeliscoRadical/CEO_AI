@@ -543,6 +543,99 @@ async def send_daily_briefings():
         except Exception as e:
             logger.error(f"daily briefing error for {uid}: {e}")
 
+
+MONTH_ABBR = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
+
+
+async def compute_value_alert(user_id: str, cid):
+    company = await resolve_company(user_id) or {}
+    sym = CURRENCY_SYMBOL.get(company.get("currency", "EUR"), "€")
+    if not cid:
+        return {"has_alert": False, "currency_symbol": sym}
+    rows = await db.equity_history.find({"user_id": user_id, "company_id": cid}).sort("month", 1).to_list(24)
+    if len(rows) < 2:
+        return {"has_alert": False, "currency_symbol": sym}
+    cur, prev = rows[-1], rows[-2]
+    cv, pv = cur.get("company_value"), prev.get("company_value")
+    if cv is None or pv is None:
+        return {"has_alert": False, "currency_symbol": sym}
+    delta = round(cv - pv, 2)
+    pct = round(delta / pv * 100, 1) if pv else None
+    return {"has_alert": abs(delta) >= 1, "current": cv, "previous": pv, "delta": delta, "pct": pct,
+            "direction": "up" if delta >= 0 else "down", "month": cur["month"],
+            "month_label": MONTH_ABBR[int(cur["month"][5:7]) - 1],
+            "prev_month_label": MONTH_ABBR[int(prev["month"][5:7]) - 1],
+            "currency_symbol": sym}
+
+
+def build_value_alert_html(name: str, alert: dict, app_url: str):
+    sym = alert.get("currency_symbol", "€")
+    up = alert["direction"] == "up"
+    color = "#10B981" if up else "#EF4444"
+    fnum = lambda v: f"{int(round(v)):,}".replace(",", " ")
+    who = f", {name}" if name else ""
+    pct = f" ({'+' if up else '−'}{abs(alert['pct'])}%)" if alert.get("pct") is not None else ""
+    verb = "subiu" if up else "desceu"
+    lead = ("Boas notícias" if up else "Atenção")
+    note = ("O valor da tua empresa está a crescer. Continua a executar o plano."
+            if up else "O valor da tua empresa desceu este mês. Vale a pena perceber porquê.")
+    return f"""<!DOCTYPE html><html><body style="margin:0;background:#0b0c10;font-family:Arial,Helvetica,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#0b0c10;padding:32px 0;">
+      <tr><td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:18px;overflow:hidden;">
+          <tr><td style="background:#0b0c10;padding:28px 32px;">
+            <div style="color:#3B82F6;font-size:22px;font-weight:700;letter-spacing:1px;">CEO&nbsp;AI</div>
+            <div style="color:#a1a1aa;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-top:2px;">Executivo Digital · Valor da Empresa</div>
+          </td></tr>
+          <tr><td style="padding:32px;">
+            <div style="font-size:13px;color:#71717a;margin-bottom:6px;">{lead}{who}</div>
+            <div style="font-size:26px;color:#18181b;font-weight:800;line-height:1.25;margin-bottom:6px;">
+              A tua empresa vale {sym}{fnum(alert['current'])}
+            </div>
+            <div style="font-size:16px;color:{color};font-weight:700;margin-bottom:18px;">
+              {verb} {sym}{fnum(abs(alert['delta']))}{pct} desde {alert.get('prev_month_label','')}
+            </div>
+            <div style="font-size:14px;color:#52525b;line-height:1.6;margin-bottom:24px;">{note}</div>
+            <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+              <a href="{app_url}" style="display:inline-block;background:#3B82F6;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:13px 28px;border-radius:999px;">Ver o valor da minha empresa</a>
+            </td></tr></table>
+          </td></tr>
+          <tr><td style="padding:20px 32px;background:#faf9f6;border-top:1px solid #eee;">
+            <div style="font-size:11px;color:#a1a1aa;">Recebes este resumo mensal do valor da tua empresa do CEO AI. Podes desativar em Personalização.</div>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table></body></html>"""
+
+
+async def send_monthly_value_alerts():
+    pairs = await db.equity_history.aggregate([{"$group": {"_id": {"u": "$user_id", "c": "$company_id"}}}]).to_list(100000)
+    for p in pairs:
+        uid = p["_id"].get("u"); cid = p["_id"].get("c")
+        if not uid or not cid:
+            continue
+        try:
+            alert = await compute_value_alert(uid, cid)
+            if not alert.get("has_alert"):
+                continue
+            s = await db.settings.find_one({"user_id": uid}) or {}
+            if s.get("email_value_alert") is False:
+                continue
+            claim = await db.equity_history.update_one(
+                {"user_id": uid, "company_id": cid, "month": alert["month"], "alert_emailed": {"$ne": True}},
+                {"$set": {"alert_emailed": True}})
+            if claim.modified_count != 1:
+                continue
+            u = await db.users.find_one({"_id": ObjectId(uid)})
+            if not u or not u.get("email"):
+                continue
+            html = build_value_alert_html(u.get("name", ""), alert, os.environ.get("FRONTEND_URL", ""))
+            subj = ("O valor da tua empresa subiu este mês — CEO AI" if alert["direction"] == "up"
+                    else "O valor da tua empresa mudou este mês — CEO AI")
+            await send_email_raw(u["email"], subj, html)
+        except Exception as e:
+            logger.error(f"monthly value alert error for {uid}: {e}")
+
 async def ai_json(system: str, prompt: str, model=("openai", "gpt-5.4")):
     chat = LlmChat(api_key=EMERGENT_KEY, session_id=f"j-{uuid.uuid4()}", system_message=system).with_model(*model)
     try:
