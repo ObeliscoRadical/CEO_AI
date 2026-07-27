@@ -86,6 +86,13 @@ async def startup():
         logger.info("Briefing scheduler started")
     except Exception as e:
         logger.error(f"Scheduler start failed: {e}")
+    try:
+        if (os.environ.get("STRIPE_MODE") == "live") and (os.environ.get("STRIPE_SECRET_KEY", "").startswith("sk_live")):
+            import asyncio as _asyncio, setup_stripe
+            _asyncio.create_task(_asyncio.to_thread(setup_stripe.main))
+            logger.info("Stripe LIVE catalog ensure scheduled")
+    except Exception as e:
+        logger.error(f"Stripe catalog ensure failed: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
