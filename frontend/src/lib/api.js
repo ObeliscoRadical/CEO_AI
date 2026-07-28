@@ -18,12 +18,12 @@ export function formatApiError(detail) {
 }
 
 // Stream chat via fetch + SSE reader
-export async function streamChat({ message, session_id }, onDelta, onDone) {
+export async function streamChat({ message, session_id, attachment_ids }, onDelta, onDone) {
   const res = await fetch(`${API}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ message, session_id }),
+    body: JSON.stringify({ message, session_id, attachment_ids }),
   });
   const reader = res.body.getReader();
   const decoder = new TextDecoder();

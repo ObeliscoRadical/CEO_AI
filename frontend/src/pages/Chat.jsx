@@ -7,7 +7,7 @@ import { VoiceMode } from "@/components/VoiceMode";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { Send, Loader2, Plus, MessageSquare, Trash2, Mic } from "lucide-react";
+import { Send, Loader2, Plus, MessageSquare, Trash2, Mic, Paperclip, X, FileText, Image as ImageIcon } from "lucide-react";
 
 const SUGGESTIONS = [
   "Posso tirar férias este mês?",
@@ -23,6 +23,9 @@ export default function Chat() {
   const [sessions, setSessions] = useState([]);
   const [streaming, setStreaming] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
+  const [attachments, setAttachments] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
   const endRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -50,15 +53,37 @@ export default function Chat() {
     loadSessions();
   };
 
+  const handleFiles = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (!files.length) return;
+    setUploading(true);
+    for (const f of files) {
+      try {
+        const fd = new FormData();
+        fd.append("file", f);
+        const { data } = await api.post("/chat/attachment", fd, { headers: { "Content-Type": "multipart/form-data" } });
+        setAttachments((a) => [...a, { id: data.id, kind: data.kind, filename: data.filename }]);
+      } catch (err) {}
+    }
+    setUploading(false);
+  };
+
+  const removeAttachment = (id) => setAttachments((a) => a.filter((x) => x.id !== id));
+
   const send = async (text) => {
     const msg = (text ?? input).trim();
-    if (!msg || streaming) return;
+    const atts = attachments;
+    if ((!msg && atts.length === 0) || streaming || uploading) return;
     setInput("");
-    setMessages((m) => [...m, { role: "user", content: msg }, { role: "assistant", content: "" }]);
+    setAttachments([]);
+    const attNote = atts.length ? atts.map((a) => `📎 ${a.filename}`).join("  ") : "";
+    const displayContent = (msg + (attNote ? `\n\n${attNote}` : "")).trim();
+    setMessages((m) => [...m, { role: "user", content: displayContent }, { role: "assistant", content: "" }]);
     setStreaming(true);
     try {
       await streamChat(
-        { message: msg, session_id: sessionId },
+        { message: msg, session_id: sessionId, attachment_ids: atts.map((a) => a.id) },
         (delta) => setMessages((m) => {
           const copy = [...m];
           copy[copy.length - 1] = { role: "assistant", content: copy[copy.length - 1].content + delta };
@@ -143,14 +168,30 @@ export default function Chat() {
         )}
 
         <div className="py-6 sticky bottom-0 bg-background">
-          <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex gap-2 glass rounded-full p-2 pl-6 items-center">
-            <Input data-testid="chat-input" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Escreve a tua pergunta..."
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3" data-testid="chat-attachments">
+              {attachments.map((a) => (
+                <div key={a.id} data-testid={`attachment-${a.id}`} className="flex items-center gap-2 text-xs bg-accent border border-border rounded-full pl-3 pr-2 py-1.5">
+                  {a.kind === "image" ? <ImageIcon className="w-3.5 h-3.5 text-[#3B82F6]" /> : <FileText className="w-3.5 h-3.5 text-[#3B82F6]" />}
+                  <span className="max-w-[160px] truncate">{a.filename}</span>
+                  <button onClick={() => removeAttachment(a.id)} data-testid={`remove-attachment-${a.id}`} className="hover:text-[#EF4444]"><X className="w-3.5 h-3.5" /></button>
+                </div>
+              ))}
+            </div>
+          )}
+          <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex gap-2 glass rounded-full p-2 pl-4 items-center">
+            <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.txt,.csv,.docx,.xlsx" onChange={handleFiles} className="hidden" data-testid="chat-file-input" />
+            <Button data-testid="chat-attach-btn" type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} variant="ghost"
+              className="rounded-full w-11 h-11 p-0 text-[#3B82F6] hover:bg-[#3B82F6]/10 shrink-0" title="Anexar foto ou PDF">
+              {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Paperclip className="w-5 h-5" />}
+            </Button>
+            <Input data-testid="chat-input" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Escreve a tua pergunta ou anexa um ficheiro..."
               className="border-0 bg-transparent focus-visible:ring-0 shadow-none" />
             <Button data-testid="voice-mic-inline" type="button" onClick={() => setVoiceOpen(true)} variant="ghost"
               className="rounded-full w-11 h-11 p-0 text-[#3B82F6] hover:bg-[#3B82F6]/10" title="Falar com o CEO">
               <Mic className="w-5 h-5" />
             </Button>
-            <Button data-testid="chat-send-btn" type="submit" disabled={streaming || !input.trim()}
+            <Button data-testid="chat-send-btn" type="submit" disabled={streaming || uploading || (!input.trim() && attachments.length === 0)}
               className="rounded-full w-11 h-11 p-0 bg-[#3B82F6] text-white hover:bg-[#2563EB]">
               {streaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>

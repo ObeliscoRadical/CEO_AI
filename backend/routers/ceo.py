@@ -67,20 +67,41 @@ async def chat(inp: ChatInput, user: dict = Depends(premium_user)):
     if not session_id:
         session_id = str(uuid.uuid4())
         await db.chat_sessions.insert_one({"session_id": session_id, "user_id": user["id"],
-                                           "title": inp.message[:50], "created_at": datetime.now(timezone.utc).isoformat()})
+                                           "title": (inp.message[:50] or "Nova conversa"), "created_at": datetime.now(timezone.utc).isoformat()})
     history = await db.chat_messages.find({"session_id": session_id, "user_id": user["id"]}).sort("created_at", 1).to_list(1000)
+
+    attachments = []
+    if inp.attachment_ids:
+        for aid in inp.attachment_ids:
+            try:
+                a = await db.chat_attachments.find_one({"_id": ObjectId(aid), "user_id": user["id"]})
+                if a:
+                    attachments.append(a)
+            except Exception:
+                pass
+    images = [a for a in attachments if a.get("kind") == "image"]
+    docs = [a for a in attachments if a.get("kind") == "doc"]
+    att_note = "  ".join(f"📎 {a['filename']}" for a in attachments)
+    stored_content = (inp.message + ("\n\n" + att_note if att_note else "")).strip()
     await db.chat_messages.insert_one({"session_id": session_id, "user_id": user["id"], "role": "user",
-                                       "content": inp.message, "created_at": datetime.now(timezone.utc).isoformat()})
-    chat_obj = await get_chat(user["id"], user.get("name", ""), session_id)
-    context_msg = inp.message
+                                       "content": stored_content, "created_at": datetime.now(timezone.utc).isoformat()})
+
+    context_msg = inp.message or "Analisa o ficheiro que anexei e diz-me o que é relevante para a minha empresa."
     if history:
         hist_txt = "\n".join(f"{h['role']}: {h['content']}" for h in history[-10:])
-        context_msg = f"[Histórico da conversa]\n{hist_txt}\n\n[Nova mensagem do empresário]\n{inp.message}"
+        context_msg = f"[Histórico da conversa]\n{hist_txt}\n\n[Nova mensagem do empresário]\n{context_msg}"
+    if docs:
+        doc_blk = "\n\n".join(f"[Ficheiro: {d['filename']}]\n{(d.get('text') or '')[:6000]}" for d in docs)
+        context_msg += f"\n\n[Documentos anexados pelo empresário para análise]\n{doc_blk}"
+
+    file_contents = [ImageContent(image_base64=img["base64"]) for img in images if img.get("base64")]
+    chat_obj = await get_chat(user["id"], user.get("name", ""), session_id, vision=bool(file_contents))
 
     async def gen():
         full = ""
         try:
-            async for ev in chat_obj.stream_message(UserMessage(text=context_msg)):
+            um = UserMessage(text=context_msg, file_contents=file_contents) if file_contents else UserMessage(text=context_msg)
+            async for ev in chat_obj.stream_message(um):
                 if isinstance(ev, TextDelta):
                     full += ev.content
                     yield f"data: {json.dumps({'delta': ev.content})}\n\n"
@@ -91,10 +112,38 @@ async def chat(inp: ChatInput, user: dict = Depends(premium_user)):
             yield f"data: {json.dumps({'delta': ' [erro de ligação com o CEO AI]'})}\n\n"
         await db.chat_messages.insert_one({"session_id": session_id, "user_id": user["id"], "role": "assistant",
                                            "content": full, "created_at": datetime.now(timezone.utc).isoformat()})
+        if inp.attachment_ids:
+            try:
+                await db.chat_attachments.delete_many({"_id": {"$in": [ObjectId(a) for a in inp.attachment_ids]}, "user_id": user["id"]})
+            except Exception:
+                pass
         yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
 
     return StreamingResponse(gen(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+@router.post("/chat/attachment")
+async def chat_attachment(file: UploadFile = File(...), user: dict = Depends(premium_user)):
+    data = await file.read()
+    if len(data) > 8 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Ficheiro demasiado grande (máx 8MB).")
+    ct = (file.content_type or "").lower()
+    doc = {"user_id": user["id"], "filename": file.filename, "content_type": ct,
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    if ct.startswith("image/"):
+        import base64
+        doc["kind"] = "image"
+        doc["base64"] = base64.b64encode(data).decode()
+    else:
+        text = ""
+        try:
+            text = extract_document_text(data, ct, file.filename or "")
+        except Exception as e:
+            logger.error(f"attach extract: {e}")
+        doc["kind"] = "doc"
+        doc["text"] = (text or "")[:20000]
+    res = await db.chat_attachments.insert_one(doc)
+    return {"id": str(res.inserted_id), "kind": doc["kind"], "filename": file.filename}
 
 @router.get("/briefing")
 async def briefing(user: dict = Depends(get_current_user)):

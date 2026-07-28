@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Brain, Mail, Send, Building2, Search, Upload } from "lucide-react";
+import { Loader2, Plus, Trash2, Brain, Mail, Send, Building2, Search, Upload, BellRing } from "lucide-react";
 
 const MODES = ["conservador", "crescimento", "agressivo", "familiar", "startup", "investidor"];
 const MODELS = [
@@ -16,6 +16,13 @@ const MODELS = [
   { key: "gemini", label: "Gemini 3.1 Pro" },
 ];
 const TONES = ["direto", "caloroso", "analítico", "motivador"];
+
+function urlB64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
 
 export default function Settings() {
   const { theme, setTheme } = useTheme();
@@ -27,6 +34,7 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [sendingVal, setSendingVal] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
 
   useEffect(() => {
     api.get("/settings").then(({ data }) => setSettings(data));
@@ -129,6 +137,35 @@ export default function Settings() {
     try { const { data } = await api.post("/value-alert/email"); toast.success(`Resumo de valor enviado para ${data.to}`); }
     catch (e) { toast.error(e?.response?.data?.detail || "Não foi possível enviar o email"); }
     finally { setSendingVal(false); }
+  };
+
+  const enablePush = async () => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      toast.error("Este dispositivo/navegador não suporta notificações push."); return;
+    }
+    setPushBusy(true);
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") { toast.error("Permissão de notificações negada."); return; }
+      await navigator.serviceWorker.register("/sw.js");
+      const ready = await navigator.serviceWorker.ready;
+      const { data } = await api.get("/push/vapid-public-key");
+      const existing = await ready.pushManager.getSubscription();
+      const sub = existing || await ready.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlB64ToUint8Array(data.publicKey),
+      });
+      const json = sub.toJSON();
+      await api.post("/push/subscribe", { endpoint: json.endpoint, keys: json.keys });
+      toast.success("Notificações ativadas neste dispositivo ✅");
+    } catch (e) {
+      toast.error("Não foi possível ativar as notificações.");
+    } finally { setPushBusy(false); }
+  };
+
+  const testPush = async () => {
+    try { await api.post("/push/test"); toast.success("Notificação de teste enviada 🔔"); }
+    catch (e) { toast.error(e?.response?.data?.detail || "Ativa primeiro as notificações."); }
   };
 
   if (!settings || !company) return <div className="flex justify-center py-32"><Loader2 className="w-6 h-6 animate-spin text-[#3B82F6]" /></div>;
@@ -306,6 +343,17 @@ export default function Settings() {
         <Button data-testid="send-value-email-btn" onClick={sendValueNow} disabled={sendingVal} variant="outline" className="rounded-full ml-0 sm:ml-3 mt-3 sm:mt-0">
           {sendingVal ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />} Enviar-me o resumo de valor
         </Button>
+      </div>
+
+      <div className="surface rounded-3xl p-8" data-testid="push-card">
+        <div className="flex items-center gap-2 mb-2"><BellRing className="w-5 h-5 text-[#3B82F6]" /><h2 className="font-serif-lux text-2xl">Notificações no telemóvel</h2></div>
+        <p className="text-muted-foreground text-sm mb-6">Ativa as notificações neste dispositivo para receberes alertas do CEO (valor da empresa, riscos críticos). No iPhone: primeiro adiciona a app ao ecrã inicial (Partilhar → Adicionar ao Ecrã Principal) e abre-a a partir daí; as notificações aparecem também no Apple Watch emparelhado.</p>
+        <div className="flex flex-wrap gap-3">
+          <Button data-testid="enable-push-btn" onClick={enablePush} disabled={pushBusy} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]">
+            {pushBusy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <BellRing className="w-4 h-4 mr-2" />} Ativar notificações
+          </Button>
+          <Button data-testid="test-push-btn" onClick={testPush} variant="outline" className="rounded-full">Enviar notificação de teste</Button>
+        </div>
       </div>
 
       <div className="surface rounded-3xl p-8">

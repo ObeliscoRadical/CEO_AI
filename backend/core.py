@@ -12,7 +12,7 @@ from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
 import logging, uuid, jwt, bcrypt, io, json, requests, random, stripe, httpx, hashlib, secrets
-from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
+from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone, ImageContent
 
 # ---------------------------------------------------------------- config
 JWT_ALGORITHM = "HS256"
@@ -392,10 +392,12 @@ async def build_system_prompt(user_id: str, user_name: str):
         f"Sinais vitais:\n{vitals_txt}"
     )
 
-async def get_chat(user_id: str, user_name: str, session_id: str):
+async def get_chat(user_id: str, user_name: str, session_id: str, vision: bool = False):
+    sysmsg = await build_system_prompt(user_id, user_name)
+    if vision:
+        return LlmChat(api_key=EMERGENT_KEY, session_id=session_id, system_message=sysmsg).with_model("openai", "gpt-5.4")
     settings = await db.settings.find_one({"user_id": user_id}) or {}
     provider, model = MODEL_MAP.get(settings.get("model", "claude"), MODEL_MAP["claude"])
-    sysmsg = await build_system_prompt(user_id, user_name)
     if provider == "anthropic":
         chat = LlmChat(api_key=EMERGENT_KEY, session_id=session_id, system_message=sysmsg,
                        custom_headers={"anthropic-beta": "task-budgets-2026-03-13"}).with_model(provider, model)
@@ -633,8 +635,51 @@ async def send_monthly_value_alerts():
             subj = ("O valor da tua empresa subiu este mês — CEO AI" if alert["direction"] == "up"
                     else "O valor da tua empresa mudou este mês — CEO AI")
             await send_email_raw(u["email"], subj, html)
+            try:
+                await send_push_to_user(uid, subj, f"A tua empresa vale {alert['currency_symbol']}{int(round(alert['current']))}", "/valor")
+            except Exception:
+                pass
         except Exception as e:
             logger.error(f"monthly value alert error for {uid}: {e}")
+
+
+async def ensure_vapid():
+    cfg = await db.app_config.find_one({"_id": "vapid"})
+    if cfg and cfg.get("public") and cfg.get("private"):
+        return cfg
+    import base64
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives import serialization
+    pk = ec.generate_private_key(ec.SECP256R1())
+    priv = base64.urlsafe_b64encode(pk.private_numbers().private_value.to_bytes(32, "big")).decode().rstrip("=")
+    pub = base64.urlsafe_b64encode(pk.public_key().public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)).decode().rstrip("=")
+    cfg = {"_id": "vapid", "public": pub, "private": priv, "subject": os.environ.get("VAPID_SUBJECT", "mailto:admin@ceo-ai.app")}
+    await db.app_config.update_one({"_id": "vapid"}, {"$set": cfg}, upsert=True)
+    return cfg
+
+
+def _webpush_send(sub, payload, priv, subject):
+    from pywebpush import webpush, WebPushException
+    try:
+        webpush(subscription_info=sub, data=payload, vapid_private_key=priv, vapid_claims={"sub": subject})
+        return True
+    except WebPushException as e:
+        return getattr(getattr(e, "response", None), "status_code", None)
+
+
+async def send_push_to_user(user_id: str, title: str, body: str, url: str = "/"):
+    import asyncio as _asyncio, json as _json
+    cfg = await ensure_vapid()
+    subs = await db.push_subscriptions.find({"user_id": user_id}).to_list(50)
+    payload = _json.dumps({"title": title, "body": body, "url": url})
+    sent = 0
+    for s in subs:
+        res = await _asyncio.to_thread(_webpush_send, {"endpoint": s["endpoint"], "keys": s["keys"]}, payload, cfg["private"], cfg["subject"])
+        if res is True:
+            sent += 1
+        elif res in (404, 410):
+            await db.push_subscriptions.delete_one({"_id": s["_id"]})
+    return sent
 
 async def ai_json(system: str, prompt: str, model=("openai", "gpt-5.4")):
     chat = LlmChat(api_key=EMERGENT_KEY, session_id=f"j-{uuid.uuid4()}", system_message=system).with_model(*model)

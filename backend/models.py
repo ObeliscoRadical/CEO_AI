@@ -54,7 +54,12 @@ class SettingsInput(BaseModel):
 
 class ChatInput(BaseModel):
     session_id: Optional[str] = None
-    message: str
+    message: str = ""
+    attachment_ids: Optional[List[str]] = None
+
+class PushSubscriptionInput(BaseModel):
+    endpoint: str
+    keys: dict
 
 class SimInput(BaseModel):
     scenario: str
