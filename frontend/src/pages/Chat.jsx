@@ -7,6 +7,7 @@ import { VoiceMode } from "@/components/VoiceMode";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import { Send, Loader2, Plus, MessageSquare, Trash2, Mic, Paperclip, X, FileText, Image as ImageIcon } from "lucide-react";
 
 const SUGGESTIONS = [
@@ -59,12 +60,13 @@ export default function Chat() {
     if (!files.length) return;
     setUploading(true);
     for (const f of files) {
+      if (f.size > 8 * 1024 * 1024) { toast.error(`"${f.name}" é demasiado grande (máx 8MB).`); continue; }
       try {
         const fd = new FormData();
         fd.append("file", f);
         const { data } = await api.post("/chat/attachment", fd, { headers: { "Content-Type": "multipart/form-data" } });
         setAttachments((a) => [...a, { id: data.id, kind: data.kind, filename: data.filename }]);
-      } catch (err) {}
+      } catch (err) { toast.error(`Não foi possível anexar "${f.name}".`); }
     }
     setUploading(false);
   };

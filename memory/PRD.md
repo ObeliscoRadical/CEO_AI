@@ -54,6 +54,11 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ `Valor.jsx`: quando `needs_financials`, mostra CTA "Ainda estou a usar só a tua caixa → Preencher Perfil Financeiro" em vez dos fatores IA.
 - ⚠️ Ação do utilizador: preencher Finanças (faturação, ativos, passivos) para o valor real aparecer; depois redeploy para produção.
 
+## Anexos (foto/PDF) na conversa com o CEO + Web Push (2026-07-28)
+- ✅ Anexos no chat (`/ceo`): novo `POST /api/chat/attachment` (imagem→base64, doc→extract_document_text[:20000]); `ChatInput.attachment_ids`; `/api/chat` injeta imagens via `ImageContent` (força modelo visão gpt-5.4) e texto de docs no contexto; anexos apagados após uso. `Chat.jsx`: botão clip, chips, envio com anexos. Verificado por curl: CEO leu "FATURA: Total 1234.56 EUR" da imagem.
+- ✅ Web Push (PWA→iOS→Apple Watch espelhado): playbook verificado. VAPID auto-gerado e guardado em `db.app_config` (sem .env). Helpers em core: `ensure_vapid`, `send_push_to_user`, `_webpush_send` (pywebpush). Endpoints `misc.py`: `/push/vapid-public-key`, `/push/subscribe`, `/push/test`. Service worker `public/sw.js`. `Settings.jsx`: cartão "Notificações no telemóvel" (Ativar + teste). Alerta mensal de valor também envia push.
+- ⚠️ Runtime: análise de imagem/PDF usa saldo da Universal LLM Key (não créditos); push é grátis. iOS exige PWA no ecrã inicial + permissão por gesto. Envio push real só confirmável em browser real; endpoints validados por curl.
+
 ## Email mensal automático do valor da empresa (2026-07-26)
 - ✅ `core.py`: `compute_value_alert` (helper reutilizado pelo endpoint), `build_value_alert_html` (template Resend, azul, sobe=verde/desce=vermelho), `send_monthly_value_alerts` (cron).
 - ✅ Cron mensal registado em `server.py` (APScheduler existente): `CronTrigger(day=1, hour=8)` → `monthly_value_alerts`. Idempotente por mês via flag `alert_emailed` no doc de `equity_history`. Respeita opt-out `email_value_alert`.
