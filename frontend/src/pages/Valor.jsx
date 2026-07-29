@@ -15,7 +15,9 @@ const INF = {
 export default function Valor() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
-  useEffect(() => { api.get("/valuation").then(({ data }) => setData(data)); }, []);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { api.get("/valuation").then(({ data }) => setData(data)).catch(() => setFailed(true)); }, []);
+  if (failed) return <div className="text-center py-40 text-muted-foreground" data-testid="valuation-error">Não foi possível calcular o valor agora. Atualiza a página.</div>;
   if (!data) return <div className="flex justify-center py-40"><Loader2 className="w-6 h-6 animate-spin text-[#3B82F6]" /></div>;
   const sym = data.currency_symbol;
 

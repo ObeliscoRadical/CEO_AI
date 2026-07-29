@@ -47,9 +47,13 @@ export const ReportsUploader = ({ compact = false }) => {
   };
 
   const remove = async (id) => {
-    await api.delete(`/documents/${id}`);
-    setDocs((d) => d.filter((x) => x.id !== id));
-    toast.success("Documento removido.");
+    try {
+      await api.delete(`/documents/${id}`);
+      setDocs((d) => d.filter((x) => x.id !== id));
+      toast.success("Documento removido.");
+    } catch (e) {
+      toast.error("Não foi possível remover o documento.");
+    }
   };
 
   return (

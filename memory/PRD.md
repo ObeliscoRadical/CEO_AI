@@ -64,6 +64,10 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ Componente reutilizável `frontend/src/components/ReportsUploader.jsx` ("Já tens algum relatório? Insere e eu analiso") — usa `/api/upload` (doc_type=report) + `/api/documents`; mostra resumo IA por documento, qualidade e remoção. Colocado na página **Valor da Empresa** e na área **Empresa** (Settings).
 - ✅ Reaproveita infra existente (object storage, extract_document_text, analyze_document). Runtime usa saldo Universal LLM Key.
 
+## Valor fundamentado por relatórios + importação por email (2026-07-28)
+- ✅ Confiança do valuation: `core.compute_confidence` (tiers: Estimativa Inteligente 35% / Estimativa Fundamentada 20% / Avaliação Fundamentada 12%) com base no perfil financeiro + relatórios com figuras. `/api/valuation` devolve `confidence` + `value_range` (intervalo). Se não há perfil manual mas há relatório com `assets`, calcula valor patrimonial "com base nos teus relatórios". `Valor.jsx` mostra badge de confiança, intervalo e dica para carregar relatório.
+- ✅ Importação por email (Sugestão 3): refactor `store_and_analyze` em documents.py; `GET /api/report-inbox` (token único por user + endereço `relatorios+TOKEN@REPORT_INBOUND_DOMAIN`); `POST /api/inbound/report` webhook agnóstico (multipart estilo SendGrid/Mailgun) que identifica o user pelo token e analisa os anexos. Verificado por curl (stored:1). UI mostra o endereço + copiar. ⚠️ ATIVAÇÃO requer domínio + MX + provider inbound (Resend Receiving / SendGrid Inbound Parse) configurado e `REPORT_INBOUND_DOMAIN`; sem isso a UI mostra "fica disponível quando o domínio for configurado".
+
 ## Email mensal automático do valor da empresa (2026-07-26)
 - ✅ `core.py`: `compute_value_alert` (helper reutilizado pelo endpoint), `build_value_alert_html` (template Resend, azul, sobe=verde/desce=vermelho), `send_monthly_value_alerts` (cron).
 - ✅ Cron mensal registado em `server.py` (APScheduler existente): `CronTrigger(day=1, hour=8)` → `monthly_value_alerts`. Idempotente por mês via flag `alert_emailed` no doc de `equity_history`. Respeita opt-out `email_value_alert`.
