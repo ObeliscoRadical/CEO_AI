@@ -1,0 +1,25 @@
+{
+  "summary": "Frontend-only validation of the 3 new features (relatórios uploader na /valor + /definicoes, valuation confidence badge + intervalo, e uso do relatório pelo CEO). All 6 acceptance criteria PASSED.\n\n1) /valor renders sem erros. valuation-value = €1 083 600. valuation-confidence = 'Estimativa Fundamentada' com Intervalo provável: €866 880 – €1 300 320. valuation-confidence-hint visível quando não há relatórios (sugere carregar).\n2) Cartão reports-uploader presente. Upload de /tmp/report_test.txt (relatório ACME LDA com faturação 47.850€, custos, concentração 41% cliente TOP1, dividas) via reports-file-input funcionou. Toast 'Li o teu report_test.txt: ...' apareceu. Documento surgiu em reports-list com badge 'Útil' e resumo AI real: 'Relatório financeiro mensal da ACME Serviços LDA com faturação de 47.850 EUR ... margem bruta, mas evidencia concentração elevada num cliente e montantes relevantes em contas a receber vencidas e dívida bancária.'\n3) Confiança subiu para 'Avaliação Fundamentada' e intervalo apertou (€953 568 – €1 213 632); valuation-confidence-hint desapareceu (count 1→0). Confirma que o backend está a incluir documentos no compute_confidence.\n4) report-inbox-soon visível (REPORT_INBOUND_DOMAIN não configurado); report-inbox-address não aparece; sem erros no DOM.\n5) /definicoes contém reports-uploader (count=1, visible=true).\n6) CEO chat: envio da pergunta 'Com base no relatório que carreguei (ACME Serviços), qual é o meu maior risco?' — a resposta streaming mencionou explicitamente ACME, concentração, dependência de cliente e risco (5/7 keywords). Isto confirma que build_system_prompt está a injetar o documento no contexto do CEO.\n7) remove-report-<id> removeu o documento da lista com toast 'Documento removido.' (count 1→0). Cleanup de teste realizado.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ReportsUploader.jsx: onFiles faz upload sequencial (for-of + await) - se o utilizador escolher vários ficheiros, cada um espera pela análise AI do anterior. Considerar Promise.all com controlo de concorrência (2-3) para melhor UX.",
+    "ReportsUploader.jsx: load() dá catch silencioso (linhas 21-22) - erros do /documents ou /report-inbox não são reportados ao utilizador. Ok para /report-inbox (opcional), mas /documents devia mostrar toast se falhar.",
+    "ReportsUploader.jsx: remove() (linha 49) não tem try/catch - se DELETE /documents/{id} falhar, a lista é limpa localmente na mesma, dando falsa sensação de sucesso. Envolver em try/catch e mostrar toast.error em falha.",
+    "Valor.jsx: chamada api.get('/valuation') sem tratamento de erro (linha 18) - se o endpoint falhar, o loading spinner fica infinito. Adicionar catch + estado de erro."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "100%"},
+  "test_credentials": "adminceoai@gmail.com / 12345",
+  "seed_data_creation": "Created /tmp/report_test.txt (relatório financeiro fictício ACME Serviços LDA com faturação/custos/riscos). Doc uploaded during test was removed via UI remove-report-<id> button after CEO chat test - lista final vazia.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "As três novas features funcionam integralmente. Confiança evolui corretamente ao carregar relatório (Estimativa→Avaliação Fundamentada, intervalo aperta). O CEO usa realmente o conteúdo do relatório nas respostas. Rota Settings=/definicoes. inbox-soon é o estado esperado enquanto REPORT_INBOUND_DOMAIN não estiver setado no backend/.env.",
+  "rca of the issue": "N/A — no issues found"
+}

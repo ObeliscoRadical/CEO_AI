@@ -14,10 +14,12 @@ export const ReportsUploader = ({ compact = false }) => {
   const [docs, setDocs] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [inbox, setInbox] = useState(null);
   const inputRef = useRef(null);
 
   const load = async () => {
     try { const { data } = await api.get("/documents"); setDocs(data); } catch (e) {}
+    try { const { data } = await api.get("/report-inbox"); setInbox(data); } catch (e) {}
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -66,6 +68,20 @@ export const ReportsUploader = ({ compact = false }) => {
         {uploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
         {uploading ? "A analisar..." : "Inserir relatório para o CEO analisar"}
       </Button>
+
+      {inbox?.address ? (
+        <div className="mt-5 p-4 rounded-xl border border-border" data-testid="report-inbox">
+          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground mb-1">Importação automática por email</p>
+          <p className="text-sm text-muted-foreground mb-2">Reencaminha os relatórios (ou configura o teu Obelisco Manager para os enviar) para este endereço e eu analiso-os sozinho:</p>
+          <div className="flex items-center gap-2">
+            <code className="text-sm bg-accent px-3 py-1.5 rounded-lg flex-1 truncate" data-testid="report-inbox-address">{inbox.address}</code>
+            <Button variant="outline" className="rounded-full shrink-0" data-testid="copy-inbox-btn"
+              onClick={() => { navigator.clipboard?.writeText(inbox.address); toast.success("Endereço copiado"); }}>Copiar</Button>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-4 text-xs text-muted-foreground" data-testid="report-inbox-soon">Importação automática por email: fica disponível assim que o domínio de receção for configurado (podes sempre carregar manualmente aqui).</p>
+      )}
 
       {!loading && docs.length > 0 && (
         <div className="mt-6 space-y-2" data-testid="reports-list">

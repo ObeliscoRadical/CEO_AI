@@ -30,6 +30,21 @@ export default function Valor() {
             Base patrimonial (ativos − passivos): {sym}{Number(data.net_worth).toLocaleString("pt-PT")} · método: {data.method}
           </p>
         )}
+        {data.confidence && (
+          <div className="mt-3 flex flex-wrap items-center gap-3" data-testid="valuation-confidence">
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full border"
+              style={{ color: data.confidence.tier === "Avaliação Fundamentada" ? "#10B981" : data.confidence.tier === "Estimativa Fundamentada" ? "#3B82F6" : "#94a3b8",
+                       borderColor: data.confidence.tier === "Avaliação Fundamentada" ? "#10B98155" : data.confidence.tier === "Estimativa Fundamentada" ? "#3B82F655" : "#94a3b855" }}>
+              {data.confidence.tier}
+            </span>
+            {data.value_range && (
+              <span className="text-sm text-muted-foreground">Intervalo provável: {sym}{Number(data.value_range.low).toLocaleString("pt-PT")} – {sym}{Number(data.value_range.high).toLocaleString("pt-PT")}</span>
+            )}
+          </div>
+        )}
+        {data.confidence && !data.confidence.based_on_documents && (
+          <p className="text-xs text-muted-foreground mt-2" data-testid="valuation-confidence-hint">Carrega um relatório do teu Obelisco Manager (em baixo) e esta avaliação passa de estimativa a fundamentada, com um intervalo mais apertado.</p>
+        )}
       </div>
 
       <div className="mb-8">

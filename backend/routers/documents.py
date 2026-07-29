@@ -151,24 +151,28 @@ async def investment_grade(user: dict = Depends(get_current_user)):
     }
 
 # ---------------------------------------------------------------- docs
-@router.post("/upload")
-async def upload(file: UploadFile = File(...), doc_type: str = Form("other"), user: dict = Depends(get_current_user)):
-    ext = file.filename.split(".")[-1] if "." in file.filename else "bin"
-    path = f"{APP_NAME}/uploads/{user['id']}/{uuid.uuid4()}.{ext}"
-    data = await file.read()
-    result = put_object(path, data, file.content_type or "application/octet-stream")
+async def store_and_analyze(user_id: str, filename: str, content_type: str, data: bytes, doc_type: str = "report"):
+    ext = filename.split(".")[-1] if "." in (filename or "") else "bin"
+    path = f"{APP_NAME}/uploads/{user_id}/{uuid.uuid4()}.{ext}"
+    result = put_object(path, data, content_type or "application/octet-stream")
     analysis = {}
     try:
-        text = extract_document_text(data, file.content_type, file.filename)
-        analysis = await analyze_document(text, doc_type, file.filename)
+        text = extract_document_text(data, content_type, filename)
+        analysis = await analyze_document(text, doc_type, filename)
     except Exception as e:
         logger.error(f"doc analysis failed: {e}")
-    res = await db.documents.insert_one({"user_id": user["id"], "storage_path": result["path"],
-        "original_filename": file.filename, "content_type": file.content_type, "doc_type": doc_type,
-        "analysis": analysis,
-        "size": result.get("size", len(data)), "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()})
-    await invalidate_ai_cache(user["id"])
-    return {"id": str(res.inserted_id), "filename": file.filename, "doc_type": doc_type, "size": result.get("size", len(data)),
+    res = await db.documents.insert_one({"user_id": user_id, "storage_path": result["path"],
+        "original_filename": filename, "content_type": content_type, "doc_type": doc_type,
+        "analysis": analysis, "size": result.get("size", len(data)), "is_deleted": False,
+        "created_at": datetime.now(timezone.utc).isoformat()})
+    await invalidate_ai_cache(user_id)
+    return res.inserted_id, analysis
+
+@router.post("/upload")
+async def upload(file: UploadFile = File(...), doc_type: str = Form("other"), user: dict = Depends(get_current_user)):
+    data = await file.read()
+    _id, analysis = await store_and_analyze(user["id"], file.filename, file.content_type, data, doc_type)
+    return {"id": str(_id), "filename": file.filename, "doc_type": doc_type, "size": len(data),
             "analysis": {"relevant": analysis.get("relevant"), "quality": analysis.get("quality"), "summary": analysis.get("summary")}}
 
 @router.get("/documents")
@@ -184,3 +188,38 @@ async def list_docs(user: dict = Depends(get_current_user)):
 async def delete_doc(doc_id: str, user: dict = Depends(get_current_user)):
     await db.documents.update_one({"_id": ObjectId(doc_id), "user_id": user["id"]}, {"$set": {"is_deleted": True}})
     return {"ok": True}
+
+@router.get("/report-inbox")
+async def report_inbox(user: dict = Depends(get_current_user)):
+    u = await db.users.find_one({"_id": ObjectId(user["id"])})
+    token = (u or {}).get("report_token")
+    if not token:
+        token = secrets.token_urlsafe(9).replace("_", "").replace("-", "")[:12].lower() or uuid.uuid4().hex[:12]
+        await db.users.update_one({"_id": ObjectId(user["id"])}, {"$set": {"report_token": token}})
+    domain = os.environ.get("REPORT_INBOUND_DOMAIN", "")
+    return {"token": token, "address": (f"relatorios+{token}@{domain}" if domain else ""), "active": bool(domain)}
+
+@router.post("/inbound/report")
+async def inbound_report(request: Request):
+    import re
+    secret = os.environ.get("INBOUND_SECRET")
+    if secret and request.query_params.get("secret") != secret and request.headers.get("x-inbound-secret") != secret:
+        raise HTTPException(status_code=401, detail="unauthorized")
+    form = await request.form()
+    recipient = str(form.get("to") or form.get("recipient") or form.get("envelope") or form.get("received_for") or "")
+    m = re.search(r"relatorios\+([^@\s\"']+)@", recipient, re.I)
+    if not m:
+        raise HTTPException(status_code=400, detail="token not found in recipient")
+    token = m.group(1).lower()
+    u = await db.users.find_one({"report_token": token})
+    if not u:
+        raise HTTPException(status_code=404, detail="unknown token")
+    uid = str(u["_id"])
+    stored = 0
+    for _key, val in form.multi_items():
+        if hasattr(val, "filename") and val.filename:
+            data = await val.read()
+            if data:
+                await store_and_analyze(uid, val.filename, getattr(val, "content_type", "application/octet-stream"), data, "report")
+                stored += 1
+    return {"ok": True, "stored": stored}

@@ -228,6 +228,27 @@ def compute_valuation(profile: dict, bal: dict):
             "goodwill": round(goodwill, 2), "method": method}
 
 
+async def compute_confidence(user_id: str, has_profile: bool):
+    docs = await db.documents.find({"user_id": user_id, "is_deleted": False}).to_list(500)
+    figs, verified = {}, 0
+    for d in docs:
+        a = d.get("analysis") or {}
+        if a.get("relevant") and a.get("quality") in ("high", "medium"):
+            verified += 1
+        for k, v in (a.get("figures") or {}).items():
+            if isinstance(v, (int, float)) and v and k not in figs:
+                figs[k] = v
+    has_fin = any(figs.get(k) for k in ("revenue", "ebitda", "net_profit", "assets", "liabilities"))
+    if has_profile and has_fin and verified >= 1:
+        tier, margin = "Avaliação Fundamentada", 0.12
+    elif has_profile or has_fin:
+        tier, margin = "Estimativa Fundamentada", 0.20
+    else:
+        tier, margin = "Estimativa Inteligente", 0.35
+    return {"tier": tier, "margin": margin, "based_on_documents": has_fin,
+            "documents_analyzed": verified, "figures": figs}
+
+
 async def build_snapshot(user_id: str):
     company = await resolve_company(user_id) or {}
     cid = str(company["_id"]) if company.get("_id") else None

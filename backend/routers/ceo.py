@@ -298,10 +298,21 @@ async def valuation(user: dict = Depends(premium_user)):
     snap = await build_snapshot(uid)
     sym = snap["currency_symbol"]; value = snap["company_value"]
     val = snap.get("valuation", {})
+    conf = await compute_confidence(uid, bool(snap.get("has_balance")))
+    figs = conf.pop("figures", {})
+    m = conf["margin"]
+
     if not snap.get("has_balance"):
-        return {"company_value": value, "currency_symbol": sym, "goal_value": snap["goal_value"], "progress": snap["progress"],
-                "net_worth": val.get("net_worth"), "method": val.get("method"), "annual_profit": val.get("annual_profit"),
-                "needs_financials": True, "factors": [], "actions": []}
+        if figs.get("assets"):
+            nw = round(figs["assets"] - (figs.get("liabilities") or 0), 2)
+            value = round(max(nw, 0), 2)
+            val = {"net_worth": nw, "annual_profit": figs.get("net_profit"), "method": "com base nos teus relatórios"}
+        else:
+            return {"company_value": value, "currency_symbol": sym, "goal_value": snap["goal_value"], "progress": snap["progress"],
+                    "net_worth": val.get("net_worth"), "method": val.get("method"), "annual_profit": val.get("annual_profit"),
+                    "needs_financials": True, "confidence": conf,
+                    "value_range": {"low": round(value * (1 - m)), "high": round(value * (1 + m))},
+                    "factors": [], "actions": []}
     sysmsg = await build_system_prompt(uid, user.get("name", ""))
     prompt = (
         f"Decompõe o valor da empresa (valor actual estimado {sym}{value}). Devolve APENAS JSON: "
@@ -315,6 +326,7 @@ async def valuation(user: dict = Depends(premium_user)):
     ai = await cached_ai("valuation", uid, cid, sysmsg, prompt) or {"factors": [], "actions": []}
     return {"company_value": value, "currency_symbol": sym, "goal_value": snap["goal_value"], "progress": snap["progress"],
             "net_worth": val.get("net_worth"), "method": val.get("method"), "annual_profit": val.get("annual_profit"),
+            "confidence": conf, "value_range": {"low": round(value * (1 - m)), "high": round(value * (1 + m))},
             "factors": ai.get("factors", []), "actions": ai.get("actions", [])}
 
 @router.get("/report")
