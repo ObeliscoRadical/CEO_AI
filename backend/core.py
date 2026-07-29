@@ -358,6 +358,17 @@ async def build_system_prompt(user_id: str, user_name: str):
     prof_txt = "\n".join(f"{lbl}: {prof.get(k)}" for k, lbl in PROFILE_LABELS.items() if prof.get(k) not in (None, "", 0)) or "(o empresário ainda não preencheu o perfil da empresa)"
     mem_txt = "\n".join(f"- {m['content']}" for m in memories) or "- (ainda sem memórias registadas)"
     vitals_txt = "\n".join(f"- {v['label']}: {v['value']}{v['unit']} [{v['status']}]" for v in snap["vitals"])
+    import json as _json
+    _docs = await db.documents.find({"user_id": user_id, "is_deleted": False}).sort("created_at", -1).to_list(12)
+    _dlines, _figs = [], {}
+    for _d in _docs:
+        _a = _d.get("analysis") or {}
+        if _a.get("summary"):
+            _dlines.append(f"- {_d.get('original_filename', 'documento')} [{_d.get('doc_type', 'outro')}]: {_a.get('summary')}")
+        for _k, _v in (_a.get("figures") or {}).items():
+            if isinstance(_v, (int, float)) and _v and _k not in _figs:
+                _figs[_k] = _v
+    docs_block = ("\n".join(_dlines) + (("\nNúmeros extraídos dos documentos: " + _json.dumps(_figs, ensure_ascii=False)) if _figs else "")) if _dlines else "(o empresário ainda não carregou relatórios ou documentos)"
     return (
         f"És o CEO AI — o Diretor Executivo Digital de {user_name}. NÃO és um chatbot nem um assistente técnico: "
         f"és um CEO experiente que já geriu centenas de empresas e que agora toma decisões LADO A LADO com este empresário. "
@@ -385,6 +396,7 @@ async def build_system_prompt(user_id: str, user_name: str):
         f"Visão a 5 anos: {dna.get('five_year_vision', 'n/d')}\n\n"
         f"### MEMÓRIA (lembra-te disto sempre)\n{mem_txt}\n\n"
         f"### PERFIL DA EMPRESA (informação dada pelo empresário — usa-a sempre na tua análise)\n{prof_txt}\n\n"
+        f"### RELATÓRIOS E DOCUMENTOS CARREGADOS PELO EMPRESÁRIO (lê e usa estes dados reais; cita-os quando relevante)\n{docs_block}\n\n"
         f"### ESTADO ATUAL DA EMPRESA ({snap['company_name']})\n"
         f"Saúde: {snap['health']}/100\nCaixa: {snap['currency_symbol']}{snap['cash_balance']}\n"
         f"Resultado mensal: {snap['currency_symbol']}{snap['monthly_net']}\nAutonomia: {snap['runway']} meses\n"

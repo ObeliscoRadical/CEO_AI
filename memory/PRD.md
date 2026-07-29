@@ -59,6 +59,11 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ Web Push (PWA→iOS→Apple Watch espelhado): playbook verificado. VAPID auto-gerado e guardado em `db.app_config` (sem .env). Helpers em core: `ensure_vapid`, `send_push_to_user`, `_webpush_send` (pywebpush). Endpoints `misc.py`: `/push/vapid-public-key`, `/push/subscribe`, `/push/test`. Service worker `public/sw.js`. `Settings.jsx`: cartão "Notificações no telemóvel" (Ativar + teste). Alerta mensal de valor também envia push.
 - ⚠️ Runtime: análise de imagem/PDF usa saldo da Universal LLM Key (não créditos); push é grátis. iOS exige PWA no ecrã inicial + permissão por gesto. Envio push real só confirmável em browser real; endpoints validados por curl.
 
+## "Alimentar o CEO" — relatórios/documentos como consultor (2026-07-28)
+- ✅ `build_system_prompt` passou a injetar os documentos carregados (resumo IA + números extraídos, últimos 12) → o CEO "lê" os relatórios em TODO o lado (chat, valor, sinais). Verificado: CEO citou faturação €12.400, cliente principal e €5.200 a receber de um relatório carregado.
+- ✅ Componente reutilizável `frontend/src/components/ReportsUploader.jsx` ("Já tens algum relatório? Insere e eu analiso") — usa `/api/upload` (doc_type=report) + `/api/documents`; mostra resumo IA por documento, qualidade e remoção. Colocado na página **Valor da Empresa** e na área **Empresa** (Settings).
+- ✅ Reaproveita infra existente (object storage, extract_document_text, analyze_document). Runtime usa saldo Universal LLM Key.
+
 ## Email mensal automático do valor da empresa (2026-07-26)
 - ✅ `core.py`: `compute_value_alert` (helper reutilizado pelo endpoint), `build_value_alert_html` (template Resend, azul, sobe=verde/desce=vermelho), `send_monthly_value_alerts` (cron).
 - ✅ Cron mensal registado em `server.py` (APScheduler existente): `CronTrigger(day=1, hour=8)` → `monthly_value_alerts`. Idempotente por mês via flag `alert_emailed` no doc de `equity_history`. Respeita opt-out `email_value_alert`.

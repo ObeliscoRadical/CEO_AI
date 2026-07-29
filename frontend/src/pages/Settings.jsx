@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ReportsUploader } from "@/components/ReportsUploader";
 import { toast } from "sonner";
 import { Loader2, Plus, Trash2, Brain, Mail, Send, Building2, Search, Upload, BellRing } from "lucide-react";
 
@@ -343,6 +344,10 @@ export default function Settings() {
         <Button data-testid="send-value-email-btn" onClick={sendValueNow} disabled={sendingVal} variant="outline" className="rounded-full ml-0 sm:ml-3 mt-3 sm:mt-0">
           {sendingVal ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />} Enviar-me o resumo de valor
         </Button>
+      </div>
+
+      <div className="mb-6">
+        <ReportsUploader />
       </div>
 
       <div className="surface rounded-3xl p-8" data-testid="push-card">

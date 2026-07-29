@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { ReportsUploader } from "@/components/ReportsUploader";
 import { motion } from "framer-motion";
 import { Loader2, ArrowUpRight, ArrowDownRight, Minus, TrendingUp, Gem } from "lucide-react";
 
@@ -29,6 +30,10 @@ export default function Valor() {
             Base patrimonial (ativos − passivos): {sym}{Number(data.net_worth).toLocaleString("pt-PT")} · método: {data.method}
           </p>
         )}
+      </div>
+
+      <div className="mb-8">
+        <ReportsUploader />
       </div>
 
       {data.needs_financials ? (
