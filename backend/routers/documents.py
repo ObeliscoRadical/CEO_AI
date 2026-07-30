@@ -151,6 +151,8 @@ async def investment_grade(user: dict = Depends(get_current_user)):
     }
 
 # ---------------------------------------------------------------- docs
+FIN_HINTS = ("balancete", "ies", "modelo 22", "modelo22", "balanco", "balanço", "demonstra", "resultados", "iva", "snc", "declaracao", "declaração")
+
 async def store_and_analyze(user_id: str, filename: str, content_type: str, data: bytes, doc_type: str = "report"):
     ext = filename.split(".")[-1] if "." in (filename or "") else "bin"
     path = f"{APP_NAME}/uploads/{user_id}/{uuid.uuid4()}.{ext}"
@@ -161,6 +163,46 @@ async def store_and_analyze(user_id: str, filename: str, content_type: str, data
         analysis = await analyze_document(text, doc_type, filename)
     except Exception as e:
         logger.error(f"doc analysis failed: {e}")
+    name = (filename or "").lower()
+    is_financial = doc_type in ("report", "financial") or any(h in name for h in FIN_HINTS)
+    if is_financial:
+        try:
+            fin = await extract_financial_document(data, content_type, filename)
+            if fin and isinstance(fin.get("totals"), dict):
+                t = fin["totals"]
+                figs = {"revenue": t.get("vendas_e_servicos"), "ebitda": t.get("ebitda"),
+                        "net_profit": t.get("resultado_liquido"), "assets": t.get("ativo_total"),
+                        "liabilities": t.get("passivo_total"), "equity": t.get("capital_proprio"),
+                        "currency": fin.get("currency", "EUR")}
+                figs = {k: v for k, v in figs.items() if v is not None}
+                if figs:
+                    analysis["figures"] = figs
+                    analysis["relevant"] = True
+                    analysis["quality"] = "high"
+                    analysis["doc_kind"] = fin.get("doc_type")
+                    if fin.get("summary"):
+                        analysis["summary"] = fin["summary"]
+                year = fin.get("year")
+                if year:
+                    cid = await active_company_id(user_id)
+                    await db.financial_extractions.update_one(
+                        {"user_id": user_id, "company_id": cid, "year": int(year), "doc_type": fin.get("doc_type", "outro")},
+                        {"$set": {"user_id": user_id, "company_id": cid, "year": int(year), "doc_type": fin.get("doc_type", "outro"),
+                                  **{k: v for k, v in t.items() if v is not None}, "currency": fin.get("currency", "EUR"),
+                                  "summary": fin.get("summary"), "lines": (fin.get("lines") or [])[:250],
+                                  "filename": filename, "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
+                    existing = await db.financial_profiles.find_one({"user_id": user_id, "company_id": cid})
+                    if not existing:
+                        rev = t.get("vendas_e_servicos"); ass = t.get("ativo_total"); lia = t.get("passivo_total")
+                        await db.financial_profiles.insert_one({
+                            "user_id": user_id, "company_id": cid,
+                            "monthly_revenue": round((rev or 0) / 12, 2), "cash_balance": 0.0,
+                            "variable_costs_pct": 0.0, "fixed_costs": [],
+                            "assets": ([{"name": f"Ativo total (Balancete {int(year)})", "amount": ass}] if ass else []),
+                            "liabilities": ([{"name": f"Passivo total (Balancete {int(year)})", "amount": lia}] if lia else []),
+                            "source": "auto_extraction", "created_at": datetime.now(timezone.utc).isoformat()})
+        except Exception as e:
+            logger.error(f"financial extraction failed: {e}")
     res = await db.documents.insert_one({"user_id": user_id, "storage_path": result["path"],
         "original_filename": filename, "content_type": content_type, "doc_type": doc_type,
         "analysis": analysis, "size": result.get("size", len(data)), "is_deleted": False,
@@ -188,6 +230,23 @@ async def list_docs(user: dict = Depends(get_current_user)):
 async def delete_doc(doc_id: str, user: dict = Depends(get_current_user)):
     await db.documents.update_one({"_id": ObjectId(doc_id), "user_id": user["id"]}, {"$set": {"is_deleted": True}})
     return {"ok": True}
+
+@router.get("/financial-history")
+async def financial_history(user: dict = Depends(get_current_user)):
+    cid = await active_company_id(user["id"])
+    rows = await db.financial_extractions.find({"user_id": user["id"], "company_id": cid}).sort("year", 1).to_list(100)
+    keys = ["ativo_total", "ativo_nao_corrente", "ativo_corrente", "passivo_total", "capital_proprio",
+            "vendas_e_servicos", "gastos_totais", "resultado_liquido", "ebitda"]
+    years = {}
+    for r in rows:
+        y = r.get("year")
+        if not y:
+            continue
+        years.setdefault(y, {"year": y})
+        for k in keys:
+            if r.get(k) is not None:
+                years[y][k] = r[k]
+    return {"years": sorted(years.values(), key=lambda x: x["year"]), "keys": keys, "currency_symbol": "€"}
 
 @router.get("/report-inbox")
 async def report_inbox(user: dict = Depends(get_current_user)):

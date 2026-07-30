@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { ReportsUploader } from "@/components/ReportsUploader";
+import { ContasEvolucao } from "@/components/ContasEvolucao";
 import { motion } from "framer-motion";
 import { Loader2, ArrowUpRight, ArrowDownRight, Minus, TrendingUp, Gem } from "lucide-react";
 
@@ -52,6 +53,8 @@ export default function Valor() {
       <div className="mb-8">
         <ReportsUploader />
       </div>
+
+      <ContasEvolucao />
 
       {data.needs_financials ? (
         <div className="surface rounded-3xl p-8 border border-[#3B82F6]/30" data-testid="valuation-needs-financials">

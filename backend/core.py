@@ -12,7 +12,7 @@ from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
 import logging, uuid, jwt, bcrypt, io, json, requests, random, stripe, httpx, hashlib, secrets
-from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone, ImageContent
+from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone, ImageContent, FileContentWithMimeType
 
 # ---------------------------------------------------------------- config
 JWT_ALGORITHM = "HS256"
@@ -179,6 +179,60 @@ async def analyze_document(text: str, doc_type: str, filename: str) -> dict:
     return ai or {"analysable": True, "relevant": False, "quality": "low", "summary": "Não foi possível analisar o documento."}
 
 
+FINANCE_MODEL = os.environ.get("FINANCE_MODEL", "gemini-2.5-pro")
+
+FIN_SCHEMA_PROMPT = (
+    "És um Contabilista Certificado português (SNC). Lê este documento financeiro e devolve APENAS JSON válido "
+    "(sem markdown, sem texto fora do JSON). Identifica o tipo e o ANO. Extrai TODAS as rubricas com valores numéricos "
+    "(ponto decimal, sem separadores de milhar; negativos com sinal). Estrutura exacta:\n"
+    '{"doc_type":"balancete|ies|modelo22|iva|demonstracao_resultados|balanco|outro","year":number|null,"currency":"EUR",'
+    '"lines":[{"code":string,"name":string,"debit":number|null,"credit":number|null,"balance":number|null}],'
+    '"totals":{"ativo_total":number|null,"ativo_nao_corrente":number|null,"ativo_corrente":number|null,'
+    '"passivo_total":number|null,"capital_proprio":number|null,"vendas_e_servicos":number|null,'
+    '"gastos_totais":number|null,"resultado_liquido":number|null,"ebitda":number|null},"summary":string}. '
+    "Regras SNC para o Balancete analítico: classes 1-5 = Balanço; classe 6 = gastos; classe 7 = rendimentos; "
+    "vendas_e_servicos = soma das contas 71 + 72; ativo_total pelo somatório das contas de ativo; passivo_total das de passivo. "
+    "Se um total não for determinável com rigor, usa null. NUNCA inventes números. Português europeu."
+)
+
+async def extract_financial_document(data: bytes, content_type: str, filename: str):
+    import tempfile, os as _os, json as _json, base64
+    ct = (content_type or "").lower(); name = (filename or "").lower()
+    chat = LlmChat(api_key=EMERGENT_KEY, session_id=f"fin-{uuid.uuid4()}",
+                   system_message="És um Contabilista Certificado português. Respondes só com JSON válido.").with_model("gemini", FINANCE_MODEL)
+    tmp = None; fc = None; text_inline = None
+    try:
+        if name.endswith(".pdf") or "pdf" in ct:
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf"); tmp.write(data); tmp.close()
+            fc = [FileContentWithMimeType(file_path=tmp.name, mime_type="application/pdf")]
+        elif ct.startswith("image/"):
+            fc = [ImageContent(image_base64=base64.b64encode(data).decode())]
+        else:
+            text_inline = extract_document_text(data, content_type, filename)[:15000]
+        msg = UserMessage(text=FIN_SCHEMA_PROMPT + (("\n\nCONTEÚDO:\n" + text_inline) if text_inline else ""),
+                          file_contents=fc) if fc else UserMessage(text=FIN_SCHEMA_PROMPT + "\n\nCONTEÚDO:\n" + (text_inline or ""))
+        out = ""
+        async for ev in chat.stream_message(msg):
+            if isinstance(ev, TextDelta):
+                out += ev.content
+            elif isinstance(ev, StreamDone):
+                break
+        s = out.strip()
+        i = s.find("{"); j = s.rfind("}")
+        if i >= 0 and j > i:
+            s = s[i:j + 1]
+        return _json.loads(s)
+    except Exception as e:
+        logger.error(f"extract_financial_document error: {e}")
+        return None
+    finally:
+        if tmp:
+            try:
+                _os.unlink(tmp.name)
+            except Exception:
+                pass
+
+
 def rag(value, good, warn, reverse=False):
     if reverse:
         if value <= good: return "green"
@@ -187,6 +241,7 @@ def rag(value, good, warn, reverse=False):
     if value >= good: return "green"
     if value >= warn: return "amber"
     return "red"
+
 
 def compute_balance(company: dict, profile: dict, entries_net: float = 0.0):
     """Single source of truth for the company balance sheet."""
