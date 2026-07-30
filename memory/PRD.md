@@ -59,6 +59,19 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ Web Push (PWA→iOS→Apple Watch espelhado): playbook verificado. VAPID auto-gerado e guardado em `db.app_config` (sem .env). Helpers em core: `ensure_vapid`, `send_push_to_user`, `_webpush_send` (pywebpush). Endpoints `misc.py`: `/push/vapid-public-key`, `/push/subscribe`, `/push/test`. Service worker `public/sw.js`. `Settings.jsx`: cartão "Notificações no telemóvel" (Ativar + teste). Alerta mensal de valor também envia push.
 - ⚠️ Runtime: análise de imagem/PDF usa saldo da Universal LLM Key (não créditos); push é grátis. iOS exige PWA no ecrã inicial + permissão por gesto. Envio push real só confirmável em browser real; endpoints validados por curl.
 
+## Extractor financeiro SNC real — dual-mode + reconciliação (2026-07-30)
+- ✅ `core.extract_financial_document` (Gemini `gemini-2.5-pro`, leitura NATIVA de PDF via `FileContentWithMimeType`): **dual-mode**.
+  - **Demonstrações formais (IES/DA, Balanço, DR, Modelo 22)**: lê os TOTAIS IMPRESSOS diretamente (não recalcula). `capital_proprio` já inclui o resultado do período → reconciliação `_recon_from_totals` (Ativo = Passivo + Capital).
+  - **Balancete analítico**: `_snc_reconcile` reconstrói os totais de forma DETERMINÍSTICA em Python a partir das contas de razão (LLM só extrai+classifica `nature`), com (1) dedup de contas-filhas por prefixo de código, (2) netting por raiz de 2 dígitos (débito−credito cancela IVA dedutível vs liquidado), (3) conta 81/88 como resultado autoritativo (crédito=lucro→positivo), (4) fallback resultado = rendimentos − gastos.
+- ✅ Reconciliação honesta: devolve `reconciled` (bool) + `reconciliation_diff`. Balancete: capital + resultado. IES: capital (já inclui resultado). UI `ContasEvolucao.jsx` mostra badge verde "Balanço reconciliado ✓" ou âmbar "diferença de €X" — NUNCA inventa números.
+- ✅ Pipeline `documents.py::store_and_analyze`: extrai por ano → `db.financial_extractions` (por year+doc_type) + alimenta `analysis.figures` (revenue/net_profit/assets/liabilities/equity) e o Perfil Financeiro (só se ainda não existir; não sobrescreve dados manuais). `GET /api/financial-history` devolve rubricas ano-a-ano (inc. rendimentos_totais + reconciled/diff).
+- ✅ **Validado com DOCUMENTOS REAIS do utilizador**:
+  - Balancete AAR 2025 (Obelisco Radical): vendas 168.208,60 €, resultado 36.549,49 €, capital 46.607,33 € — todos EXATOS; DR reconcilia a €866; Balanço com ~13% imprecisão (IVA/depreciações) SINALIZADO.
+  - IES 2025: Ativo 31.328,80 / Passivo 21.270,96 / Capital 10.057,84 / Vendas 143.270,70 / Resultado 7.776,90 / EBITDA 20.469,76 — TODOS EXATOS, reconciliação diff 0,00 €.
+  - Testes: `backend/tests/test_reconcile.py` (determinístico, PASS), `test_real_balancete.py`, `test_real_ies.py` (extrações reais Gemini).
+- ⚠️ Pendente: histórico plurianual 2021→2025 requer documentos desses anos; templates dedicados Modelo 22 / DP IVA por validar; merge same-year balancete+IES na mesma empresa (IES deveria ganhar prioridade).
+
+
 ## "Alimentar o CEO" — relatórios/documentos como consultor (2026-07-28)
 - ✅ `build_system_prompt` passou a injetar os documentos carregados (resumo IA + números extraídos, últimos 12) → o CEO "lê" os relatórios em TODO o lado (chat, valor, sinais). Verificado: CEO citou faturação €12.400, cliente principal e €5.200 a receber de um relatório carregado.
 - ✅ Componente reutilizável `frontend/src/components/ReportsUploader.jsx` ("Já tens algum relatório? Insere e eu analiso") — usa `/api/upload` (doc_type=report) + `/api/documents`; mostra resumo IA por documento, qualidade e remoção. Colocado na página **Valor da Empresa** e na área **Empresa** (Settings).

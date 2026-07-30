@@ -181,28 +181,42 @@ async def analyze_document(text: str, doc_type: str, filename: str) -> dict:
 
 FINANCE_MODEL = os.environ.get("FINANCE_MODEL", "gemini-2.5-pro")
 
+TOTAL_KEYS = ["ativo_total", "ativo_nao_corrente", "ativo_corrente", "passivo_total", "capital_proprio",
+              "vendas_e_servicos", "rendimentos_totais", "gastos_totais", "resultado_liquido", "ebitda"]
+
 FIN_SCHEMA_PROMPT = (
     "És um Contabilista Certificado português (SNC). Lê este documento financeiro (balancete analítico, IES/DA, "
     "Modelo 22, declaração de IVA, demonstração de resultados ou balanço) e devolve APENAS JSON válido "
     "(sem markdown, sem texto fora do JSON).\n"
-    "1) Identifica 'doc_type' e 'year' (ano do exercício).\n"
-    "2) Extrai as CONTAS DE RAZÃO principais (agregados de 2 dígitos: 11,12,13,21,22,23,24,25,26,27,28,31,32,33,"
-    "41,42,43,44,45,51,55,56,58,59,61,62,63,64,65,68,69,71,72,75,78,79). NÃO devolvas as subcontas analíticas de detalhe "
-    "(ex: 2111001, 62211113) — só os agregados — para NUNCA duplicares valores.\n"
-    "3) Inclui SEMPRE, se existirem: as depreciações/imparidades acumuladas (438,448,419,429) com saldo NEGATIVO, "
-    "e a conta de Resultado líquido do período (81 ou 88).\n"
-    "4) Para cada linha devolve: {\"code\":str,\"name\":str,\"balance\":number,\"nature\":str}. "
-    "'balance' = saldo final da conta: POSITIVO se saldo devedor, NEGATIVO se saldo credor (ponto decimal, sem separador de milhar). "
-    "'nature' classifica a conta pela natureza SNC (usa exatamente um destes valores): "
-    "\"ativo_nc\" (imobilizado/investimentos classe 4 e depreciações), "
-    "\"ativo_c\" (caixa, bancos, clientes, inventários, IVA a recuperar, outros devedores), "
-    "\"passivo\" (fornecedores, financiamentos, Estado a pagar, segurança social, outros credores, acréscimos de gastos), "
-    "\"capital\" (classe 5: capital, reservas, resultados transitados), "
-    "\"gasto\" (classe 6 e compras 31), \"rendimento\" (classe 7), \"resultado\" (81/88), \"outro\".\n"
-    "5) NUNCA inventes nem calcules totais — devolve só os saldos que consegues LER. Se um saldo não for legível, omite a linha.\n"
-    "Estrutura final: {\"doc_type\":str,\"year\":number|null,\"currency\":\"EUR\",\"lines\":[...],\"summary\":str}. "
-    "Português europeu."
+    "1) Identifica 'doc_type' (balancete|ies|modelo22|iva|demonstracao_resultados|balanco|outro) e 'year' (ano do exercício).\n"
+    "2) SE o documento for uma DEMONSTRAÇÃO FINANCEIRA FORMAL (IES/DA, Balanço, Demonstração de Resultados, Modelo 22) "
+    "que JÁ APRESENTA TOTAIS IMPRESSOS: LÊ esses valores oficiais diretamente (NÃO recalcules) e preenche 'totals'. "
+    "Nota: nas demonstrações formais o 'capital_proprio' (Total do capital próprio) JÁ INCLUI o resultado líquido do período. "
+    "Devolve 'lines' como lista vazia [].\n"
+    "3) SE for um BALANCETE ANALÍTICO (lista de contas com saldos): deixa TODOS os campos de 'totals' a null e devolve "
+    "em 'lines' as CONTAS DE RAZÃO (agregados de 2 dígitos: 11,12,13,21,22,23,24,25,26,27,28,31,32,33,41,42,43,44,45,"
+    "51,55,56,58,59,61,62,63,64,65,68,69,71,72,75,78,79). NÃO devolvas subcontas de detalhe (ex: 2111001) — só os "
+    "agregados — para nunca duplicares. Inclui a conta 81/88 (Resultado líquido do período). "
+    "Cada linha: {\"code\":str,\"name\":str,\"balance\":number,\"nature\":str}, onde 'balance' é o saldo final "
+    "(POSITIVO se devedor, NEGATIVO se credor) e 'nature' é um de: \"ativo_nc\",\"ativo_c\",\"passivo\",\"capital\","
+    "\"gasto\",\"rendimento\",\"resultado\",\"outro\" (ativo_nc=classe 4; ativo_c=caixa/bancos/clientes/inventários/"
+    "IVA a recuperar/outros devedores; passivo=fornecedores/financiamentos/Estado a pagar/outros credores; "
+    "capital=classe 5; gasto=classe 6 e compras 31; rendimento=classe 7; resultado=81/88).\n"
+    "'totals' = {\"ativo_total\":n|null,\"ativo_nao_corrente\":n|null,\"ativo_corrente\":n|null,\"passivo_total\":n|null,"
+    "\"capital_proprio\":n|null,\"vendas_e_servicos\":n|null,\"rendimentos_totais\":n|null,\"gastos_totais\":n|null,"
+    "\"resultado_liquido\":n|null,\"ebitda\":n|null} (ponto decimal, sem separador de milhar).\n"
+    "NUNCA inventes números. Estrutura final: {\"doc_type\":str,\"year\":number|null,\"currency\":\"EUR\","
+    "\"totals\":{...},\"lines\":[...],\"summary\":str}. Português europeu."
 )
+
+def _recon_from_totals(t):
+    """Reconciliação de demonstrações formais (IES/Balanço): capital_proprio JÁ inclui o resultado."""
+    a = t.get("ativo_total"); p = t.get("passivo_total"); c = t.get("capital_proprio")
+    if isinstance(a, (int, float)) and isinstance(p, (int, float)) and isinstance(c, (int, float)):
+        diff = round(a - (p + c), 2)
+        tol = max(1000.0, abs(a) * 0.02)
+        return (abs(diff) <= tol), diff
+    return None, None
 
 def _snc_reconcile(lines):
     """Soma determinística por natureza SNC. Dedup de contas-filhas por prefixo + netting por raiz de 2 dígitos
@@ -307,11 +321,22 @@ async def extract_financial_document(data: bytes, content_type: str, filename: s
         if i >= 0 and j > i:
             s = s[i:j + 1]
         parsed = _json.loads(s)
-        totals, reconciled, diff, kept = _snc_reconcile(parsed.get("lines"))
-        parsed["totals"] = totals
-        parsed["reconciled"] = reconciled
-        parsed["reconciliation_diff"] = diff
-        parsed["lines"] = kept or parsed.get("lines")
+        printed = parsed.get("totals") if isinstance(parsed.get("totals"), dict) else {}
+        has_printed = any(isinstance(printed.get(k), (int, float)) and printed.get(k) not in (None, 0)
+                          for k in ("ativo_total", "vendas_e_servicos", "resultado_liquido", "passivo_total"))
+        if has_printed:
+            t = {k: (printed.get(k) if isinstance(printed.get(k), (int, float)) else None) for k in TOTAL_KEYS}
+            reconciled, diff = _recon_from_totals(t)
+            parsed["totals"] = t
+            parsed["reconciled"] = reconciled
+            parsed["reconciliation_diff"] = diff
+            parsed["lines"] = parsed.get("lines") or []
+        else:
+            totals, reconciled, diff, kept = _snc_reconcile(parsed.get("lines"))
+            parsed["totals"] = totals
+            parsed["reconciled"] = reconciled
+            parsed["reconciliation_diff"] = diff
+            parsed["lines"] = kept or parsed.get("lines")
         return parsed
     except Exception as e:
         logger.error(f"extract_financial_document error: {e}")
