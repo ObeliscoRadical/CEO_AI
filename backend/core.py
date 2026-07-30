@@ -182,18 +182,103 @@ async def analyze_document(text: str, doc_type: str, filename: str) -> dict:
 FINANCE_MODEL = os.environ.get("FINANCE_MODEL", "gemini-2.5-pro")
 
 FIN_SCHEMA_PROMPT = (
-    "És um Contabilista Certificado português (SNC). Lê este documento financeiro e devolve APENAS JSON válido "
-    "(sem markdown, sem texto fora do JSON). Identifica o tipo e o ANO. Extrai TODAS as rubricas com valores numéricos "
-    "(ponto decimal, sem separadores de milhar; negativos com sinal). Estrutura exacta:\n"
-    '{"doc_type":"balancete|ies|modelo22|iva|demonstracao_resultados|balanco|outro","year":number|null,"currency":"EUR",'
-    '"lines":[{"code":string,"name":string,"debit":number|null,"credit":number|null,"balance":number|null}],'
-    '"totals":{"ativo_total":number|null,"ativo_nao_corrente":number|null,"ativo_corrente":number|null,'
-    '"passivo_total":number|null,"capital_proprio":number|null,"vendas_e_servicos":number|null,'
-    '"gastos_totais":number|null,"resultado_liquido":number|null,"ebitda":number|null},"summary":string}. '
-    "Regras SNC para o Balancete analítico: classes 1-5 = Balanço; classe 6 = gastos; classe 7 = rendimentos; "
-    "vendas_e_servicos = soma das contas 71 + 72; ativo_total pelo somatório das contas de ativo; passivo_total das de passivo. "
-    "Se um total não for determinável com rigor, usa null. NUNCA inventes números. Português europeu."
+    "És um Contabilista Certificado português (SNC). Lê este documento financeiro (balancete analítico, IES/DA, "
+    "Modelo 22, declaração de IVA, demonstração de resultados ou balanço) e devolve APENAS JSON válido "
+    "(sem markdown, sem texto fora do JSON).\n"
+    "1) Identifica 'doc_type' e 'year' (ano do exercício).\n"
+    "2) Extrai as CONTAS DE RAZÃO principais (agregados de 2 dígitos: 11,12,13,21,22,23,24,25,26,27,28,31,32,33,"
+    "41,42,43,44,45,51,55,56,58,59,61,62,63,64,65,68,69,71,72,75,78,79). NÃO devolvas as subcontas analíticas de detalhe "
+    "(ex: 2111001, 62211113) — só os agregados — para NUNCA duplicares valores.\n"
+    "3) Inclui SEMPRE, se existirem: as depreciações/imparidades acumuladas (438,448,419,429) com saldo NEGATIVO, "
+    "e a conta de Resultado líquido do período (81 ou 88).\n"
+    "4) Para cada linha devolve: {\"code\":str,\"name\":str,\"balance\":number,\"nature\":str}. "
+    "'balance' = saldo final da conta: POSITIVO se saldo devedor, NEGATIVO se saldo credor (ponto decimal, sem separador de milhar). "
+    "'nature' classifica a conta pela natureza SNC (usa exatamente um destes valores): "
+    "\"ativo_nc\" (imobilizado/investimentos classe 4 e depreciações), "
+    "\"ativo_c\" (caixa, bancos, clientes, inventários, IVA a recuperar, outros devedores), "
+    "\"passivo\" (fornecedores, financiamentos, Estado a pagar, segurança social, outros credores, acréscimos de gastos), "
+    "\"capital\" (classe 5: capital, reservas, resultados transitados), "
+    "\"gasto\" (classe 6 e compras 31), \"rendimento\" (classe 7), \"resultado\" (81/88), \"outro\".\n"
+    "5) NUNCA inventes nem calcules totais — devolve só os saldos que consegues LER. Se um saldo não for legível, omite a linha.\n"
+    "Estrutura final: {\"doc_type\":str,\"year\":number|null,\"currency\":\"EUR\",\"lines\":[...],\"summary\":str}. "
+    "Português europeu."
 )
+
+def _snc_reconcile(lines):
+    """Soma determinística por natureza SNC. Dedup de contas-filhas por prefixo + netting por raiz de 2 dígitos
+    (débito−crédito cancela IVA dedutível vs liquidado). Conta 81/88 = resultado autoritativo.
+    Devolve (totals, reconciled, diff, kept_lines)."""
+    clean = []
+    for l in lines or []:
+        if not isinstance(l, dict):
+            continue
+        code = str(l.get("code") or "").strip()
+        bal = l.get("balance")
+        if not code or not isinstance(bal, (int, float)):
+            continue
+        clean.append({"code": code, "name": l.get("name", ""), "balance": float(bal),
+                      "nature": (l.get("nature") or "outro")})
+    clean.sort(key=lambda l: len(l["code"]))
+    kept = []; kept_codes = []
+    for l in clean:
+        if any(l["code"] != kc and l["code"].startswith(kc) for kc in kept_codes):
+            continue  # descendente de uma conta já contabilizada
+        kept.append(l); kept_codes.append(l["code"])
+
+    anc = 0.0; anc_found = False        # ativo não corrente (classe 4, líquido de depreciações)
+    cap = 0.0; cap_found = False        # capital próprio (classe 5)
+    rend = 0.0; vendas = 0.0; rend_found = False
+    gastos = 0.0; gastos_found = False
+    resultado = None
+    net_by_root = {}                    # ativo_c/passivo agregados e netted por raiz de 2 dígitos
+    for l in kept:
+        nat = l["nature"]; code = l["code"]; v = l["balance"]; root = code[:2]
+        if nat == "ativo_nc":
+            anc += v; anc_found = True
+        elif nat == "capital":
+            cap += (-v); cap_found = True   # crédito (negativo) → aumenta capital próprio
+        elif nat == "rendimento":
+            rend_found = True; rend += abs(v)
+            if root in ("71", "72"):
+                vendas += abs(v)
+        elif nat == "gasto":
+            gastos_found = True; gastos += abs(v)
+        elif nat == "resultado" and abs(v) > 0.01:
+            resultado = round(-v, 2)   # crédito (negativo) = lucro → positivo
+        elif nat in ("ativo_c", "passivo"):
+            net_by_root[root] = net_by_root.get(root, 0.0) + v
+
+    bal_found = bool(net_by_root)
+    ativo_c = 0.0; passivo = 0.0
+    for _root, net in net_by_root.items():
+        if net >= 0:
+            ativo_c += net
+        else:
+            passivo += (-net)
+    ativo_nc = round(anc, 2) if anc_found else None
+    ativo_c = round(ativo_c, 2) if bal_found else None
+    passivo = round(passivo, 2) if bal_found else None
+    capital = round(cap, 2) if cap_found else None
+    if resultado is None and rend_found and gastos_found:
+        resultado = round(rend - gastos, 2)
+    ativo_total = None
+    if anc_found or bal_found:
+        ativo_total = round((anc if anc_found else 0.0) + (ativo_c or 0.0), 2)
+    totals = {
+        "ativo_total": ativo_total, "ativo_nao_corrente": ativo_nc, "ativo_corrente": ativo_c,
+        "passivo_total": passivo, "capital_proprio": capital,
+        "vendas_e_servicos": (round(vendas, 2) if rend_found else None),
+        "rendimentos_totais": (round(rend, 2) if rend_found else None),
+        "gastos_totais": (round(gastos, 2) if gastos_found else None),
+        "resultado_liquido": resultado, "ebitda": None,
+    }
+    reconciled = None; diff = None
+    if ativo_total is not None and passivo is not None and capital is not None:
+        equity = capital + (resultado or 0)
+        diff = round(ativo_total - (passivo + equity), 2)
+        tol = max(1000.0, ativo_total * 0.02)
+        reconciled = abs(diff) <= tol
+    return totals, reconciled, diff, kept
 
 async def extract_financial_document(data: bytes, content_type: str, filename: str):
     import tempfile, os as _os, json as _json, base64
@@ -221,7 +306,13 @@ async def extract_financial_document(data: bytes, content_type: str, filename: s
         i = s.find("{"); j = s.rfind("}")
         if i >= 0 and j > i:
             s = s[i:j + 1]
-        return _json.loads(s)
+        parsed = _json.loads(s)
+        totals, reconciled, diff, kept = _snc_reconcile(parsed.get("lines"))
+        parsed["totals"] = totals
+        parsed["reconciled"] = reconciled
+        parsed["reconciliation_diff"] = diff
+        parsed["lines"] = kept or parsed.get("lines")
+        return parsed
     except Exception as e:
         logger.error(f"extract_financial_document error: {e}")
         return None

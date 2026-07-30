@@ -180,6 +180,7 @@ async def store_and_analyze(user_id: str, filename: str, content_type: str, data
                     analysis["relevant"] = True
                     analysis["quality"] = "high"
                     analysis["doc_kind"] = fin.get("doc_type")
+                    analysis["reconciled"] = fin.get("reconciled")
                     if fin.get("summary"):
                         analysis["summary"] = fin["summary"]
                 year = fin.get("year")
@@ -189,6 +190,7 @@ async def store_and_analyze(user_id: str, filename: str, content_type: str, data
                         {"user_id": user_id, "company_id": cid, "year": int(year), "doc_type": fin.get("doc_type", "outro")},
                         {"$set": {"user_id": user_id, "company_id": cid, "year": int(year), "doc_type": fin.get("doc_type", "outro"),
                                   **{k: v for k, v in t.items() if v is not None}, "currency": fin.get("currency", "EUR"),
+                                  "reconciled": fin.get("reconciled"), "reconciliation_diff": fin.get("reconciliation_diff"),
                                   "summary": fin.get("summary"), "lines": (fin.get("lines") or [])[:250],
                                   "filename": filename, "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
                     existing = await db.financial_profiles.find_one({"user_id": user_id, "company_id": cid})
@@ -236,16 +238,19 @@ async def financial_history(user: dict = Depends(get_current_user)):
     cid = await active_company_id(user["id"])
     rows = await db.financial_extractions.find({"user_id": user["id"], "company_id": cid}).sort("year", 1).to_list(100)
     keys = ["ativo_total", "ativo_nao_corrente", "ativo_corrente", "passivo_total", "capital_proprio",
-            "vendas_e_servicos", "gastos_totais", "resultado_liquido", "ebitda"]
+            "vendas_e_servicos", "rendimentos_totais", "gastos_totais", "resultado_liquido", "ebitda"]
     years = {}
     for r in rows:
         y = r.get("year")
         if not y:
             continue
-        years.setdefault(y, {"year": y})
+        yd = years.setdefault(y, {"year": y})
         for k in keys:
             if r.get(k) is not None:
-                years[y][k] = r[k]
+                yd[k] = r[k]
+        yd["reconciled"] = r.get("reconciled")
+        yd["reconciliation_diff"] = r.get("reconciliation_diff")
+        yd["doc_type"] = r.get("doc_type")
     return {"years": sorted(years.values(), key=lambda x: x["year"]), "keys": keys, "currency_symbol": "€"}
 
 @router.get("/report-inbox")
