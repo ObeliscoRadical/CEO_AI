@@ -71,6 +71,13 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
   - Testes: `backend/tests/test_reconcile.py` (determinístico, PASS), `test_real_balancete.py`, `test_real_ies.py` (extrações reais Gemini).
 - ⚠️ Pendente: histórico plurianual 2021→2025 requer documentos desses anos; templates dedicados Modelo 22 / DP IVA por validar; merge same-year balancete+IES na mesma empresa (IES deveria ganhar prioridade).
 
+## Valor da empresa alimentado pelos documentos oficiais (2026-07-30)
+- ✅ O VALOR DA EMPRESA passou a atualizar automaticamente a partir das extrações oficiais (`financial_extractions`), não só do Perfil Financeiro manual. `core.latest_official_financials(user_id, cid)` escolhe o ano mais recente e, no mesmo ano, o documento mais formal (IES > DR > Balanço > Balancete > Modelo22 > IVA).
+- ✅ `core.compute_valuation_annual(fin)`: base patrimonial (net worth) + goodwill (resultado líquido anual × múltiplo por margem). Balancete: net worth = capital próprio (classe 5) + resultado (classe 5 não inclui o resultado); IES: capital próprio já inclui o resultado.
+- ✅ `build_snapshot` faz override de bal/valuation/company_value/has_balance quando existe documento oficial e devolve `financials_source` + `has_official`. Como o snapshot NÃO é cacheado, o valor recalcula em cada abertura → atualiza imediatamente após upload (`store_and_analyze` já invalida a cache de IA).
+- ✅ `/api/valuation` devolve `financials_source`; `Valor.jsx` mostra badge verde "Atualizado a partir da tua {doc} {ano}" + método fundamentado. Confiança sobe para "Estimativa/Avaliação Fundamentada".
+- ✅ Verificado ao vivo: IES 2025 → valor €25.611,64 (patrimonial 10.057 + rendimento); Balancete 2025 → €192.805,29 (património 83.156 + rendimento). Screenshot do ecrã Valor confirma valor + badge + intervalo. Teste determinístico dos dois modos PASS. Dados de teste limpos.
+
 
 ## "Alimentar o CEO" — relatórios/documentos como consultor (2026-07-28)
 - ✅ `build_system_prompt` passou a injetar os documentos carregados (resumo IA + números extraídos, últimos 12) → o CEO "lê" os relatórios em TODO o lado (chat, valor, sinais). Verificado: CEO citou faturação €12.400, cliente principal e €5.200 a receber de um relatório carregado.

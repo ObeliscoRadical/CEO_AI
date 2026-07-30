@@ -312,6 +312,7 @@ async def valuation(user: dict = Depends(premium_user)):
                     "net_worth": val.get("net_worth"), "method": val.get("method"), "annual_profit": val.get("annual_profit"),
                     "needs_financials": True, "confidence": conf,
                     "value_range": {"low": round(value * (1 - m)), "high": round(value * (1 + m))},
+                    "financials_source": snap.get("financials_source"),
                     "factors": [], "actions": []}
     sysmsg = await build_system_prompt(uid, user.get("name", ""))
     prompt = (
@@ -327,6 +328,7 @@ async def valuation(user: dict = Depends(premium_user)):
     return {"company_value": value, "currency_symbol": sym, "goal_value": snap["goal_value"], "progress": snap["progress"],
             "net_worth": val.get("net_worth"), "method": val.get("method"), "annual_profit": val.get("annual_profit"),
             "confidence": conf, "value_range": {"low": round(value * (1 - m)), "high": round(value * (1 + m))},
+            "financials_source": snap.get("financials_source"),
             "factors": ai.get("factors", []), "actions": ai.get("actions", [])}
 
 @router.get("/report")

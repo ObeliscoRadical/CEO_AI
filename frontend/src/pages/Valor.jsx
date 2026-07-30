@@ -28,6 +28,11 @@ export default function Valor() {
       <div className="mb-14">
         <div className="font-serif-lux text-6xl md:text-7xl text-[#3B82F6]" data-testid="valuation-value">{sym}{Number(data.company_value).toLocaleString("pt-PT")}</div>
         <p className="text-muted-foreground mt-3">Valor atual estimado · {data.progress}% do teu objetivo de {sym}{Number(data.goal_value).toLocaleString("pt-PT")}</p>
+        {data.financials_source && (
+          <span data-testid="valuation-source" className="inline-flex items-center gap-1.5 mt-3 text-xs font-medium px-3 py-1 rounded-full border border-emerald-500/40 text-emerald-400 bg-emerald-500/10">
+            Atualizado a partir da tua {data.financials_source}
+          </span>
+        )}
         {data.net_worth != null && (
           <p className="text-sm text-muted-foreground mt-1" data-testid="valuation-basis">
             Base patrimonial (ativos − passivos): {sym}{Number(data.net_worth).toLocaleString("pt-PT")} · método: {data.method}
