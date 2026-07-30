@@ -38,6 +38,14 @@ export default function Valor() {
             Base patrimonial (ativos − passivos): {sym}{Number(data.net_worth).toLocaleString("pt-PT")} · método: {data.method}
           </p>
         )}
+        {data.value_sources && (
+          <div className="text-xs text-muted-foreground mt-2 space-y-0.5" data-testid="value-sources">
+            <p className="text-foreground/80 font-medium">De onde vem este valor:</p>
+            {data.net_worth != null && <div>• Património (o que tens − o que deves): <span className="text-foreground">{sym}{Number(data.net_worth).toLocaleString("pt-PT")}</span> — {data.value_sources.patrimonio}</div>}
+            {data.annual_profit != null && <div>• Lucro anual: <span className="text-foreground">{sym}{Number(data.annual_profit).toLocaleString("pt-PT")}</span> — {data.value_sources.lucro}</div>}
+            {data.annual_revenue != null && <div>• Faturação anual: <span className="text-foreground">{sym}{Number(data.annual_revenue).toLocaleString("pt-PT")}</span> — {data.value_sources.faturacao}</div>}
+          </div>
+        )}
         {data.confidence && (
           <div className="mt-3 flex flex-wrap items-center gap-3" data-testid="valuation-confidence">
             <span className="text-xs font-medium px-2.5 py-1 rounded-full border"

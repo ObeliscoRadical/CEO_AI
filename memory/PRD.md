@@ -78,6 +78,12 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ `/api/valuation` devolve `financials_source`; `Valor.jsx` mostra badge verde "Atualizado a partir da tua {doc} {ano}" + método fundamentado. Confiança sobe para "Estimativa/Avaliação Fundamentada".
 - ✅ Verificado ao vivo: IES 2025 → valor €25.611,64 (patrimonial 10.057 + rendimento); Balancete 2025 → €192.805,29 (património 83.156 + rendimento). Screenshot do ecrã Valor confirma valor + badge + intervalo. Teste determinístico dos dois modos PASS. Dados de teste limpos.
 
+## Fusão inteligente manual + documentos com transparência de fonte (2026-07-30, opção C do utilizador)
+- ✅ A pedido do utilizador (que temia — erradamente — que o Perfil Financeiro manual tivesse sido removido): NADA foi removido; o Perfil Financeiro (faturação, caixa, DÍVIDA/financiamentos, ativos[], passivos[]) continua intacto em `Finances.jsx` + `finance.py`.
+- ✅ `build_snapshot` deixou de fazer override cego. Agora FUNDE manual + documento por campo (`_pick`): quando existe documento oficial, os números que ele traz têm prioridade; o Perfil Financeiro manual preenche o que faltar. `core.compute_value_generic` é o núcleo agnóstico à fonte.
+- ✅ Transparência: snapshot/`/api/valuation` devolvem `value_sources` {patrimonio, lucro, faturacao, ativos, passivos} com a etiqueta da origem ("IES 2025" ou "os teus dados (Perfil Financeiro)") + `annual_revenue`. `Valor.jsx` mostra o bloco "De onde vem este valor" com cada número e a sua fonte.
+- ✅ Testado (3 cenários): só manual (€227k, fonte "os teus dados"), só documento (€25.611, fonte "IES 2025"), ambos (documento manda nos números que traz). Screenshot confirma o bloco no ecrã. Dados de teste limpos.
+
 
 ## "Alimentar o CEO" — relatórios/documentos como consultor (2026-07-28)
 - ✅ `build_system_prompt` passou a injetar os documentos carregados (resumo IA + números extraídos, últimos 12) → o CEO "lê" os relatórios em TODO o lado (chat, valor, sinais). Verificado: CEO citou faturação €12.400, cliente principal e €5.200 a receber de um relatório carregado.

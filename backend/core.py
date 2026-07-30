@@ -481,6 +481,23 @@ def compute_valuation_annual(fin: dict, cash: float = 0.0):
             "multiple": mult, "goodwill": round(goodwill, 2), "method": method}
 
 
+def compute_value_generic(net_worth, annual_profit, annual_revenue, cash=0.0):
+    """Núcleo do valuation, agnóstico à fonte (manual ou documento): base patrimonial + goodwill de rendimento."""
+    net_worth = net_worth or 0.0; annual_profit = annual_profit or 0.0; annual_revenue = annual_revenue or 0.0
+    margin = (annual_profit / annual_revenue * 100.0) if annual_revenue > 0 else 0.0
+    mult = 0.0
+    if annual_profit > 0:
+        mult = 2.0
+        if margin >= 10: mult += 0.5
+        if margin >= 20: mult += 0.5
+        if margin >= 30: mult += 0.5
+    goodwill = max(0.0, annual_profit) * mult
+    floor = net_worth if net_worth > 0 else 0.0
+    value = round(max(floor + goodwill, cash or 0.0), 2)
+    return {"value": value, "net_worth": round(net_worth, 2), "annual_profit": round(annual_profit, 2),
+            "multiple": mult, "goodwill": round(goodwill, 2)}
+
+
 async def build_snapshot(user_id: str):
     company = await resolve_company(user_id) or {}
     cid = str(company["_id"]) if company.get("_id") else None
@@ -525,17 +542,42 @@ async def build_snapshot(user_id: str):
     val = compute_valuation(profile, bal)
     company_value = val["value"]
     fin = await latest_official_financials(user_id, cid)
-    financials_source = None; has_official = False
-    if fin and (fin.get("net_worth") is not None or fin.get("annual_profit") is not None):
-        a = fin.get("assets"); l = fin.get("liabilities"); nw = fin.get("net_worth")
-        bal = {"cash": bal["cash"],
-               "total_assets": round(a, 2) if isinstance(a, (int, float)) else bal["total_assets"],
-               "total_liabilities": round(l, 2) if isinstance(l, (int, float)) else bal["total_liabilities"],
-               "net_worth": round(nw, 2) if isinstance(nw, (int, float)) else bal["net_worth"]}
-        val = compute_valuation_annual(fin, bal["cash"])
-        company_value = val["value"]
-        has_official = True
-        financials_source = f"{fin['doc_label']} {fin['year']}"
+    has_doc = bool(fin and any(fin.get(k) is not None for k in ("net_worth", "annual_profit", "annual_revenue")))
+    has_manual = bool(profile)
+    financials_source = None; has_official = has_doc; value_sources = None
+    if has_doc or has_manual:
+        doc_label = f"{fin['doc_label']} {fin['year']}" if fin else None
+        man_nw = bal["net_worth"] if has_manual else None
+        man_profit = val["annual_profit"] if has_manual else None
+        man_rev = (float(profile.get("monthly_revenue", 0) or 0) * 12) if has_manual else None
+        def _pick(dv, mv):
+            if has_doc and isinstance(dv, (int, float)):
+                return dv, doc_label
+            if isinstance(mv, (int, float)):
+                return mv, "os teus dados (Perfil Financeiro)"
+            return None, None
+        nw, s_nw = _pick(fin.get("net_worth") if fin else None, man_nw)
+        profit, s_profit = _pick(fin.get("annual_profit") if fin else None, man_profit)
+        rev, s_rev = _pick(fin.get("annual_revenue") if fin else None, man_rev)
+        ta, s_ta = _pick(fin.get("assets") if fin else None, bal["total_assets"] if has_manual else None)
+        tl, s_tl = _pick(fin.get("liabilities") if fin else None, bal["total_liabilities"] if has_manual else None)
+        cash = bal["cash"]
+        nw_final = nw if nw is not None else bal["net_worth"]
+        bal = {"cash": cash,
+               "total_assets": round(ta, 2) if ta is not None else bal["total_assets"],
+               "total_liabilities": round(tl, 2) if tl is not None else bal["total_liabilities"],
+               "net_worth": round(nw_final, 2)}
+        g = compute_value_generic(nw_final, profit, rev, cash)
+        company_value = g["value"]
+        method = "patrimonial + rendimento" if g["goodwill"] > 0 else "patrimonial"
+        if has_doc:
+            method += f" (com base na tua {doc_label})"
+        val = {"value": g["value"], "net_worth": g["net_worth"], "annual_profit": g["annual_profit"],
+               "annual_revenue": round(rev, 2) if isinstance(rev, (int, float)) else None,
+               "multiple": g["multiple"], "goodwill": g["goodwill"], "method": method}
+        financials_source = doc_label
+        value_sources = {"patrimonio": s_nw, "lucro": s_profit, "faturacao": s_rev, "ativos": s_ta, "passivos": s_tl}
+    has_balance_final = has_doc or has_manual
     dna = await db.ceo_dna.find_one({"user_id": user_id}) or {}
     goal_value = float(dna.get("target_revenue", 0)) or 1000000
     progress = min(100, round(company_value / goal_value * 100)) if goal_value else 0
@@ -553,8 +595,9 @@ async def build_snapshot(user_id: str):
         "total_income": round(income, 2), "total_expense": round(expense, 2),
         "cash_available": bal["cash"], "total_assets": bal["total_assets"],
         "total_liabilities": bal["total_liabilities"], "net_worth": bal["net_worth"],
-        "has_balance": bool(profile) or has_official, "equity_progress": equity_progress,
+        "has_balance": has_balance_final, "equity_progress": equity_progress,
         "financials_source": financials_source, "has_official": has_official,
+        "value_sources": value_sources,
     }
 
 async def record_equity(user_id: str, cid, snap: dict):
