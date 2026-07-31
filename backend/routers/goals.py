@@ -75,21 +75,45 @@ async def _compute_projection(uid: str, cid):
     if current_revenue and current_revenue > 0 and isinstance(current_profit, (int, float)):
         current_margin = round(current_profit / current_revenue * 100.0, 1)
 
+    g = await db.goals.find_one({"user_id": uid, "company_id": cid}) or {}
+
+    # YTD manual: se o utilizador indicou o que já faturou este ANO EM VIGOR, anualizamos a partir daí.
+    now = datetime.now(timezone.utc)
+    ytd = float(g.get("ytd_revenue") or 0)
+    ytd_info = None
+    if ytd > 0:
+        aod = _parse_date(g.get("ytd_as_of")) or now
+        months_elapsed = 12 if aod.year < now.year else max(1, min(12, aod.month))
+        annualized = round(ytd / months_elapsed * 12, 2)
+        current_revenue = annualized
+        if current_margin is not None:
+            current_profit = round(annualized * current_margin / 100.0, 2)
+        elif isinstance(current_profit, (int, float)) and current_profit and val.get("annual_revenue"):
+            # deriva margem a partir do snapshot original, se existir
+            m0 = current_profit / val["annual_revenue"] * 100.0
+            current_margin = round(m0, 1)
+            current_profit = round(annualized * m0 / 100.0, 2)
+        # recalcula o valor atual de forma coerente com a faturação real deste ano
+        gcv = compute_value_generic(net_worth, current_profit, current_revenue, cash)
+        current_value = gcv["value"]
+        ytd_info = {"ytd_revenue": round(ytd, 2), "months_elapsed": months_elapsed,
+                    "annualized_revenue": annualized, "as_of": g.get("ytd_as_of")}
+
     # Dados em falta (avisamos, nunca inventamos)
     missing = []
-    if not snap.get("has_balance"):
+    if not snap.get("has_balance") and not ytd:
         missing.append({"field": "perfil", "label": "Perfil financeiro / documentos",
                         "where": "Finanças → Perfil Financeiro (ou carrega a tua IES/Balancete)"})
     if not current_revenue:
         missing.append({"field": "faturacao", "label": "Faturação anual",
-                        "where": "Finanças → Perfil Financeiro (faturação mensal) ou documento oficial"})
+                        "where": "insere a faturação já feita este ano acima, ou preenche o Perfil Financeiro"})
     if current_margin is None:
         missing.append({"field": "margem", "label": "Margem líquida (lucro vs faturação)",
                         "where": "Finanças → Perfil Financeiro (custos fixos e variáveis)"})
 
-    g = await db.goals.find_one({"user_id": uid, "company_id": cid}) or {}
     saved = {"target_value": g.get("target_value"), "deadline_type": g.get("deadline_type"),
-             "deadline_years": g.get("deadline_years"), "deadline_date": g.get("deadline_date")}
+             "deadline_years": g.get("deadline_years"), "deadline_date": g.get("deadline_date"),
+             "ytd_revenue": g.get("ytd_revenue"), "ytd_as_of": g.get("ytd_as_of")}
 
     base = {
         "currency_symbol": sym, "sector": sector,
@@ -101,6 +125,7 @@ async def _compute_projection(uid: str, cid):
         "financials_source": snap.get("financials_source"),
         "value_sources": snap.get("value_sources"),
         "multiple": val.get("multiple"),
+        "ytd": ytd_info,
         "goal": saved, "missing": missing,
         "last_updated": datetime.now(timezone.utc).isoformat(),
     }
@@ -109,7 +134,6 @@ async def _compute_projection(uid: str, cid):
     if tv <= 0:
         return {**base, "configured": False}
 
-    now = datetime.now(timezone.utc)
     years_left = _years_left(g, now)
 
     # Projeção mantendo o ritmo atual: valor cresce pelo lucro retido/ano (honesto)

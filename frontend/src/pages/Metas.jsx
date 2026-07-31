@@ -80,6 +80,8 @@ export default function Metas() {
   const [targetValue, setTargetValue] = useState("");
   const [years, setYears] = useState(5);
   const [custom, setCustom] = useState(false);
+  const [ytdRevenue, setYtdRevenue] = useState("");
+  const [ytdAsOf, setYtdAsOf] = useState("");
 
   // Sliders / cenário ativo
   const [scenario, setScenario] = useState("realista");
@@ -91,6 +93,8 @@ export default function Metas() {
     setData(data);
     const g = data.goal || {};
     if (g.target_value != null) setTargetValue(String(g.target_value));
+    if (g.ytd_revenue != null) setYtdRevenue(String(g.ytd_revenue));
+    if (g.ytd_as_of) setYtdAsOf(String(g.ytd_as_of).slice(0, 7));
     if (g.deadline_years != null) {
       setYears(Number(g.deadline_years));
       setCustom(!PRESETS.includes(Number(g.deadline_years)));
@@ -179,7 +183,11 @@ export default function Metas() {
     if (!targetValue || Number(targetValue) <= 0) { toast.error("Indique o valor que pretende alcançar."); return; }
     setSaving(true);
     try {
-      await api.post("/goal", { target_value: Number(targetValue), deadline_type: "years", deadline_years: Number(years) });
+      await api.post("/goal", {
+        target_value: Number(targetValue), deadline_type: "years", deadline_years: Number(years),
+        ytd_revenue: ytdRevenue ? Number(ytdRevenue) : null,
+        ytd_as_of: ytdAsOf || null,
+      });
       setPlan(null);
       await load();
       toast.success("Projeção calculada com os seus dados reais.");
@@ -279,6 +287,21 @@ export default function Metas() {
             )}
           </div>
         </div>
+        <div className="mt-6 pt-6 border-t border-white/[0.06]">
+          <Label className="text-sm text-foreground font-medium">Já faturaste algo este ano? <span className="text-muted-foreground font-normal">(opcional, mas torna a projeção mais precisa)</span></Label>
+          <div className="grid md:grid-cols-2 gap-6 mt-3">
+            <div>
+              <Label className="text-sm text-muted-foreground">Faturação já feita este ano ({sym})</Label>
+              <Input data-testid="input-ytd-revenue" type="number" value={ytdRevenue} onChange={(e) => setYtdRevenue(e.target.value)} placeholder="acumulado do ano em vigor" className="mt-1.5" />
+            </div>
+            <div>
+              <Label className="text-sm text-muted-foreground">Até que mês se refere</Label>
+              <Input data-testid="input-ytd-asof" type="month" value={ytdAsOf} onChange={(e) => setYtdAsOf(e.target.value)} className="mt-1.5" />
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2">Uso este valor para estimar a tua faturação anual ao ritmo atual (acumulado ÷ meses × 12).</p>
+        </div>
+
         <Button data-testid="calc-projection-btn" onClick={calc} disabled={saving} className="mt-7 rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]">
           {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Gauge className="w-4 h-4 mr-2" />} Calcular Projeção
         </Button>
@@ -563,7 +586,7 @@ export default function Metas() {
             <div className={`mt-6 grid md:grid-cols-2 gap-x-10 gap-y-3 text-sm ${howOpen ? "block" : "hidden print:grid"}`}>
                 <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Valor estimado atual</span><span className="font-medium">{fmt(sym, data.current_value)}</span></div>
                 <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Património líquido (ativos − passivos)</span><span className="font-medium">{fmt(sym, data.net_worth)}</span></div>
-                <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Faturação anual usada</span><span className="font-medium">{data.current_revenue != null ? fmt(sym, data.current_revenue) : "—"}</span></div>
+                <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Faturação anual usada{data.ytd ? " (do que já faturaste este ano)" : ""}</span><span className="font-medium">{data.current_revenue != null ? fmt(sym, data.current_revenue) : "—"}</span></div>
                 <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Lucro anual usado</span><span className="font-medium">{data.current_profit != null ? fmt(sym, data.current_profit) : "—"}</span></div>
                 <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Margem líquida</span><span className="font-medium">{data.current_margin != null ? `${data.current_margin}%` : "—"}</span></div>
                 <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Múltiplo de avaliação aplicado</span><span className="font-medium">{data.multiple != null ? `${data.multiple}×` : "—"}</span></div>
