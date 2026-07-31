@@ -1,23 +1,40 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
+  LineChart as RLineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+} from "recharts";
+import {
   Loader2, Target, TrendingUp, Sparkles, AlertTriangle, MapPin, Flag,
-  Gauge, ArrowUpRight, Wallet, Percent, LineChart, CheckCircle2, Clock,
+  Gauge, ArrowUpRight, Wallet, Percent, LineChart, CheckCircle2, Clock, SlidersHorizontal, Table2,
 } from "lucide-react";
 
 const fmt = (sym, n) => `${sym}${Number(n || 0).toLocaleString("pt-PT", { maximumFractionDigits: 0 })}`;
 const PRESETS = [1, 2, 3, 5, 7, 10];
-
 const VIAB = {
   green: { color: "#10B981", Icon: CheckCircle2 },
   amber: { color: "#F59E0B", Icon: Clock },
   red: { color: "#EF4444", Icon: AlertTriangle },
 };
+
+// ---- Motor de avaliação (espelha core.py; recálculo instantâneo no cliente, sem gastar créditos) ----
+function valueMultiple(marginPct, recurBonus = 0) {
+  let m = 2.0;
+  if (marginPct >= 10) m += 0.5;
+  if (marginPct >= 20) m += 0.5;
+  if (marginPct >= 30) m += 0.5;
+  return m + recurBonus;
+}
+function recurrenceBonus(recurPct) {
+  if (recurPct >= 60) return 0.5;
+  if (recurPct >= 30) return 0.25;
+  return 0;
+}
 
 function ProgressBar({ pct, color }) {
   return (
@@ -26,7 +43,6 @@ function ProgressBar({ pct, color }) {
     </div>
   );
 }
-
 function StatCard({ label, value, sub, color, testid, Icon }) {
   return (
     <div className="surface rounded-2xl p-5" data-testid={testid}>
@@ -35,6 +51,21 @@ function StatCard({ label, value, sub, color, testid, Icon }) {
       </div>
       <div className="font-serif-lux text-2xl md:text-[26px]" style={{ color: color || undefined }}>{value}</div>
       {sub && <div className="text-[11px] text-muted-foreground mt-1.5">{sub}</div>}
+    </div>
+  );
+}
+
+function ChartTooltip({ active, payload, label, sym }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-xl border border-white/10 bg-[#0A0A12] px-3 py-2 text-xs shadow-xl">
+      <div className="text-muted-foreground mb-1">{label}</div>
+      {payload.map((p) => (
+        <div key={p.dataKey} className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
+          <span className="text-foreground">{p.name}: {fmt(sym, p.value)}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -49,6 +80,10 @@ export default function Metas() {
   const [years, setYears] = useState(5);
   const [custom, setCustom] = useState(false);
 
+  // Sliders / cenário ativo
+  const [scenario, setScenario] = useState("realista");
+  const [s, setS] = useState({ growth: 15, margin: 12, debtRed: 20, recur: 20 });
+
   const load = () => api.get("/goal").then(({ data }) => {
     setData(data);
     const g = data.goal || {};
@@ -60,6 +95,82 @@ export default function Metas() {
   }).catch(() => setFailed(true));
 
   useEffect(() => { load(); }, []);
+
+  // Base para simulação (a partir dos dados reais do backend)
+  const base = useMemo(() => {
+    if (!data) return null;
+    const curMargin = data.current_margin != null && data.current_margin > 0 ? data.current_margin : 10;
+    return {
+      revenue: data.current_revenue || 0,
+      netWorth: data.net_worth || 0,
+      cash: data.cash || 0,
+      debt: data.total_liabilities || 0,
+      margin: curMargin,
+      target: data.target_value || 0,
+      yearsLeft: data.years_left || 5,
+      n: data.trajectory ? data.trajectory.length - 1 : Math.max(1, Math.round(data.years_left || 5)),
+    };
+  }, [data]);
+
+  // Presets dos 3 cenários (derivados dos dados reais)
+  const presets = useMemo(() => {
+    if (!base) return {};
+    const cm = base.margin;
+    return {
+      conservador: { growth: 5, margin: Math.round(cm), debtRed: 0, recur: 10 },
+      realista: { growth: 15, margin: Math.round(cm + 4), debtRed: 20, recur: 25 },
+      ambicioso: { growth: 30, margin: Math.round(Math.min(45, cm + 12)), debtRed: 50, recur: 50 },
+    };
+  }, [base]);
+
+  // Aplica preset "realista" quando os dados carregam
+  useEffect(() => {
+    if (base && presets.realista) { setS(presets.realista); setScenario("realista"); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base?.margin, base?.target]);
+
+  const applyScenario = (key) => { setScenario(key); setS(presets[key]); };
+
+  // Projeção do cenário atual (com os sliders) — recálculo instantâneo
+  const sim = useMemo(() => {
+    if (!base || !base.revenue) return null;
+    const bonus = recurrenceBonus(s.recur);
+    const point = (k) => {
+      const rev = base.revenue * Math.pow(1 + s.growth / 100, k);
+      const profit = rev * (s.margin / 100);
+      const debtK = base.debt * (1 - (s.debtRed / 100) * (base.n ? k / base.n : 0));
+      const netWorthK = base.netWorth + base.debt * (s.debtRed / 100) * (base.n ? k / base.n : 0);
+      const mult = valueMultiple(s.margin, bonus);
+      const value = Math.max(netWorthK + Math.max(0, profit) * mult, base.cash);
+      return { rev, profit, debt: debtK, value, mult };
+    };
+    const rows = [];
+    for (let k = 1; k <= base.n; k++) rows.push({ k, ...point(k) });
+    const end = point(base.n);
+    const reachPct = base.target ? (end.value / base.target) * 100 : 0;
+    return { point, rows, end, reachPct };
+  }, [base, s]);
+
+  // Dados do gráfico: verde (meta) + laranja (ritmo atual) + azul (meus ajustes)
+  const chartData = useMemo(() => {
+    if (!data?.trajectory) return [];
+    return data.trajectory.map((t, i) => ({
+      label: t.label, goal: t.goal, pace: t.pace,
+      mine: sim ? (i === 0 ? data.current_value : sim.point(i).value) : undefined,
+    }));
+  }, [data, sim]);
+
+  const scenarioEndValue = (key) => {
+    if (!base || !base.revenue) return null;
+    const p = presets[key]; if (!p) return null;
+    const bonus = recurrenceBonus(p.recur);
+    const rev = base.revenue * Math.pow(1 + p.growth / 100, base.n);
+    const profit = rev * (p.margin / 100);
+    const netWorthK = base.netWorth + base.debt * (p.debtRed / 100);
+    const value = Math.max(netWorthK + Math.max(0, profit) * valueMultiple(p.margin, bonus), base.cash);
+    const growthTotal = base.revenue ? Math.round((rev / base.revenue - 1) * 100) : null;
+    return { rev, profit, monthly: rev / 12, margin: p.margin, growth: p.growth, growthTotal, value };
+  };
 
   const calc = async () => {
     if (!targetValue || Number(targetValue) <= 0) { toast.error("Indique o valor que pretende alcançar."); return; }
@@ -89,6 +200,21 @@ export default function Metas() {
   const cfg = data.configured;
   const req = data.required || {};
   const viab = data.viability ? (VIAB[data.viability.level] || VIAB.amber) : null;
+  const simViabLevel = sim ? (sim.reachPct >= 100 ? "green" : sim.reachPct >= 60 ? "amber" : "red") : "amber";
+  const simViab = VIAB[simViabLevel];
+
+  const SCEN = [
+    { key: "conservador", label: "Conservador", color: "#F59E0B", diff: "Menor risco" },
+    { key: "realista", label: "Realista", color: "#3B82F6", diff: "Equilibrado" },
+    { key: "ambicioso", label: "Ambicioso", color: "#10B981", diff: "Mais exigente" },
+  ];
+
+  const SLIDERS = [
+    { key: "growth", label: "Crescimento anual da faturação", suffix: "%", min: 0, max: 60, step: 1, hint: "mais clientes ou maior valor por cliente" },
+    { key: "margin", label: "Margem líquida (rentabilidade / redução de custos)", suffix: "%", min: 0, max: 50, step: 1, hint: "lucro sobre faturação" },
+    { key: "debtRed", label: "Redução da dívida", suffix: "%", min: 0, max: 100, step: 5, hint: "liberta valor patrimonial" },
+    { key: "recur", label: "Receitas recorrentes", suffix: "%", min: 0, max: 100, step: 5, hint: "sobe o múltiplo de avaliação" },
+  ];
 
   return (
     <div className="px-6 md:px-16 py-14 md:py-20 max-w-[1040px] mx-auto" data-testid="metas-page">
@@ -100,7 +226,6 @@ export default function Metas() {
         <p className="text-muted-foreground mt-3">Planeie o futuro da sua empresa com base nos seus dados reais.</p>
       </div>
 
-      {/* Dados em falta */}
       {data.missing?.length > 0 && (
         <div className="rounded-2xl border border-[#F59E0B]/30 bg-[#F59E0B]/[0.06] p-5 mb-8" data-testid="meta-missing">
           <div className="flex items-center gap-2 text-[#F59E0B] font-medium mb-2"><AlertTriangle className="w-4 h-4" /> Faltam dados para uma projeção fiável</div>
@@ -160,7 +285,7 @@ export default function Metas() {
         </div>
       ) : (
         <>
-          {/* Resumo principal — 3 cartões */}
+          {/* Resumo principal */}
           <div className="grid md:grid-cols-3 gap-4 mb-6" data-testid="meta-summary">
             <div className="surface rounded-2xl p-5 border border-[#10B981]/25" data-testid="summary-goal">
               <div className="text-xs uppercase tracking-wider text-[#10B981] mb-1">Valor alcançando a meta</div>
@@ -179,11 +304,9 @@ export default function Metas() {
             </div>
           </div>
 
-          {/* Mensagem dinâmica + viabilidade */}
+          {/* Mensagem + viabilidade */}
           <div className="surface rounded-2xl p-5 mb-10 flex items-start gap-4 flex-wrap" data-testid="meta-obstacle">
-            <div className="flex-1 min-w-[240px]">
-              <div className="text-sm text-foreground">{data.obstacle?.message}</div>
-            </div>
+            <div className="flex-1 min-w-[240px]"><div className="text-sm text-foreground">{data.obstacle?.message}</div></div>
             {viab && (
               <span data-testid="meta-viability" className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border shrink-0"
                 style={{ color: viab.color, borderColor: `${viab.color}55`, background: `${viab.color}12` }}>
@@ -192,23 +315,153 @@ export default function Metas() {
             )}
           </div>
 
-          {/* GPS estratégico */}
-          <div className="surface rounded-3xl p-6 md:p-8 mb-10" data-testid="meta-gps">
-            <h3 className="font-serif-lux text-2xl flex items-center gap-2 mb-6"><MapPin className="w-5 h-5 text-[#3B82F6]" /> GPS estratégico</h3>
-            <div className="grid sm:grid-cols-3 gap-4 mb-6">
-              <div><div className="text-xs text-muted-foreground mb-1">Está aqui</div><div className="font-medium text-lg">{fmt(sym, data.current_value)}</div></div>
-              <div><div className="text-xs text-muted-foreground mb-1">Se mantiver o ritmo</div><div className="font-medium text-lg text-[#F59E0B]">{fmt(sym, data.projected_pace)}</div></div>
-              <div><div className="text-xs text-muted-foreground mb-1">Meta escolhida</div><div className="font-medium text-lg text-[#10B981]">{fmt(sym, data.target_value)}</div></div>
+          {/* GRÁFICO */}
+          <div className="surface rounded-3xl p-6 md:p-8 mb-10" data-testid="meta-chart">
+            <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
+              <h3 className="font-serif-lux text-2xl flex items-center gap-2"><LineChart className="w-5 h-5 text-[#3B82F6]" /> Trajetória do valor da empresa</h3>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#10B981]" /> Alcançando a meta</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#F59E0B]" /> Mantendo o ritmo atual</span>
+                {sim && <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#3B82F6]" /> Com os meus ajustes</span>}
+              </div>
             </div>
-            <ProgressBar pct={data.progress} color="#3B82F6" />
-            <div className="flex flex-wrap justify-between gap-2 text-sm text-muted-foreground mt-2">
-              <span data-testid="gps-progress">{data.progress}% já alcançado</span>
-              <span>Falta {fmt(sym, Math.max(0, data.target_value - data.current_value))}</span>
-              <span>{data.years_left} anos restantes</span>
+            <div style={{ width: "100%", height: 300 }}>
+              <ResponsiveContainer>
+                <RLineChart data={chartData} margin={{ top: 8, right: 12, left: 4, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <XAxis dataKey="label" stroke="rgba(255,255,255,0.4)" fontSize={12} />
+                  <YAxis stroke="rgba(255,255,255,0.4)" fontSize={12} tickFormatter={(v) => `${sym}${(v / 1000).toLocaleString("pt-PT", { maximumFractionDigits: 0 })}k`} width={64} />
+                  <Tooltip content={<ChartTooltip sym={sym} />} />
+                  <Line type="monotone" dataKey="goal" name="Alcançando a meta" stroke="#10B981" strokeWidth={2.5} dot={false} />
+                  <Line type="monotone" dataKey="pace" name="Ritmo atual" stroke="#F59E0B" strokeWidth={2} strokeDasharray="5 4" dot={false} />
+                  {sim && <Line type="monotone" dataKey="mine" name="Com os meus ajustes" stroke="#3B82F6" strokeWidth={2.5} dot={{ r: 3 }} />}
+                </RLineChart>
+              </ResponsiveContainer>
             </div>
+            {sim && (
+              <div className="flex items-center justify-between flex-wrap gap-3 mt-4 pt-4 border-t border-white/[0.06] text-sm">
+                <span className="text-muted-foreground">No último ano — meta {fmt(sym, data.target_value)} · com os teus ajustes <span className="text-[#3B82F6] font-medium">{fmt(sym, sim.end.value)}</span></span>
+                <span data-testid="chart-diff" className="text-muted-foreground">Diferença: <span className="font-medium text-foreground">{fmt(sym, Math.abs(data.target_value - sim.end.value))}</span></span>
+              </div>
+            )}
           </div>
 
-          {/* O que precisa de fazer */}
+          {/* CENÁRIOS */}
+          {base?.revenue ? (
+            <>
+              <h3 className="font-serif-lux text-2xl mb-4 flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#3B82F6]" /> Cenários</h3>
+              <div className="grid md:grid-cols-3 gap-4 mb-10" data-testid="meta-scenarios">
+                {SCEN.map((sc) => {
+                  const r = scenarioEndValue(sc.key);
+                  const active = scenario === sc.key;
+                  return (
+                    <button key={sc.key} data-testid={`scenario-${sc.key}`} onClick={() => applyScenario(sc.key)}
+                      className={`text-left surface rounded-2xl p-5 border transition-all ${active ? "border-2" : "border-white/[0.06] hover:border-white/20"}`}
+                      style={active ? { borderColor: sc.color } : {}}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium" style={{ color: sc.color }}>{sc.label}</span>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{sc.diff}</span>
+                      </div>
+                      <div className="font-serif-lux text-2xl mb-3">{r ? fmt(sym, r.value) : "—"}</div>
+                      {r && (
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          <div>Faturação: <span className="text-foreground">{fmt(sym, r.rev)}/ano</span></div>
+                          <div>Mensal: <span className="text-foreground">{fmt(sym, r.monthly)}/mês</span></div>
+                          <div>Lucro: <span className="text-foreground">{fmt(sym, r.profit)}/ano</span></div>
+                          <div>Margem: <span className="text-foreground">{r.margin}%</span> · Cresc.: <span className="text-foreground">{r.growth}%/ano</span></div>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* SLIDERS */}
+              <div className="surface rounded-3xl p-6 md:p-8 mb-10" data-testid="meta-sliders">
+                <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
+                  <h3 className="font-serif-lux text-2xl flex items-center gap-2"><SlidersHorizontal className="w-5 h-5 text-[#3B82F6]" /> Ajuste de cenários</h3>
+                  {sim && (
+                    <span data-testid="sim-viability" className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border"
+                      style={{ color: simViab.color, borderColor: `${simViab.color}55`, background: `${simViab.color}12` }}>
+                      <simViab.Icon className="w-3.5 h-3.5" /> Probabilidade: {Math.round(sim.reachPct)}% da meta
+                    </span>
+                  )}
+                </div>
+                <div className="grid md:grid-cols-2 gap-x-10 gap-y-7">
+                  {SLIDERS.map((sl) => (
+                    <div key={sl.key} data-testid={`slider-${sl.key}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="text-sm">{sl.label}</Label>
+                        <span className="text-sm font-medium text-[#3B82F6]">{s[sl.key]}{sl.suffix}</span>
+                      </div>
+                      <Slider value={[s[sl.key]]} min={sl.min} max={sl.max} step={sl.step}
+                        onValueChange={(v) => { setS((p) => ({ ...p, [sl.key]: v[0] })); setScenario("custom"); }} />
+                      <div className="text-[11px] text-muted-foreground mt-1.5">{sl.hint}</div>
+                    </div>
+                  ))}
+                </div>
+                {sim && (
+                  <div className="grid sm:grid-cols-3 gap-4 mt-8 pt-6 border-t border-white/[0.06]">
+                    <div><div className="text-xs text-muted-foreground mb-1">Valor projetado</div><div className="font-serif-lux text-2xl text-[#3B82F6]" data-testid="sim-value">{fmt(sym, sim.end.value)}</div></div>
+                    <div><div className="text-xs text-muted-foreground mb-1">Faturação necessária</div><div className="font-serif-lux text-2xl">{fmt(sym, sim.end.rev)}/ano</div></div>
+                    <div><div className="text-xs text-muted-foreground mb-1">Lucro projetado</div><div className="font-serif-lux text-2xl text-[#10B981]">{fmt(sym, sim.end.profit)}/ano</div></div>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="surface rounded-2xl p-6 text-center text-muted-foreground mb-10" data-testid="scenarios-locked">
+              Preencha a faturação no <span className="text-[#3B82F6]">Perfil Financeiro</span> para simular cenários e ajustar parâmetros.
+            </div>
+          )}
+
+          {/* PLANO ANUAL */}
+          {sim && (
+            <div className="surface rounded-3xl p-6 md:p-8 mb-10 overflow-x-auto" data-testid="meta-annual-plan">
+              <h3 className="font-serif-lux text-2xl flex items-center gap-2 mb-5"><Table2 className="w-5 h-5 text-[#3B82F6]" /> Plano ano a ano</h3>
+              <table className="w-full text-sm min-w-[720px]">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-white/[0.08]">
+                    <th className="py-2 pr-4">Ano</th>
+                    <th className="py-2 pr-4">Faturação</th>
+                    <th className="py-2 pr-4">Lucro líq.</th>
+                    <th className="py-2 pr-4">Margem</th>
+                    <th className="py-2 pr-4">EBITDA*</th>
+                    <th className="py-2 pr-4">Dívida</th>
+                    <th className="py-2 pr-4">Valor empresa</th>
+                    <th className="py-2 pr-4">% meta</th>
+                    <th className="py-2">Prioridade</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sim.rows.map((r) => {
+                    const pctMeta = data.target_value ? Math.round((r.value / data.target_value) * 100) : 0;
+                    const ebitda = r.profit / 0.7;
+                    const priority = s.margin < 10 ? "Aumentar margem"
+                      : r.k <= 1 ? "Consolidar a base"
+                      : r.value / data.target_value < 0.5 ? "Acelerar vendas"
+                      : "Escalar e proteger margem";
+                    return (
+                      <tr key={r.k} className="border-b border-white/[0.04]" data-testid={`plan-row-${r.k}`}>
+                        <td className="py-2.5 pr-4 font-medium">Ano {r.k}</td>
+                        <td className="py-2.5 pr-4">{fmt(sym, r.rev)}</td>
+                        <td className="py-2.5 pr-4 text-[#10B981]">{fmt(sym, r.profit)}</td>
+                        <td className="py-2.5 pr-4">{s.margin}%</td>
+                        <td className="py-2.5 pr-4">{fmt(sym, ebitda)}</td>
+                        <td className="py-2.5 pr-4 text-muted-foreground">{fmt(sym, r.debt)}</td>
+                        <td className="py-2.5 pr-4 font-medium text-[#3B82F6]">{fmt(sym, r.value)}</td>
+                        <td className="py-2.5 pr-4">{pctMeta}%</td>
+                        <td className="py-2.5 text-muted-foreground">{priority}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <p className="text-[11px] text-muted-foreground mt-3">*EBITDA estimado (aproximação a partir do lucro líquido; não substitui a demonstração de resultados real).</p>
+            </div>
+          )}
+
+          {/* O que precisa de fazer (engenharia inversa) */}
           <h3 className="font-serif-lux text-2xl mb-4 flex items-center gap-2"><Flag className="w-5 h-5 text-[#3B82F6]" /> O que precisa de fazer para alcançar a meta</h3>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4" data-testid="meta-actions">
             <StatCard testid="action-profit" Icon={TrendingUp} color="#10B981" label="Lucro líquido necessário"
@@ -227,8 +480,24 @@ export default function Metas() {
               value={req.monthly_diff != null ? `${req.monthly_diff >= 0 ? "+" : ""}${fmt(sym, req.monthly_diff)}/mês` : "—"} />
           </div>
 
-          {/* Perspetiva do CEO AI (sob pedido) */}
-          <div className="surface rounded-3xl p-6 md:p-8 mt-8" data-testid="ceo-plan-section">
+          {/* GPS estratégico */}
+          <div className="surface rounded-3xl p-6 md:p-8 mt-8 mb-10" data-testid="meta-gps">
+            <h3 className="font-serif-lux text-2xl flex items-center gap-2 mb-6"><MapPin className="w-5 h-5 text-[#3B82F6]" /> GPS estratégico</h3>
+            <div className="grid sm:grid-cols-3 gap-4 mb-6">
+              <div><div className="text-xs text-muted-foreground mb-1">Está aqui</div><div className="font-medium text-lg">{fmt(sym, data.current_value)}</div></div>
+              <div><div className="text-xs text-muted-foreground mb-1">Se mantiver o ritmo</div><div className="font-medium text-lg text-[#F59E0B]">{fmt(sym, data.projected_pace)}</div></div>
+              <div><div className="text-xs text-muted-foreground mb-1">Meta escolhida</div><div className="font-medium text-lg text-[#10B981]">{fmt(sym, data.target_value)}</div></div>
+            </div>
+            <ProgressBar pct={data.progress} color="#3B82F6" />
+            <div className="flex flex-wrap justify-between gap-2 text-sm text-muted-foreground mt-2">
+              <span data-testid="gps-progress">{data.progress}% já alcançado</span>
+              <span>Falta {fmt(sym, Math.max(0, data.target_value - data.current_value))}</span>
+              <span>{data.years_left} anos restantes</span>
+            </div>
+          </div>
+
+          {/* Perspetiva do CEO AI */}
+          <div className="surface rounded-3xl p-6 md:p-8" data-testid="ceo-plan-section">
             <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
               <h3 className="font-serif-lux text-2xl flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#3B82F6]" /> Perspetiva do CEO AI</h3>
               <Button data-testid="generate-plan-btn" onClick={generatePlan} disabled={planLoading} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]">
