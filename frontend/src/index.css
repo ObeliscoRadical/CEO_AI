@@ -138,5 +138,16 @@
   .surface, .surface * { backdrop-filter: none !important; }
   .surface { background: #ffffff !important; border: 1px solid #e5e5e5 !important; box-shadow: none !important; }
   .watermark { display: none !important; }
-  @page { margin: 14mm; }
+  @page { margin: 12mm; }
+
+  /* Relatório dedicado: cores exatas e folha limpa */
+  .report-root { background: #ffffff !important; padding: 0 !important; }
+  .report-sheet {
+    width: 100% !important; max-width: 100% !important; box-shadow: none !important;
+    padding: 0 !important; margin: 0 !important;
+  }
+  .report-root, .report-root * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 }

@@ -12,6 +12,7 @@ import Saude from "@/pages/Saude";
 import Valor from "@/pages/Valor";
 import Metas from "@/pages/Metas";
 import MetaShare from "@/pages/MetaShare";
+import MetaReport from "@/pages/MetaReport";
 import Relatorios from "@/pages/Relatorios";
 import Dashboard from "@/pages/Dashboard";
 import Chat from "@/pages/Chat";
@@ -75,6 +76,7 @@ function App() {
               <Route path="/contacto" element={<Contact />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/partilha/meta/:token" element={<MetaShare />} />
+              <Route path="/relatorio-meta" element={<Protected><MetaReport /></Protected>} />
               <Route path="/onboarding" element={<Protected><Onboarding /></Protected>} />
               <Route path="/payment/success" element={<Protected><AppDataProvider><PaymentResult /></AppDataProvider></Protected>} />
               <Route path="/payment/cancel" element={<Protected><PaymentResult /></Protected>} />

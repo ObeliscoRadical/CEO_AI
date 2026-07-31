@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,6 +73,7 @@ function ChartTooltip({ active, payload, label, sym }) {
 }
 
 export default function Metas() {
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -206,7 +208,7 @@ export default function Metas() {
     setPlanLoading(false);
   };
 
-  const printReport = () => window.print();
+  const printReport = () => navigate("/relatorio-meta");
   const notifyEmail = async () => {
     setNotifying(true);
     try {

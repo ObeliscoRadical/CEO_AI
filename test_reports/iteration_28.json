@@ -1,0 +1,37 @@
+{
+  "summary": "Frontend-only testing of BUG FIX 'Ver Relatório Completo' → nova rota /relatorio-meta. Todos os critérios do pedido verificados com sucesso após login como admin (adminceoai@gmail.com).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "report_btn_navigates_to_relatorio_meta": "PASS — /meta report-btn navega para /relatorio-meta (window.print já não é chamado)",
+    "light_theme_a4_sheet": "PASS — .report-sheet background rgb(255,255,255), texto escuro, largura fixa 794px",
+    "header_ceo_ai": "PASS — logo 'C', 'CEO AI', 'Diretor Executivo Digital', data à direita (31 de julho de 2026)",
+    "title_and_6_kpis": "PASS — H1 'Projeção de Valor da Empresa'; 6 KPIs: Valor estimado atual €359 000, Meta €750 000, Ritmo €879 000, Património €47 000, Faturação €400 000, Margem 26% (múltiplo 3×)",
+    "progress_bar": "PASS — 47.9% alcançado, falta €391 000, 'Cenário possível'",
+    "chart_legible": "PASS — Gráfico recharts fixo (width=620 h=280) com eixo Y visível (€500k/€750k/€1000k) e legenda 'Meta'(verde) + 'Ritmo atual'(laranja). X labels 'Atual'..'Ano 5' visíveis na screenshot.",
+    "table_plan_ano_a_ano": "PASS — Colunas Período/Valor/Ritmo/% da meta, alinhamento tabular-nums à direita, linhas alternadas, Ano 5 = 100% (€750 000).",
+    "how_calculated_and_disclaimer": "PASS — Secções 'Como foi calculado' e disclaimer presentes.",
+    "report_print_button": "PASS — data-testid=report-print presente e enabled",
+    "report_back_button": "PASS — data-testid=report-back regressa a /meta",
+    "regression_meta_page": "PASS — calc-projection-btn, input-ytd-revenue, input-ytd-asof, slider-growth, share-btn todos presentes; share-btn gerou link /partilha/meta/<token> com sucesso",
+    "regression_public_share": "PASS — /partilha/meta/<token> renderiza sem login"
+  },
+  "test_report_links": ["/app/test_reports/meta_report.png"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "MetaReport.jsx bem estruturado — tema claro forçado por classes Tailwind (bg-white, text-gray-900), sem dependência de dark-mode; boa opção estilo A4.",
+    "Recharts com width/height numéricos fixos garante impressão consistente (evita ResponsiveContainer=0 no @media print).",
+    "@media print com print-color-adjust: exact deverá preservar cores no PDF do browser (não automatizável neste teste; verificar manualmente numa impressão real)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "100%"},
+  "test_credentials": "adminceoai@gmail.com / 12345 (admin, premium bypass, meta já configurada)",
+  "seed_data_creation": "Nenhuma — usou-se a meta já existente do admin (target 750000 em 5 anos, YTD €200 000).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Bug fix confirmado. Nova rota /relatorio-meta funciona corretamente. Nada a reajustar no frontend deste fluxo. Nota: se quiser validar visualmente o PDF real, é preciso testar manualmente com Ctrl+P no browser — não é automatizável."
+}
