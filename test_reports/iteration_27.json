@@ -1,0 +1,24 @@
+{
+  "summary": "Full end-to-end validation of the new 'A Minha Meta' premium feature (backend + frontend). All 6 pytest backend tests pass (deterministic math verified: annualized=240000, revenue pct=48%, needed_per_year=333333, 3 milestones for years 2027-2029; deadline-by-date computes years_left correctly; on-demand /goal/plan returns valid AI plan; premium gating returns 402 for free users). UI verified: admin sees nav-meta, /meta loads, form saves, snapshot + value-goal-card + revenue-goal-card render with correct numbers, plan is NOT auto-generated, generate-plan-btn produces ceo-plan block with verdict/diagnostic/actions/phrase, persistence works after reload, deadline-by-date reflects in years-left. Free user sees UpgradeWall on /meta and nav-meta shows the lock icon (gated).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_goals.py",
+    "/app/test_reports/pytest/iter27_goals.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "goals.py _compute_goal uses aod.month for months_elapsed but ignores year — if user picks ytd_as_of in a past/future year it silently uses just the month. Consider clamping to current year or documenting.",
+    "Plan cache is invalidated on save (delete_many ai_cache kind=goal_plan) which is correct; however GET /goal/plan is only POST — that's fine but note it will consume LLM tokens on every explicit click after re-save (by design)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_goals.py"
+  ],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (all critical selectors + gating)"},
+  "test_credentials": "Admin: adminceoai@gmail.com / 12345. Free user created dynamically per test run (TEST_free_* prefix).",
+  "seed_data_creation": "Test creates admin goal (target_value=1000000, target_revenue=500000, ytd=120000@2026-06, 3y) and a fresh free user (TEST_free_ui_*@example.com) for gating.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Feature 'A Minha Meta' is stable. Backend router /api/goal (GET/POST) and /api/goal/plan work with premium_user dependency (402 for free). Frontend page /meta uses data-testid: metas-page, meta-form, input-target-value, input-target-revenue, input-ytd-revenue, input-ytd-asof, deadline-type-years/date, input-deadline-years/date, save-meta-btn, meta-snapshot, meta-current-value, meta-annualized-revenue, meta-years-left, value-goal-card, value-goal-verdict, value-goal-gap, value-needed-per-year, value-milestones, revenue-goal-card, revenue-goal-verdict, revenue-goal-gap, ceo-plan-section, generate-plan-btn, ceo-plan, plan-verdict, plan-diagnostic, plan-action-N, plan-phrase. Regression test file is /app/backend/tests/test_goals.py.",
+  "rca of the issue": "No bugs found."
+}

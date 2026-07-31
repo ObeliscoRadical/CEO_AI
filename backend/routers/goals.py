@@ -25,9 +25,8 @@ def _verdict(pct_of_pace):
         return "tight"
     return "off"
 
-@router.get("/goal")
-async def get_goal(user: dict = Depends(get_current_user)):
-    uid = user["id"]; cid = await active_company_id(uid)
+async def _compute_goal(uid: str, cid):
+    """Cálculos 100% determinísticos no backend (a IA nunca inventa números)."""
     snap = await build_snapshot(uid)
     sym = snap["currency_symbol"]
     val = snap.get("valuation", {}) or {}
@@ -38,7 +37,7 @@ async def get_goal(user: dict = Depends(get_current_user)):
                                    "deadline_years", "deadline_date", "ytd_revenue", "ytd_as_of")}
     base = {"currency_symbol": sym, "current_value": round(current_value, 2),
             "current_revenue": current_revenue, "financials_source": snap.get("financials_source"),
-            "default_target_value": snap.get("goal_value"), "goal": saved}
+            "value_sources": snap.get("value_sources"), "goal": saved}
 
     tv = float(g.get("target_value") or 0)
     tr = float(g.get("target_revenue") or 0)
@@ -109,16 +108,41 @@ async def get_goal(user: dict = Depends(get_current_user)):
 
     out["value_goal"] = value_block
     out["revenue_goal"] = revenue_block
+    return out
 
+@router.get("/goal")
+async def get_goal(user: dict = Depends(premium_user)):
+    uid = user["id"]; cid = await active_company_id(uid)
+    return await _compute_goal(uid, cid)
+
+@router.post("/goal")
+async def save_goal(inp: GoalInput, user: dict = Depends(premium_user)):
+    uid = user["id"]; cid = await active_company_id(uid)
+    data = {k: v for k, v in inp.model_dump().items() if v is not None}
+    data.update({"user_id": uid, "company_id": cid, "updated_at": datetime.now(timezone.utc).isoformat()})
+    await db.goals.update_one({"user_id": uid, "company_id": cid}, {"$set": data}, upsert=True)
+    await db.ai_cache.delete_many({"user_id": uid, "kind": "goal_plan"})
+    return {"ok": True}
+
+@router.post("/goal/plan")
+async def goal_plan(user: dict = Depends(premium_user)):
+    """Plano do CEO por IA — gerado só sob pedido (botão), com cache diário."""
+    uid = user["id"]; cid = await active_company_id(uid)
+    out = await _compute_goal(uid, cid)
+    if not out.get("configured"):
+        return {"configured": False}
+    sym = out["currency_symbol"]
+    vg = out.get("value_goal") or {}
+    tv = vg.get("target", 0)
+    tr = (out.get("revenue_goal") or {}).get("target", 0)
     sysmsg = await build_system_prompt(uid, user.get("name", ""))
-    vg = value_block or {}
     prompt = (
         f"O empresário definiu metas para a empresa. Usa SÓ estes números REAIS (nunca inventes):\n"
-        f"- Valor atual da empresa: {sym}{round(current_value)}\n"
-        f"- Meta de valor: {sym}{round(tv)} · Prazo: {round(years_left, 1)} anos\n"
-        f"- Faturação anualizada (ritmo atual, a partir do que já faturou este ano): {sym}{round(annualized_revenue)}\n"
+        f"- Valor atual da empresa: {sym}{round(out['current_value'])}\n"
+        f"- Meta de valor: {sym}{round(tv)} · Prazo: {round(out['years_left'], 1)} anos\n"
+        f"- Faturação anualizada (ritmo atual, a partir do que já faturou este ano): {sym}{round(out['annualized_revenue'])}\n"
         f"- Meta de faturação anual: {sym}{round(tr)}\n"
-        f"- Lucro anual projetado: {sym}{round(annual_profit_proj)}\n"
+        f"- Lucro anual projetado: {sym}{round(out['annual_profit_projected'])}\n"
         f"- Ao ritmo atual o valor cresce ~{sym}{round(vg.get('growth_per_year', 0))}/ano; "
         f"precisa de ~{sym}{round(vg.get('needed_per_year', 0))}/ano para cumprir o prazo.\n"
         "Devolve APENAS JSON: {\"diagnostico\":str,\"veredicto\":str,\"acoes\":[{\"acao\":str,\"impacto\":str}],\"frase\":str}. "
@@ -127,14 +151,5 @@ async def get_goal(user: dict = Depends(get_current_user)):
         "'acoes': 3 a 4 ações concretas e priorizadas para fechar a diferença, cada uma com 'impacto' estimado em " + sym + " ou %. "
         "'frase': 1 frase motivadora e realista. Português europeu. Sem texto fora do JSON."
     )
-    out["ceo_plan"] = await cached_ai("goal_plan", uid, cid, sysmsg, prompt) or {}
-    return out
-
-@router.post("/goal")
-async def save_goal(inp: GoalInput, user: dict = Depends(get_current_user)):
-    uid = user["id"]; cid = await active_company_id(uid)
-    data = {k: v for k, v in inp.model_dump().items() if v is not None}
-    data.update({"user_id": uid, "company_id": cid, "updated_at": datetime.now(timezone.utc).isoformat()})
-    await db.goals.update_one({"user_id": uid, "company_id": cid}, {"$set": data}, upsert=True)
-    await db.ai_cache.delete_many({"user_id": uid, "kind": "goal_plan"})
-    return {"ok": True}
+    plan = await cached_ai("goal_plan", uid, cid, sysmsg, prompt) or {}
+    return {"configured": True, "ceo_plan": plan}

@@ -10,6 +10,7 @@ import PainelCEO from "@/pages/PainelCEO";
 import Conselhos from "@/pages/Conselhos";
 import Saude from "@/pages/Saude";
 import Valor from "@/pages/Valor";
+import Metas from "@/pages/Metas";
 import Relatorios from "@/pages/Relatorios";
 import Dashboard from "@/pages/Dashboard";
 import Chat from "@/pages/Chat";
@@ -80,6 +81,7 @@ function App() {
                 <Route path="/conselhos" element={<PremiumRoute><Conselhos /></PremiumRoute>} />
                 <Route path="/saude" element={<PremiumRoute><Saude /></PremiumRoute>} />
                 <Route path="/valor" element={<PremiumRoute><Valor /></PremiumRoute>} />
+                <Route path="/meta" element={<PremiumRoute><Metas /></PremiumRoute>} />
                 <Route path="/relatorios" element={<PremiumRoute><Relatorios /></PremiumRoute>} />
                 <Route path="/ceo" element={<PremiumRoute><Chat /></PremiumRoute>} />
                 <Route path="/financas" element={<Finances />} />

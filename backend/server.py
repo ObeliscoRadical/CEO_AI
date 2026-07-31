@@ -16,7 +16,7 @@ from routers import auth, companies, finance, ceo, documents, billing, misc, voi
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
-for _m in (auth, companies, finance, ceo, documents, billing, misc, voice, founders):
+for _m in (auth, companies, finance, ceo, documents, billing, misc, voice, founders, goals):
     api_router.include_router(_m.router)
 app.include_router(api_router)
 
