@@ -100,6 +100,38 @@ async def _compute_projection(uid: str, cid):
         ytd_info = {"ytd_revenue": round(ytd, 2), "months_elapsed": months_elapsed,
                     "annualized_revenue": annualized, "as_of": g.get("ytd_as_of")}
 
+    # ---- Motor de avaliação híbrido: Automático | Múltiplo de Faturação | Múltiplo de EBITDA ----
+    currency = "BRL" if "R$" in (sym or "") else "EUR"
+    fin_off = await latest_official_financials(uid, cid) or {}
+    ebitda = fin_off.get("ebitda")
+    ebitda_source = None
+    if isinstance(ebitda, (int, float)) and ebitda:
+        ebitda_source = "documento oficial"
+    elif isinstance(current_profit, (int, float)) and current_profit and current_profit > 0:
+        ebitda = round(current_profit * 1.3, 2)
+        ebitda_source = "estimado (a partir do lucro líquido)"
+    else:
+        ebitda = None
+    suggestions = suggest_multiples(sector, currency)
+    method = g.get("valuation_method") or "auto"
+    custom_mult = g.get("value_multiple_custom")
+    if method == "revenue":
+        used_multiple = float(custom_mult) if custom_mult else suggestions["revenue"]["suggested"]
+        if isinstance(current_revenue, (int, float)) and current_revenue:
+            current_value = round(current_revenue * used_multiple, 2)
+    elif method == "ebitda":
+        used_multiple = float(custom_mult) if custom_mult else suggestions["ebitda"]["suggested"]
+        if isinstance(ebitda, (int, float)) and ebitda:
+            current_value = round(ebitda * used_multiple, 2)
+    else:
+        method = "auto"
+        used_multiple = val.get("multiple")
+    valuation_info = {
+        "method": method, "used_multiple": used_multiple, "custom": custom_mult is not None,
+        "ebitda": round(ebitda, 2) if isinstance(ebitda, (int, float)) else None,
+        "ebitda_source": ebitda_source, "suggestions": suggestions,
+    }
+
     # Dados em falta (avisamos, nunca inventamos)
     missing = []
     if not snap.get("has_balance") and not ytd:
@@ -114,7 +146,8 @@ async def _compute_projection(uid: str, cid):
 
     saved = {"target_value": g.get("target_value"), "deadline_type": g.get("deadline_type"),
              "deadline_years": g.get("deadline_years"), "deadline_date": g.get("deadline_date"),
-             "ytd_revenue": g.get("ytd_revenue"), "ytd_as_of": g.get("ytd_as_of")}
+             "ytd_revenue": g.get("ytd_revenue"), "ytd_as_of": g.get("ytd_as_of"),
+             "valuation_method": method, "value_multiple_custom": custom_mult}
 
     base = {
         "currency_symbol": sym, "sector": sector,
@@ -126,6 +159,7 @@ async def _compute_projection(uid: str, cid):
         "financials_source": snap.get("financials_source"),
         "value_sources": snap.get("value_sources"),
         "multiple": val.get("multiple"),
+        "valuation": valuation_info,
         "ytd": ytd_info,
         "goal": saved, "missing": missing,
         "last_updated": datetime.now(timezone.utc).isoformat(),
@@ -151,14 +185,34 @@ async def _compute_projection(uid: str, cid):
         goal_v = round(current_value + (tv - current_value) * (frac / years_left), 2)
         trajectory.append({"label": f"Ano {k}", "year": now.year + k, "pace": pace_v, "goal": goal_v})
 
-    # Engenharia inversa (cenário "realista": manter margem atual se for saudável, senão assumir base)
+    # Engenharia inversa — depende do método de avaliação escolhido
     if current_margin and current_margin > 0:
         assumed_margin = current_margin
         margin_assumed = False
     else:
         assumed_margin = 10.0
         margin_assumed = True
-    req = required_performance_for_value(tv, net_worth, assumed_margin, cash)
+
+    if method == "revenue" and used_multiple:
+        req_rev = tv / used_multiple
+        req = {"reached": current_value >= tv, "multiple": used_multiple,
+               "required_revenue": round(req_rev, 2),
+               "required_monthly_revenue": round(req_rev / 12, 2),
+               "required_profit": round(req_rev * assumed_margin / 100.0, 2)}
+    elif method == "ebitda" and used_multiple:
+        req_ebitda = tv / used_multiple
+        if isinstance(ebitda, (int, float)) and ebitda > 0 and current_revenue and current_revenue > 0:
+            ebitda_margin = ebitda / current_revenue * 100.0
+        else:
+            ebitda_margin = max(1.0, assumed_margin * 1.3)
+        req_rev = req_ebitda / (ebitda_margin / 100.0)
+        req = {"reached": current_value >= tv, "multiple": used_multiple,
+               "required_ebitda": round(req_ebitda, 2), "ebitda_margin": round(ebitda_margin, 1),
+               "required_revenue": round(req_rev, 2),
+               "required_monthly_revenue": round(req_rev / 12, 2),
+               "required_profit": round(req_rev * assumed_margin / 100.0, 2)}
+    else:
+        req = required_performance_for_value(tv, net_worth, assumed_margin, cash)
 
     req_growth_total = None
     req_growth_annual = None
@@ -200,10 +254,15 @@ async def get_goal(user: dict = Depends(premium_user)):
 @router.post("/goal")
 async def save_goal(inp: GoalInput, user: dict = Depends(premium_user)):
     uid = user["id"]; cid = await active_company_id(uid)
-    data = {k: v for k, v in inp.model_dump().items() if v is not None}
+    dump = inp.model_dump(exclude_unset=True)
+    data = {k: v for k, v in dump.items() if v is not None}
     data.update({"user_id": uid, "company_id": cid, "updated_at": datetime.now(timezone.utc).isoformat()})
+    unset = {"goal_near_emailed": "", "goal_reached_emailed": ""}
+    # só limpa o override manual do múltiplo se o cliente o enviou explicitamente como null
+    if "value_multiple_custom" in dump and dump["value_multiple_custom"] is None:
+        unset["value_multiple_custom"] = ""
     await db.goals.update_one({"user_id": uid, "company_id": cid},
-                              {"$set": data, "$unset": {"goal_near_emailed": "", "goal_reached_emailed": ""}}, upsert=True)
+                              {"$set": data, "$unset": unset}, upsert=True)
     await db.ai_cache.delete_many({"user_id": uid, "kind": "goal_plan"})
     return {"ok": True}
 

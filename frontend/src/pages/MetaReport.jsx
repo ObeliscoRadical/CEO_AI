@@ -80,7 +80,7 @@ export default function MetaReport() {
           <KPI label="Mantendo o ritmo atual" value={fmt(d.projected_pace)} sub="projeção no prazo" color="#D97706" />
           <KPI label="Património líquido" value={fmt(d.net_worth)} sub="ativos − passivos" color="#7C3AED" />
           <KPI label="Faturação anual usada" value={d.current_revenue != null ? fmt(d.current_revenue) : "—"} sub={d.ytd ? "do que já faturou este ano" : "perfil / documentos"} color="#111827" />
-          <KPI label="Margem líquida" value={d.current_margin != null ? `${d.current_margin}%` : "—"} sub={`múltiplo ${d.multiple || "—"}×`} color="#111827" />
+          <KPI label="Margem líquida" value={d.current_margin != null ? `${d.current_margin}%` : "—"} sub={(() => { const v = d.valuation || {}; const m = v.method === "revenue" ? "faturação" : v.method === "ebitda" ? "EBITDA" : "automático"; return `método ${m}${v.used_multiple != null ? ` · ${v.used_multiple}×` : ""}`; })()} color="#111827" />
         </div>
 
         {/* Progresso */}

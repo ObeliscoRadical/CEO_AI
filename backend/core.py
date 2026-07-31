@@ -528,6 +528,51 @@ def required_performance_for_value(target_value, net_worth, assumed_margin_pct, 
             "goodwill_needed": round(goodwill_needed, 2)}
 
 
+# Múltiplos setoriais sugeridos (motor de avaliação híbrido). Faixas conservadoras para PME.
+SECTOR_MULTIPLES = {
+    "restaur":   {"label": "Restauração / Alimentação", "revenue": 0.8, "ebitda": 3.5},
+    "aliment":   {"label": "Alimentação", "revenue": 0.8, "ebitda": 3.5},
+    "café":      {"label": "Restauração / Cafetaria", "revenue": 0.8, "ebitda": 3.0},
+    "constru":   {"label": "Construção", "revenue": 0.6, "ebitda": 3.5},
+    "imobil":    {"label": "Imobiliário", "revenue": 1.5, "ebitda": 6.0},
+    "software":  {"label": "Software / SaaS", "revenue": 2.5, "ebitda": 8.0},
+    "tecnolog":  {"label": "Tecnologia", "revenue": 2.2, "ebitda": 7.5},
+    "saas":      {"label": "SaaS", "revenue": 3.0, "ebitda": 8.0},
+    "ecommerce": {"label": "E-commerce", "revenue": 1.2, "ebitda": 6.0},
+    "comércio":  {"label": "Comércio / Retalho", "revenue": 0.7, "ebitda": 4.0},
+    "retalho":   {"label": "Retalho", "revenue": 0.7, "ebitda": 4.0},
+    "loja":      {"label": "Comércio / Loja", "revenue": 0.7, "ebitda": 4.0},
+    "consultor": {"label": "Consultoria / Serviços", "revenue": 1.2, "ebitda": 5.0},
+    "serviç":    {"label": "Serviços", "revenue": 1.2, "ebitda": 5.0},
+    "saúde":     {"label": "Saúde / Clínica", "revenue": 1.4, "ebitda": 6.0},
+    "clínic":    {"label": "Saúde / Clínica", "revenue": 1.4, "ebitda": 6.0},
+    "indústr":   {"label": "Indústria", "revenue": 1.0, "ebitda": 5.0},
+    "transport": {"label": "Transportes / Logística", "revenue": 0.9, "ebitda": 4.5},
+    "turismo":   {"label": "Turismo / Hotelaria", "revenue": 1.5, "ebitda": 6.0},
+}
+_DEFAULT_MULT = {"label": "Geral", "revenue": 1.0, "ebitda": 5.0}
+
+
+def suggest_multiples(sector: str, currency: str = "EUR"):
+    """Sugere múltiplos de Faturação e de EBITDA com base no setor e região.
+    O utilizador pode sempre ajustar manualmente."""
+    s = (sector or "").lower()
+    matched = _DEFAULT_MULT
+    for key, val in SECTOR_MULTIPLES.items():
+        if key in s:
+            matched = val
+            break
+    region_factor = 0.9 if currency == "BRL" else 1.0  # ajuste de mercado emergente
+    region = "Brasil" if currency == "BRL" else "Portugal / Europa"
+    rev = round(matched["revenue"] * region_factor, 2)
+    ebd = round(matched["ebitda"] * region_factor, 2)
+    return {
+        "sector_label": matched["label"], "region": region,
+        "revenue": {"suggested": rev, "min": round(max(0.3, rev * 0.5), 2), "max": round(rev * 1.8, 2)},
+        "ebitda": {"suggested": ebd, "min": round(max(2.0, ebd * 0.6), 2), "max": round(ebd * 1.6, 2)},
+    }
+
+
 
 async def build_snapshot(user_id: str):
     company = await resolve_company(user_id) or {}

@@ -121,3 +121,5 @@ class GoalInput(BaseModel):
     deadline_date: Optional[str] = None       # ISO date "YYYY-MM-DD" ou "YYYY-MM"
     ytd_revenue: Optional[float] = None
     ytd_as_of: Optional[str] = None           # data a que se refere a faturação YTD
+    valuation_method: Optional[str] = None    # "auto" | "revenue" | "ebitda"
+    value_multiple_custom: Optional[float] = None  # múltiplo ajustado manualmente pelo utilizador

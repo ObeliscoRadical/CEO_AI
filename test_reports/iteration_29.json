@@ -1,0 +1,23 @@
+{
+  "summary": "Iteration 29: tested new HYBRID VALUATION ENGINE on /api/goal (methods auto|revenue|ebitda + custom multiple + persistence) and the /meta UI (method card, multiple slider, reset, persistence across Calcular Projeção, report regression). Backend 7/7 pytest pass; frontend end-to-end flow works. No bugs found.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_goal_valuation_hybrid.py",
+    "/app/test_reports/pytest/iter29_valuation_hybrid.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "goals.py: correctly uses model_dump(exclude_unset=True) so partial POSTs don't wipe unrelated fields, and only $unsets value_multiple_custom when it is explicitly sent as null. Good behavior verified in tests.",
+    "core.suggest_multiples defaults to 'Geral' (revenue 1.0x, ebitda 5.0x) for empty sector — expected but consider surfacing hint in UI when sector is missing so users know to configure it.",
+    "EBITDA fallback in _compute_projection is profit*1.3 (heuristic). Already flagged as 'estimado' in the UI — acceptable.",
+    "Metas.jsx is ~720 lines — approaching the 700-line guideline; consider splitting the valuation-method card and scenarios/sliders into subcomponents in the future."
+  ],
+  "updated_files": ["/app/backend/tests/test_goal_valuation_hybrid.py"],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100% (all interactions verified)"},
+  "test_credentials": "adminceoai@gmail.com / 12345 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None; used existing admin goal (750000, 5y) and YTD (200000 through 2026-06).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests live in /app/backend/tests/test_goal_valuation_hybrid.py. Run with `python -m pytest backend/tests/test_goal_valuation_hybrid.py -p no:xdist -o addopts=''`. Admin sector is empty -> defaults sugerido revenue 1.0x ebitda 5.0x. Verified: (a) valuation object shape with sector_label/region/revenue{min,suggested,max}/ebitda{...}; (b) method=revenue → current_value = revenue*used_multiple, required.required_revenue = target/used_multiple; (c) method=ebitda with custom=6 → current_value = ebitda*6, required.required_ebitda = target/6, ebitda_margin computed; (d) partial POST with only target_value keeps custom multiple (exclude_unset); (e) explicit null clears override back to suggested; (f) method=auto restores automatic engine; (g) share endpoint still works. Frontend confirmed: method-auto/revenue/ebitda buttons switch card; slider only shown for revenue/ebitda; slider drag updates multiple-value + meta-current-value; multiple-reset resets to sector suggested; custom multiple persists through Calcular Projeção; report-btn navigates to /relatorio-meta which correctly shows 'método EBITDA · 5.5×'."
+}

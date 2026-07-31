@@ -92,6 +92,7 @@ export default function Metas() {
   const [notifying, setNotifying] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
+  const [multLocal, setMultLocal] = useState(null);
 
   const load = () => api.get("/goal").then(({ data }) => {
     setData(data);
@@ -106,6 +107,19 @@ export default function Metas() {
   }).catch(() => setFailed(true));
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    if (data?.valuation?.used_multiple != null) setMultLocal(data.valuation.used_multiple);
+  }, [data?.valuation?.method, data?.valuation?.used_multiple]);
+
+  const setMethod = async (m) => {
+    try { await api.post("/goal", { valuation_method: m, value_multiple_custom: null }); await load(); }
+    catch { toast.error("Não foi possível mudar o método."); }
+  };
+  const commitMult = async (v) => {
+    try { await api.post("/goal", { valuation_method: data?.valuation?.method, value_multiple_custom: v }); await load(); }
+    catch { toast.error("Não foi possível aplicar o múltiplo."); }
+  };
 
   // Base para simulação (a partir dos dados reais do backend)
   const base = useMemo(() => {
@@ -241,6 +255,10 @@ export default function Metas() {
   const sym = data.currency_symbol;
   const cfg = data.configured;
   const req = data.required || {};
+  const vinfo = data.valuation || {};
+  const vmethod = vinfo.method || "auto";
+  const sugg = vinfo.suggestions || {};
+  const msug = vmethod === "revenue" ? sugg.revenue : vmethod === "ebitda" ? sugg.ebitda : null;
   const viab = data.viability ? (VIAB[data.viability.level] || VIAB.amber) : null;
   const simViabLevel = sim ? (sim.reachPct >= 100 ? "green" : sim.reachPct >= 60 ? "amber" : "red") : "amber";
   const simViab = VIAB[simViabLevel];
@@ -327,13 +345,71 @@ export default function Metas() {
         </Button>
       </div>
 
+      {/* Método de avaliação (motor híbrido) */}
+      <div className="surface rounded-3xl p-6 md:p-8 mb-10" data-testid="valuation-method" data-print-hide>
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-1">
+          <h2 className="font-serif-lux text-2xl flex items-center gap-2"><Gauge className="w-5 h-5 text-[#3B82F6]" /> Método de Avaliação</h2>
+          {sugg.sector_label && (
+            <span className="text-xs text-muted-foreground px-3 py-1.5 rounded-full border border-white/10">
+              Setor: {sugg.sector_label} · {sugg.region}
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground mb-5">Escolha como estimar o valor da empresa. Sugerimos o múltiplo ideal por setor/região — pode ajustá-lo à mão.</p>
+        <div className="grid sm:grid-cols-3 gap-3">
+          {[
+            { key: "auto", label: "Automático", desc: "Património + rendimento (recomendado)" },
+            { key: "revenue", label: "Múltiplo de Faturação", desc: "Valor = faturação × múltiplo · bom para PME" },
+            { key: "ebitda", label: "Múltiplo de EBITDA", desc: "Valor = EBITDA × múltiplo · empresas estruturadas" },
+          ].map((m) => {
+            const active = vmethod === m.key;
+            return (
+              <button key={m.key} data-testid={`method-${m.key}`} onClick={() => setMethod(m.key)}
+                className={`text-left rounded-2xl p-4 border transition-all ${active ? "border-2 border-[#3B82F6] bg-[#3B82F6]/[0.06]" : "border-white/[0.08] hover:border-white/20"}`}>
+                <div className={`font-medium mb-1 ${active ? "text-[#3B82F6]" : ""}`}>{m.label}</div>
+                <div className="text-[11px] text-muted-foreground leading-snug">{m.desc}</div>
+              </button>
+            );
+          })}
+        </div>
+
+        {msug && (
+          <div className="mt-6 pt-6 border-t border-white/[0.06]" data-testid="multiple-control">
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-sm">Múltiplo aplicado {vmethod === "revenue" ? "(× faturação anual)" : "(× EBITDA)"}</Label>
+              <div className="flex items-center gap-3">
+                <span className="text-lg font-semibold text-[#3B82F6]" data-testid="multiple-value">{Number(multLocal ?? msug.suggested).toFixed(1)}×</span>
+                {vinfo.custom && (
+                  <button data-testid="multiple-reset" onClick={() => { setMultLocal(msug.suggested); commitMult(null); }} className="text-xs text-muted-foreground hover:text-white underline">usar sugerido ({msug.suggested}×)</button>
+                )}
+              </div>
+            </div>
+            <Slider value={[multLocal ?? msug.suggested]} min={msug.min} max={msug.max} step={0.1}
+              onValueChange={(v) => setMultLocal(v[0])} onValueCommit={(v) => commitMult(v[0])} data-testid="multiple-slider" />
+            <div className="flex justify-between text-[11px] text-muted-foreground mt-1.5">
+              <span>{msug.min}× (conservador)</span>
+              <span>sugerido para o setor: <span className="text-foreground">{msug.suggested}×</span></span>
+              <span>{msug.max}× (otimista)</span>
+            </div>
+            {vmethod === "ebitda" && vinfo.ebitda != null && (
+              <p className="text-[11px] text-muted-foreground mt-3">EBITDA usado: <span className="text-foreground">{fmt(sym, vinfo.ebitda)}</span> ({vinfo.ebitda_source}).</p>
+            )}
+            {vmethod === "ebitda" && vinfo.ebitda == null && (
+              <p className="text-[11px] text-[#F59E0B] mt-3">Sem EBITDA disponível — preencha os custos no Perfil Financeiro ou carregue um documento oficial para usar este método com rigor.</p>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Património vs Valor */}
       <div className="grid sm:grid-cols-2 gap-4 mb-10" data-testid="meta-value-vs-networth">
         <StatCard testid="meta-networth" Icon={Wallet} label="Património Líquido (ativos − passivos)" color="#A78BFA"
           value={fmt(sym, data.net_worth)} sub="Base contabilística — não é o valor de mercado." />
         <StatCard testid="meta-current-value" Icon={Target} label="Valor Estimado da Empresa" color="#3B82F6"
           value={fmt(sym, data.current_value)}
-          sub={data.value_sources?.patrimonio ? `motor de avaliação · fonte: ${data.value_sources.patrimonio}` : "motor de avaliação (património + rendimento)"} />
+          sub={vmethod === "revenue" ? `múltiplo de faturação ${vinfo.used_multiple}×`
+            : vmethod === "ebitda" ? `múltiplo de EBITDA ${vinfo.used_multiple}×`
+            : "motor automático (património + rendimento)"} />
       </div>
 
       {!cfg ? (
@@ -621,7 +697,7 @@ export default function Metas() {
                 <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Faturação anual usada{data.ytd ? " (do que já faturaste este ano)" : ""}</span><span className="font-medium">{data.current_revenue != null ? fmt(sym, data.current_revenue) : "—"}</span></div>
                 <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Lucro anual usado</span><span className="font-medium">{data.current_profit != null ? fmt(sym, data.current_profit) : "—"}</span></div>
                 <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Margem líquida</span><span className="font-medium">{data.current_margin != null ? `${data.current_margin}%` : "—"}</span></div>
-                <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Múltiplo de avaliação aplicado</span><span className="font-medium">{data.multiple != null ? `${data.multiple}×` : "—"}</span></div>
+                <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Método / múltiplo aplicado</span><span className="font-medium">{vmethod === "revenue" ? "Faturação" : vmethod === "ebitda" ? "EBITDA" : "Automático"}{vinfo.used_multiple != null ? ` · ${vinfo.used_multiple}×` : ""}</span></div>
                 <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Dívida / passivos</span><span className="font-medium">{fmt(sym, data.total_liabilities)}</span></div>
                 <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Caixa disponível</span><span className="font-medium">{fmt(sym, data.cash)}</span></div>
                 <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Prazo analisado</span><span className="font-medium">{data.years_left} anos</span></div>
