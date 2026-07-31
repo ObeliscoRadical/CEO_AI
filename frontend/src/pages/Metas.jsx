@@ -5,31 +5,36 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Loader2, Target, TrendingUp, Flag, Sparkles, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
-
-const VERDICT = {
-  reached: { label: "Meta atingida", color: "#10B981", Icon: CheckCircle2 },
-  on: { label: "No bom caminho", color: "#10B981", Icon: CheckCircle2 },
-  tight: { label: "Justo — dá para acelerar", color: "#F59E0B", Icon: Clock },
-  off: { label: "Precisas de acelerar", color: "#EF4444", Icon: AlertTriangle },
-};
+import {
+  Loader2, Target, TrendingUp, Sparkles, AlertTriangle, MapPin, Flag,
+  Gauge, ArrowUpRight, Wallet, Percent, LineChart, CheckCircle2, Clock,
+} from "lucide-react";
 
 const fmt = (sym, n) => `${sym}${Number(n || 0).toLocaleString("pt-PT", { maximumFractionDigits: 0 })}`;
+const PRESETS = [1, 2, 3, 5, 7, 10];
 
-function VerdictBadge({ v, testid }) {
-  const c = VERDICT[v] || VERDICT.off;
-  return (
-    <span data-testid={testid} className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full border"
-      style={{ color: c.color, borderColor: `${c.color}55`, background: `${c.color}12` }}>
-      <c.Icon className="w-3.5 h-3.5" /> {c.label}
-    </span>
-  );
-}
+const VIAB = {
+  green: { color: "#10B981", Icon: CheckCircle2 },
+  amber: { color: "#F59E0B", Icon: Clock },
+  red: { color: "#EF4444", Icon: AlertTriangle },
+};
 
 function ProgressBar({ pct, color }) {
   return (
-    <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden">
-      <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, pct || 0)}%`, background: color }} />
+    <div className="h-2.5 rounded-full bg-white/[0.06] overflow-hidden">
+      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(100, pct || 0)}%`, background: color }} />
+    </div>
+  );
+}
+
+function StatCard({ label, value, sub, color, testid, Icon }) {
+  return (
+    <div className="surface rounded-2xl p-5" data-testid={testid}>
+      <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground mb-2">
+        {Icon && <Icon className="w-3.5 h-3.5" style={{ color }} />} {label}
+      </div>
+      <div className="font-serif-lux text-2xl md:text-[26px]" style={{ color: color || undefined }}>{value}</div>
+      {sub && <div className="text-[11px] text-muted-foreground mt-1.5">{sub}</div>}
     </div>
   );
 }
@@ -40,50 +45,31 @@ export default function Metas() {
   const [saving, setSaving] = useState(false);
   const [planLoading, setPlanLoading] = useState(false);
   const [plan, setPlan] = useState(null);
-  const [form, setForm] = useState({
-    target_value: "", target_revenue: "", ytd_revenue: "", ytd_as_of: "",
-    deadline_type: "years", deadline_years: "3", deadline_date: "",
-  });
+  const [targetValue, setTargetValue] = useState("");
+  const [years, setYears] = useState(5);
+  const [custom, setCustom] = useState(false);
 
   const load = () => api.get("/goal").then(({ data }) => {
     setData(data);
     const g = data.goal || {};
-    setForm((f) => ({
-      target_value: g.target_value ?? "",
-      target_revenue: g.target_revenue ?? "",
-      ytd_revenue: g.ytd_revenue ?? "",
-      ytd_as_of: (g.ytd_as_of || "").slice(0, 7),
-      deadline_type: g.deadline_type || "years",
-      deadline_years: g.deadline_years != null ? String(g.deadline_years) : "3",
-      deadline_date: (g.deadline_date || "").slice(0, 7),
-    }));
+    if (g.target_value != null) setTargetValue(String(g.target_value));
+    if (g.deadline_years != null) {
+      setYears(Number(g.deadline_years));
+      setCustom(!PRESETS.includes(Number(g.deadline_years)));
+    }
   }).catch(() => setFailed(true));
 
   useEffect(() => { load(); }, []);
 
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-
-  const save = async () => {
+  const calc = async () => {
+    if (!targetValue || Number(targetValue) <= 0) { toast.error("Indique o valor que pretende alcançar."); return; }
     setSaving(true);
     try {
-      const payload = {
-        target_value: form.target_value ? Number(form.target_value) : null,
-        target_revenue: form.target_revenue ? Number(form.target_revenue) : null,
-        ytd_revenue: form.ytd_revenue ? Number(form.ytd_revenue) : null,
-        ytd_as_of: form.ytd_as_of || null,
-        deadline_type: form.deadline_type,
-        deadline_years: form.deadline_type === "years" && form.deadline_years ? Number(form.deadline_years) : null,
-        deadline_date: form.deadline_type === "date" && form.deadline_date ? form.deadline_date : null,
-      };
-      if (!payload.target_value && !payload.target_revenue) {
-        toast.error("Define pelo menos uma meta (valor ou faturação).");
-        setSaving(false); return;
-      }
-      await api.post("/goal", payload);
+      await api.post("/goal", { target_value: Number(targetValue), deadline_type: "years", deadline_years: Number(years) });
       setPlan(null);
       await load();
-      toast.success("Meta guardada. Já calculei o teu ritmo.");
-    } catch { toast.error("Não foi possível guardar a meta."); }
+      toast.success("Projeção calculada com os seus dados reais.");
+    } catch { toast.error("Não foi possível calcular a projeção."); }
     setSaving(false);
   };
 
@@ -92,149 +78,165 @@ export default function Metas() {
     try {
       const { data } = await api.post("/goal/plan");
       setPlan(data.ceo_plan || {});
-    } catch { toast.error("Não foi possível gerar o plano agora."); }
+    } catch { toast.error("Não foi possível gerar a perspetiva agora."); }
     setPlanLoading(false);
   };
 
-  if (failed) return <div className="text-center py-40 text-muted-foreground" data-testid="meta-error">Não foi possível carregar as tuas metas. Atualiza a página.</div>;
+  if (failed) return <div className="text-center py-40 text-muted-foreground" data-testid="meta-error">Não foi possível carregar. Atualiza a página.</div>;
   if (!data) return <div className="flex justify-center py-40"><Loader2 className="w-6 h-6 animate-spin text-[#3B82F6]" /></div>;
 
   const sym = data.currency_symbol;
-  const vg = data.value_goal, rg = data.revenue_goal;
+  const cfg = data.configured;
+  const req = data.required || {};
+  const viab = data.viability ? (VIAB[data.viability.level] || VIAB.amber) : null;
 
   return (
-    <div className="px-6 md:px-16 py-14 md:py-20 max-w-[980px] mx-auto" data-testid="metas-page">
-      <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground mb-3">A Minha Meta</p>
+    <div className="px-6 md:px-16 py-14 md:py-20 max-w-[1040px] mx-auto" data-testid="metas-page">
+      <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground mb-3">Metas e Projeções</p>
       <div className="mb-10">
-        <h1 className="font-serif-lux text-4xl md:text-5xl text-[#3B82F6] flex items-center gap-3"><Target className="w-8 h-8" /> Aonde queres chegar</h1>
-        <p className="text-muted-foreground mt-3">Define o valor e a faturação que queres atingir, diz-me quanto já faturaste este ano, e eu calculo o ritmo necessário e o que fazer.</p>
+        <h1 className="font-serif-lux text-4xl md:text-5xl text-[#3B82F6] flex items-center gap-3">
+          <LineChart className="w-8 h-8" /> Projeção de Valor da Empresa
+        </h1>
+        <p className="text-muted-foreground mt-3">Planeie o futuro da sua empresa com base nos seus dados reais.</p>
       </div>
 
-      {/* Formulário */}
+      {/* Dados em falta */}
+      {data.missing?.length > 0 && (
+        <div className="rounded-2xl border border-[#F59E0B]/30 bg-[#F59E0B]/[0.06] p-5 mb-8" data-testid="meta-missing">
+          <div className="flex items-center gap-2 text-[#F59E0B] font-medium mb-2"><AlertTriangle className="w-4 h-4" /> Faltam dados para uma projeção fiável</div>
+          <ul className="text-sm text-muted-foreground space-y-1">
+            {data.missing.map((m, i) => (
+              <li key={i}>• <span className="text-foreground">{m.label}</span> — preencha em <span className="text-[#3B82F6]">{m.where}</span></li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Pergunta ao utilizador */}
       <div className="surface rounded-3xl p-6 md:p-8 mb-10" data-testid="meta-form">
-        <h2 className="font-serif-lux text-2xl mb-6">As tuas metas</h2>
-        <div className="grid md:grid-cols-2 gap-5">
+        <h2 className="font-serif-lux text-2xl mb-1">Qual é o valor que pretende alcançar?</h2>
+        <p className="text-sm text-muted-foreground mb-5">Esta é uma meta de <span className="text-foreground font-medium">valor da empresa</span> — não de faturação.</p>
+        <div className="grid md:grid-cols-2 gap-6">
           <div>
             <Label className="text-sm text-muted-foreground">Meta de valor da empresa ({sym})</Label>
-            <Input data-testid="input-target-value" type="number" value={form.target_value} onChange={set("target_value")} placeholder="ex: 1000000" className="mt-1.5" />
+            <Input data-testid="input-target-value" type="number" value={targetValue} onChange={(e) => setTargetValue(e.target.value)} placeholder="ex: 750000" className="mt-1.5 text-lg" />
           </div>
           <div>
-            <Label className="text-sm text-muted-foreground">Meta de faturação anual ({sym})</Label>
-            <Input data-testid="input-target-revenue" type="number" value={form.target_revenue} onChange={set("target_revenue")} placeholder="ex: 500000" className="mt-1.5" />
-          </div>
-          <div>
-            <Label className="text-sm text-muted-foreground">Faturação já feita este ano ({sym})</Label>
-            <Input data-testid="input-ytd-revenue" type="number" value={form.ytd_revenue} onChange={set("ytd_revenue")} placeholder="acumulado até à data" className="mt-1.5" />
-          </div>
-          <div>
-            <Label className="text-sm text-muted-foreground">Até que mês se refere</Label>
-            <Input data-testid="input-ytd-asof" type="month" value={form.ytd_as_of} onChange={set("ytd_as_of")} className="mt-1.5" />
+            <Label className="text-sm text-muted-foreground">Em quanto tempo pretende alcançar?</Label>
+            <div className="flex flex-wrap gap-2 mt-1.5">
+              {PRESETS.map((y) => (
+                <button key={y} data-testid={`years-${y}`} onClick={() => { setYears(y); setCustom(false); }}
+                  className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${!custom && years === y ? "bg-[#3B82F6] text-white border-transparent" : "border-white/10 text-muted-foreground hover:text-white"}`}>
+                  {y} {y === 1 ? "ano" : "anos"}
+                </button>
+              ))}
+              <button data-testid="years-custom" onClick={() => setCustom(true)}
+                className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${custom ? "bg-[#3B82F6] text-white border-transparent" : "border-white/10 text-muted-foreground hover:text-white"}`}>
+                Personalizado
+              </button>
+            </div>
+            {custom && (
+              <Input data-testid="input-custom-years" type="number" min="0.5" step="0.5" value={years} onChange={(e) => setYears(e.target.value)} className="mt-3 max-w-[160px]" placeholder="anos" />
+            )}
           </div>
         </div>
-
-        <div className="mt-6">
-          <Label className="text-sm text-muted-foreground">Prazo</Label>
-          <div className="flex gap-2 mt-1.5 mb-3">
-            <button data-testid="deadline-type-years" onClick={() => setForm((f) => ({ ...f, deadline_type: "years" }))}
-              className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${form.deadline_type === "years" ? "bg-[#3B82F6] text-white border-transparent" : "border-white/10 text-muted-foreground hover:text-white"}`}>Por nº de anos</button>
-            <button data-testid="deadline-type-date" onClick={() => setForm((f) => ({ ...f, deadline_type: "date" }))}
-              className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${form.deadline_type === "date" ? "bg-[#3B82F6] text-white border-transparent" : "border-white/10 text-muted-foreground hover:text-white"}`}>Por data alvo</button>
-          </div>
-          {form.deadline_type === "years" ? (
-            <Input data-testid="input-deadline-years" type="number" min="0.5" step="0.5" value={form.deadline_years} onChange={set("deadline_years")} placeholder="ex: 3" className="max-w-[220px]" />
-          ) : (
-            <Input data-testid="input-deadline-date" type="month" value={form.deadline_date} onChange={set("deadline_date")} className="max-w-[220px]" />
-          )}
-        </div>
-
-        <Button data-testid="save-meta-btn" onClick={save} disabled={saving} className="mt-7 rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]">
-          {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null} Guardar meta e calcular
+        <Button data-testid="calc-projection-btn" onClick={calc} disabled={saving} className="mt-7 rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]">
+          {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Gauge className="w-4 h-4 mr-2" />} Calcular Projeção
         </Button>
       </div>
 
-      {!data.configured ? (
+      {/* Património vs Valor */}
+      <div className="grid sm:grid-cols-2 gap-4 mb-10" data-testid="meta-value-vs-networth">
+        <StatCard testid="meta-networth" Icon={Wallet} label="Património Líquido (ativos − passivos)" color="#A78BFA"
+          value={fmt(sym, data.net_worth)} sub="Base contabilística — não é o valor de mercado." />
+        <StatCard testid="meta-current-value" Icon={Target} label="Valor Estimado da Empresa" color="#3B82F6"
+          value={fmt(sym, data.current_value)}
+          sub={data.value_sources?.patrimonio ? `motor de avaliação · fonte: ${data.value_sources.patrimonio}` : "motor de avaliação (património + rendimento)"} />
+      </div>
+
+      {!cfg ? (
         <div className="surface rounded-3xl p-8 text-center text-muted-foreground" data-testid="meta-empty">
-          Define pelo menos uma meta acima e eu mostro-te quanto falta, o ritmo necessário e um plano concreto.
+          Defina o valor que pretende alcançar e o prazo acima, e eu faço a engenharia inversa: quanto precisa de faturar, lucrar e crescer para lá chegar.
         </div>
       ) : (
         <>
-          {/* Ponto de partida */}
-          <div className="grid md:grid-cols-3 gap-4 mb-10" data-testid="meta-snapshot">
-            <div className="surface rounded-2xl p-5">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Valor atual</div>
-              <div className="font-serif-lux text-2xl text-[#3B82F6]" data-testid="meta-current-value">{fmt(sym, data.current_value)}</div>
-              {data.value_sources?.patrimonio && <div className="text-[11px] text-muted-foreground mt-1">fonte: {data.value_sources.patrimonio}</div>}
+          {/* Resumo principal — 3 cartões */}
+          <div className="grid md:grid-cols-3 gap-4 mb-6" data-testid="meta-summary">
+            <div className="surface rounded-2xl p-5 border border-[#10B981]/25" data-testid="summary-goal">
+              <div className="text-xs uppercase tracking-wider text-[#10B981] mb-1">Valor alcançando a meta</div>
+              <div className="font-serif-lux text-3xl text-[#10B981]">{fmt(sym, data.target_value)}</div>
+              <div className="text-[11px] text-muted-foreground mt-1">em {data.years_left} anos</div>
             </div>
-            <div className="surface rounded-2xl p-5">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Faturação ao ritmo atual</div>
-              <div className="font-serif-lux text-2xl" data-testid="meta-annualized-revenue">{fmt(sym, data.annualized_revenue)}</div>
-              <div className="text-[11px] text-muted-foreground mt-1">projeção anual a partir do que já faturaste ({data.months_elapsed} {data.months_elapsed === 1 ? "mês" : "meses"})</div>
+            <div className="surface rounded-2xl p-5" data-testid="summary-pace">
+              <div className="text-xs uppercase tracking-wider text-[#F59E0B] mb-1">Mantendo o ritmo atual</div>
+              <div className="font-serif-lux text-3xl text-[#F59E0B]">{fmt(sym, data.projected_pace)}</div>
+              <div className="text-[11px] text-muted-foreground mt-1">crescimento ~{fmt(sym, data.pace_growth_per_year)}/ano</div>
             </div>
-            <div className="surface rounded-2xl p-5">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Prazo</div>
-              <div className="font-serif-lux text-2xl" data-testid="meta-years-left">{data.years_left} anos</div>
-              <div className="text-[11px] text-muted-foreground mt-1">lucro anual projetado: {fmt(sym, data.annual_profit_projected)}</div>
+            <div className="surface rounded-2xl p-5" data-testid="summary-difference">
+              <div className="text-xs uppercase tracking-wider text-[#3B82F6] mb-1">Diferença — Oportunidade</div>
+              <div className="font-serif-lux text-3xl text-[#3B82F6]">{fmt(sym, Math.max(0, data.difference))}</div>
+              <div className="text-[11px] text-muted-foreground mt-1">quanto vale acelerar</div>
             </div>
           </div>
 
-          {/* Meta de valor */}
-          {vg && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="surface rounded-3xl p-6 md:p-8 mb-6" data-testid="value-goal-card">
-              <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-                <h3 className="font-serif-lux text-2xl flex items-center gap-2"><Flag className="w-5 h-5 text-[#3B82F6]" /> Meta de valor: {fmt(sym, vg.target)}</h3>
-                <VerdictBadge v={vg.verdict} testid="value-goal-verdict" />
-              </div>
-              <ProgressBar pct={vg.pct} color="#3B82F6" />
-              <div className="flex justify-between text-sm text-muted-foreground mt-2 mb-6">
-                <span>{vg.pct}% do caminho</span>
-                <span data-testid="value-goal-gap">Falta {fmt(sym, Math.max(0, vg.gap))}</span>
-              </div>
-              <div className="grid sm:grid-cols-3 gap-4 text-sm">
-                <div><div className="text-muted-foreground">Ritmo necessário</div><div className="font-medium text-foreground" data-testid="value-needed-per-year">{fmt(sym, vg.needed_per_year)}/ano</div></div>
-                <div><div className="text-muted-foreground">Ritmo atual (crescimento)</div><div className="font-medium text-foreground">{fmt(sym, vg.growth_per_year)}/ano</div></div>
-                <div><div className="text-muted-foreground">Ao ritmo atual chegas em</div><div className="font-medium text-foreground">{vg.verdict === "reached" ? "Já atingiste" : vg.years_at_pace != null ? `${vg.years_at_pace} anos` : "não estás a crescer"}</div></div>
-              </div>
-              {vg.milestones?.length > 0 && (
-                <div className="mt-6">
-                  <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Trajetória necessária</div>
-                  <div className="flex flex-wrap gap-2" data-testid="value-milestones">
-                    {vg.milestones.map((m, i) => (
-                      <div key={i} className="px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.06] text-sm">
-                        <span className="text-muted-foreground">{m.year}:</span> <span className="font-medium">{fmt(sym, m.target)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          )}
+          {/* Mensagem dinâmica + viabilidade */}
+          <div className="surface rounded-2xl p-5 mb-10 flex items-start gap-4 flex-wrap" data-testid="meta-obstacle">
+            <div className="flex-1 min-w-[240px]">
+              <div className="text-sm text-foreground">{data.obstacle?.message}</div>
+            </div>
+            {viab && (
+              <span data-testid="meta-viability" className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border shrink-0"
+                style={{ color: viab.color, borderColor: `${viab.color}55`, background: `${viab.color}12` }}>
+                <viab.Icon className="w-3.5 h-3.5" /> {data.viability.label}
+              </span>
+            )}
+          </div>
 
-          {/* Meta de faturação */}
-          {rg && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="surface rounded-3xl p-6 md:p-8 mb-10" data-testid="revenue-goal-card">
-              <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-                <h3 className="font-serif-lux text-2xl flex items-center gap-2"><TrendingUp className="w-5 h-5 text-[#10B981]" /> Meta de faturação: {fmt(sym, rg.target)}/ano</h3>
-                <VerdictBadge v={rg.verdict} testid="revenue-goal-verdict" />
-              </div>
-              <ProgressBar pct={rg.pct} color="#10B981" />
-              <div className="flex justify-between text-sm text-muted-foreground mt-2 mb-6">
-                <span>{rg.pct}% da meta (projeção deste ano: {fmt(sym, rg.projected_year_end)})</span>
-                <span data-testid="revenue-goal-gap">Falta {fmt(sym, Math.max(0, rg.gap))}</span>
-              </div>
-              <div className="text-sm"><span className="text-muted-foreground">Precisas de crescer a faturação em </span><span className="font-medium">{fmt(sym, rg.needed_per_year)}/ano</span><span className="text-muted-foreground"> para cumprir o prazo.</span></div>
-            </motion.div>
-          )}
+          {/* GPS estratégico */}
+          <div className="surface rounded-3xl p-6 md:p-8 mb-10" data-testid="meta-gps">
+            <h3 className="font-serif-lux text-2xl flex items-center gap-2 mb-6"><MapPin className="w-5 h-5 text-[#3B82F6]" /> GPS estratégico</h3>
+            <div className="grid sm:grid-cols-3 gap-4 mb-6">
+              <div><div className="text-xs text-muted-foreground mb-1">Está aqui</div><div className="font-medium text-lg">{fmt(sym, data.current_value)}</div></div>
+              <div><div className="text-xs text-muted-foreground mb-1">Se mantiver o ritmo</div><div className="font-medium text-lg text-[#F59E0B]">{fmt(sym, data.projected_pace)}</div></div>
+              <div><div className="text-xs text-muted-foreground mb-1">Meta escolhida</div><div className="font-medium text-lg text-[#10B981]">{fmt(sym, data.target_value)}</div></div>
+            </div>
+            <ProgressBar pct={data.progress} color="#3B82F6" />
+            <div className="flex flex-wrap justify-between gap-2 text-sm text-muted-foreground mt-2">
+              <span data-testid="gps-progress">{data.progress}% já alcançado</span>
+              <span>Falta {fmt(sym, Math.max(0, data.target_value - data.current_value))}</span>
+              <span>{data.years_left} anos restantes</span>
+            </div>
+          </div>
 
-          {/* Plano do CEO (sob pedido) */}
-          <div className="surface rounded-3xl p-6 md:p-8" data-testid="ceo-plan-section">
+          {/* O que precisa de fazer */}
+          <h3 className="font-serif-lux text-2xl mb-4 flex items-center gap-2"><Flag className="w-5 h-5 text-[#3B82F6]" /> O que precisa de fazer para alcançar a meta</h3>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4" data-testid="meta-actions">
+            <StatCard testid="action-profit" Icon={TrendingUp} color="#10B981" label="Lucro líquido necessário"
+              value={req.required_profit != null ? `${fmt(sym, req.required_profit)}/ano` : "—"} />
+            <StatCard testid="action-revenue" Icon={ArrowUpRight} color="#3B82F6" label="Faturação necessária"
+              value={req.required_revenue != null ? `${fmt(sym, req.required_revenue)}/ano` : "—"} />
+            <StatCard testid="action-monthly" Icon={ArrowUpRight} color="#3B82F6" label="Faturação mensal necessária"
+              value={req.required_monthly_revenue != null ? `${fmt(sym, req.required_monthly_revenue)}/mês` : "—"} />
+            <StatCard testid="action-growth" Icon={TrendingUp} color="#A78BFA" label="Crescimento necessário"
+              value={req.required_growth_total != null ? `+${req.required_growth_total}%` : "—"}
+              sub={req.required_growth_annual != null ? `~${req.required_growth_annual}%/ano` : null} />
+            <StatCard testid="action-margin" Icon={Percent} color="#F59E0B" label="Margem necessária"
+              value={req.assumed_margin != null ? `${req.assumed_margin}%` : "—"}
+              sub={req.margin_assumed ? "assumida (falta margem real)" : "manter a margem atual"} />
+            <StatCard testid="action-monthly-diff" Icon={ArrowUpRight} color="#3B82F6" label="Diferença mensal"
+              value={req.monthly_diff != null ? `${req.monthly_diff >= 0 ? "+" : ""}${fmt(sym, req.monthly_diff)}/mês` : "—"} />
+          </div>
+
+          {/* Perspetiva do CEO AI (sob pedido) */}
+          <div className="surface rounded-3xl p-6 md:p-8 mt-8" data-testid="ceo-plan-section">
             <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
-              <h3 className="font-serif-lux text-2xl flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#3B82F6]" /> Plano do CEO para atingir a meta</h3>
+              <h3 className="font-serif-lux text-2xl flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#3B82F6]" /> Perspetiva do CEO AI</h3>
               <Button data-testid="generate-plan-btn" onClick={generatePlan} disabled={planLoading} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]">
                 {planLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
-                {plan ? "Gerar de novo" : "Gerar plano do CEO"}
+                {plan ? "Gerar de novo" : "Pedir perspetiva do CEO"}
               </Button>
             </div>
-            {!plan && !planLoading && <p className="text-muted-foreground text-sm">Carrega no botão e eu analiso os teus números e digo-te exatamente o que fazer para chegar à meta no prazo.</p>}
+            {!plan && !planLoading && <p className="text-muted-foreground text-sm">Carregue no botão e eu analiso os seus números reais e o seu setor para lhe dizer exatamente o que fazer para chegar à meta no prazo.</p>}
             {plan && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5 mt-2" data-testid="ceo-plan">
                 {plan.veredicto && <div className="text-lg font-medium text-[#3B82F6]" data-testid="plan-verdict">{plan.veredicto}</div>}
@@ -256,6 +258,10 @@ export default function Metas() {
               </motion.div>
             )}
           </div>
+
+          <p className="text-[11px] text-muted-foreground mt-8" data-testid="meta-disclaimer">
+            Esta projeção é uma estimativa estratégica baseada nos dados introduzidos e não constitui uma avaliação financeira, contabilística ou jurídica independente.
+          </p>
         </>
       )}
     </div>

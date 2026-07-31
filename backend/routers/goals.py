@@ -5,6 +5,7 @@ import math
 
 router = APIRouter()
 
+
 def _parse_date(s: str):
     if not s:
         return None
@@ -16,104 +17,160 @@ def _parse_date(s: str):
     except Exception:
         return None
 
-def _verdict(pct_of_pace):
-    if pct_of_pace is None:
-        return "off"
-    if pct_of_pace <= 1.1:
-        return "on"
-    if pct_of_pace <= 1.6:
-        return "tight"
-    return "off"
 
-async def _compute_goal(uid: str, cid):
-    """Cálculos 100% determinísticos no backend (a IA nunca inventa números)."""
-    snap = await build_snapshot(uid)
-    sym = snap["currency_symbol"]
-    val = snap.get("valuation", {}) or {}
-    current_value = float(snap.get("company_value", 0) or 0)
-    current_revenue = val.get("annual_revenue")
-    g = await db.goals.find_one({"user_id": uid, "company_id": cid}) or {}
-    saved = {k: g.get(k) for k in ("target_value", "target_revenue", "deadline_type",
-                                   "deadline_years", "deadline_date", "ytd_revenue", "ytd_as_of")}
-    base = {"currency_symbol": sym, "current_value": round(current_value, 2),
-            "current_revenue": current_revenue, "financials_source": snap.get("financials_source"),
-            "value_sources": snap.get("value_sources"), "goal": saved}
-
-    tv = float(g.get("target_value") or 0)
-    tr = float(g.get("target_revenue") or 0)
-    if not (tv > 0 or tr > 0):
-        return {**base, "configured": False}
-
-    now = datetime.now(timezone.utc)
-    years_left = None
+def _years_left(g: dict, now: datetime) -> float:
     if g.get("deadline_type") == "date" and g.get("deadline_date"):
         d = _parse_date(g["deadline_date"])
         if d:
-            years_left = max(0.05, (d - now).days / 365.25)
-    if years_left is None:
-        years_left = max(0.05, float(g.get("deadline_years") or 3))
+            return max(0.25, round((d - now).days / 365.25, 2))
+    return max(0.25, float(g.get("deadline_years") or 5))
 
-    ytd = float(g.get("ytd_revenue") or 0)
-    aod = _parse_date(g.get("ytd_as_of")) or now
-    months_elapsed = 12 if aod.year < now.year else max(1, min(12, aod.month))
-    annualized_revenue = round(ytd / months_elapsed * 12, 2) if ytd > 0 else float(current_revenue or 0)
 
-    margin = None
-    if val.get("annual_revenue") and val.get("annual_profit") is not None and val["annual_revenue"] > 0:
-        margin = val["annual_profit"] / val["annual_revenue"]
-    elif snap.get("profit_margin"):
-        margin = float(snap["profit_margin"]) / 100.0
-    annual_profit_proj = round((annualized_revenue * margin) if margin else float(val.get("annual_profit") or 0), 2)
+def _viability(req_growth_annual, current_margin, assumed_margin, has_debt_pressure):
+    """Classificação honesta de probabilidade (verde/amarelo/vermelho)."""
+    if req_growth_annual is None:
+        return {"level": "amber", "label": "Cenário exigente", "note": "Faltam dados para avaliar com rigor."}
+    score = 0
+    if req_growth_annual <= 15: score += 2
+    elif req_growth_annual <= 35: score += 1
+    if current_margin is not None and assumed_margin is not None and (assumed_margin - current_margin) <= 5: score += 1
+    if not has_debt_pressure: score += 1
+    if score >= 3:
+        return {"level": "green", "label": "Cenário possível", "note": "Realista com a estrutura atual, mantendo disciplina."}
+    if score >= 1:
+        return {"level": "amber", "label": "Cenário exigente", "note": "Alcançável, mas exige melhorar margem e/ou crescer bem acima do ritmo atual."}
+    return {"level": "red", "label": "Cenário altamente ambicioso", "note": "Pouco provável com a estrutura atual sem uma mudança profunda."}
 
-    out = {**base, "configured": True, "years_left": round(years_left, 2),
-           "months_elapsed": months_elapsed, "annualized_revenue": annualized_revenue,
-           "annual_profit_projected": annual_profit_proj}
 
-    value_block = None
-    if tv > 0:
-        gap = round(tv - current_value, 2)
-        pct = round(min(100, current_value / tv * 100), 1) if tv else 0
-        needed_py = round(gap / years_left, 2) if years_left > 0 else gap
-        growth = annual_profit_proj if annual_profit_proj > 0 else 0
-        years_at_pace = round(gap / growth, 1) if growth > 0 and gap > 0 else (0 if gap <= 0 else None)
-        if gap <= 0:
-            verdict = "reached"
-        elif growth <= 0:
-            verdict = "off"
-        else:
-            verdict = _verdict(years_at_pace / years_left if years_left > 0 else None)
-        milestones = []
-        n = max(1, math.ceil(years_left))
-        for k in range(1, n + 1):
-            milestones.append({"year": now.year + k, "target": round(min(tv, current_value + needed_py * k), 2)})
-        value_block = {"target": tv, "gap": gap, "pct": pct, "needed_per_year": needed_py,
-                       "growth_per_year": round(growth, 2), "years_at_pace": years_at_pace,
-                       "verdict": verdict, "milestones": milestones}
+def _obstacle(current_margin, current_revenue, req_revenue, has_debt_pressure):
+    """Principal obstáculo identificado -> mensagem dinâmica."""
+    if current_margin is None or current_margin <= 0:
+        return "margem", "A margem atual é baixa ou negativa. A prioridade é tornar a empresa rentável antes de acelerar a faturação."
+    if current_margin < 8:
+        return "margem", "A margem líquida é baixa. Ganhar rentabilidade vale mais do que faturar mais ao mesmo custo."
+    if req_revenue and current_revenue and current_revenue > 0 and req_revenue > current_revenue * 1.8:
+        return "faturacao", "A faturação atual está muito abaixo do necessário. É preciso crescer as vendas de forma significativa."
+    if has_debt_pressure:
+        return "divida", "A dívida pesa no valor da empresa. Reduzir passivos liberta valor mais depressa do que crescer."
+    return "crescimento", "O caminho passa sobretudo por manter o crescimento e proteger a margem ano após ano."
 
-    revenue_block = None
-    if tr > 0:
-        rgap = round(tr - annualized_revenue, 2)
-        rpct = round(min(100, annualized_revenue / tr * 100), 1) if tr else 0
-        needed_py_rev = round((tr - annualized_revenue) / years_left, 2) if years_left > 0 else rgap
-        if annualized_revenue >= tr:
-            rverdict = "reached"
-        elif rpct >= 70:
-            rverdict = "on"
-        elif rpct >= 40:
-            rverdict = "tight"
-        else:
-            rverdict = "off"
-        revenue_block = {"target": tr, "projected_year_end": annualized_revenue, "gap": rgap,
-                         "pct": rpct, "needed_per_year": needed_py_rev, "verdict": rverdict}
 
-    out["value_goal"] = value_block
-    out["revenue_goal"] = revenue_block
-    return out
+async def _compute_projection(uid: str, cid):
+    """Cálculos 100% determinísticos no backend (a IA nunca inventa números).
+    A META é o VALOR DA EMPRESA (não faturação). Faz engenharia inversa do desempenho
+    necessário usando o motor de avaliação central."""
+    snap = await build_snapshot(uid)
+    sym = snap["currency_symbol"]
+    val = snap.get("valuation", {}) or {}
+    company = await resolve_company(uid) or {}
+    sector = (company.get("profile") or {}).get("sector") or (company.get("profile") or {}).get("activity") or company.get("sector")
+
+    current_value = float(snap.get("company_value", 0) or 0)
+    net_worth = float(snap.get("net_worth", 0) or 0)
+    cash = float(snap.get("cash_available", 0) or 0)
+    total_liab = float(snap.get("total_liabilities", 0) or 0)
+    current_revenue = val.get("annual_revenue")
+    current_profit = val.get("annual_profit")
+    current_margin = None
+    if current_revenue and current_revenue > 0 and isinstance(current_profit, (int, float)):
+        current_margin = round(current_profit / current_revenue * 100.0, 1)
+
+    # Dados em falta (avisamos, nunca inventamos)
+    missing = []
+    if not snap.get("has_balance"):
+        missing.append({"field": "perfil", "label": "Perfil financeiro / documentos",
+                        "where": "Finanças → Perfil Financeiro (ou carrega a tua IES/Balancete)"})
+    if not current_revenue:
+        missing.append({"field": "faturacao", "label": "Faturação anual",
+                        "where": "Finanças → Perfil Financeiro (faturação mensal) ou documento oficial"})
+    if current_margin is None:
+        missing.append({"field": "margem", "label": "Margem líquida (lucro vs faturação)",
+                        "where": "Finanças → Perfil Financeiro (custos fixos e variáveis)"})
+
+    g = await db.goals.find_one({"user_id": uid, "company_id": cid}) or {}
+    saved = {"target_value": g.get("target_value"), "deadline_type": g.get("deadline_type"),
+             "deadline_years": g.get("deadline_years"), "deadline_date": g.get("deadline_date")}
+
+    base = {
+        "currency_symbol": sym, "sector": sector,
+        "current_value": round(current_value, 2), "net_worth": round(net_worth, 2),
+        "cash": round(cash, 2), "total_liabilities": round(total_liab, 2),
+        "current_revenue": round(current_revenue, 2) if isinstance(current_revenue, (int, float)) else None,
+        "current_profit": round(current_profit, 2) if isinstance(current_profit, (int, float)) else None,
+        "current_margin": current_margin,
+        "financials_source": snap.get("financials_source"),
+        "value_sources": snap.get("value_sources"),
+        "multiple": val.get("multiple"),
+        "goal": saved, "missing": missing,
+        "last_updated": datetime.now(timezone.utc).isoformat(),
+    }
+
+    tv = float(g.get("target_value") or 0)
+    if tv <= 0:
+        return {**base, "configured": False}
+
+    now = datetime.now(timezone.utc)
+    years_left = _years_left(g, now)
+
+    # Projeção mantendo o ritmo atual: valor cresce pelo lucro retido/ano (honesto)
+    pace_profit = current_profit if isinstance(current_profit, (int, float)) and current_profit > 0 else 0.0
+    projected_pace = round(current_value + pace_profit * years_left, 2)
+    difference = round(tv - projected_pace, 2)
+
+    # Trajetórias ano-a-ano (para o gráfico da Fase 2 e para a tabela)
+    n = max(1, math.ceil(years_left))
+    trajectory = [{"label": "Atual", "year": now.year, "pace": round(current_value, 2), "goal": round(current_value, 2)}]
+    for k in range(1, n + 1):
+        frac = min(k, years_left)
+        pace_v = round(current_value + pace_profit * frac, 2)
+        goal_v = round(current_value + (tv - current_value) * (frac / years_left), 2)
+        trajectory.append({"label": f"Ano {k}", "year": now.year + k, "pace": pace_v, "goal": goal_v})
+
+    # Engenharia inversa (cenário "realista": manter margem atual se for saudável, senão assumir base)
+    if current_margin and current_margin > 0:
+        assumed_margin = current_margin
+        margin_assumed = False
+    else:
+        assumed_margin = 10.0
+        margin_assumed = True
+    req = required_performance_for_value(tv, net_worth, assumed_margin, cash)
+
+    req_growth_total = None
+    req_growth_annual = None
+    if req.get("required_revenue") and current_revenue and current_revenue > 0:
+        req_growth_total = round((req["required_revenue"] / current_revenue - 1) * 100, 0)
+        req_growth_annual = round(((req["required_revenue"] / current_revenue) ** (1 / years_left) - 1) * 100, 0)
+    monthly_diff = None
+    if req.get("required_monthly_revenue") is not None and current_revenue:
+        monthly_diff = round(req["required_monthly_revenue"] - current_revenue / 12.0, 2)
+
+    progress = round(min(100, current_value / tv * 100), 1) if tv else 0
+    has_debt_pressure = total_liab > max(net_worth, 0) and total_liab > 0
+    viability = _viability(req_growth_annual, current_margin, assumed_margin, has_debt_pressure)
+    obstacle_key, obstacle_msg = _obstacle(current_margin, current_revenue, req.get("required_revenue"), has_debt_pressure)
+
+    return {
+        **base, "configured": True,
+        "target_value": tv, "years_left": years_left,
+        "projected_pace": projected_pace, "pace_growth_per_year": round(pace_profit, 2),
+        "difference": difference, "progress": progress,
+        "trajectory": trajectory,
+        "required": {
+            **req,
+            "assumed_margin": round(assumed_margin, 1), "margin_assumed": margin_assumed,
+            "required_growth_total": req_growth_total, "required_growth_annual": req_growth_annual,
+            "monthly_diff": monthly_diff,
+        },
+        "viability": viability,
+        "obstacle": {"key": obstacle_key, "message": obstacle_msg},
+    }
+
 
 @router.get("/goal")
 async def get_goal(user: dict = Depends(premium_user)):
     uid = user["id"]; cid = await active_company_id(uid)
-    return await _compute_goal(uid, cid)
+    return await _compute_projection(uid, cid)
+
 
 @router.post("/goal")
 async def save_goal(inp: GoalInput, user: dict = Depends(premium_user)):
@@ -124,31 +181,34 @@ async def save_goal(inp: GoalInput, user: dict = Depends(premium_user)):
     await db.ai_cache.delete_many({"user_id": uid, "kind": "goal_plan"})
     return {"ok": True}
 
+
 @router.post("/goal/plan")
 async def goal_plan(user: dict = Depends(premium_user)):
-    """Plano do CEO por IA — gerado só sob pedido (botão), com cache diário."""
+    """Perspetiva do CEO por IA — gerada só sob pedido (botão), com cache diário."""
     uid = user["id"]; cid = await active_company_id(uid)
-    out = await _compute_goal(uid, cid)
+    out = await _compute_projection(uid, cid)
     if not out.get("configured"):
         return {"configured": False}
     sym = out["currency_symbol"]
-    vg = out.get("value_goal") or {}
-    tv = vg.get("target", 0)
-    tr = (out.get("revenue_goal") or {}).get("target", 0)
+    req = out.get("required") or {}
     sysmsg = await build_system_prompt(uid, user.get("name", ""))
     prompt = (
-        f"O empresário definiu metas para a empresa. Usa SÓ estes números REAIS (nunca inventes):\n"
-        f"- Valor atual da empresa: {sym}{round(out['current_value'])}\n"
-        f"- Meta de valor: {sym}{round(tv)} · Prazo: {round(out['years_left'], 1)} anos\n"
-        f"- Faturação anualizada (ritmo atual, a partir do que já faturou este ano): {sym}{round(out['annualized_revenue'])}\n"
-        f"- Meta de faturação anual: {sym}{round(tr)}\n"
-        f"- Lucro anual projetado: {sym}{round(out['annual_profit_projected'])}\n"
-        f"- Ao ritmo atual o valor cresce ~{sym}{round(vg.get('growth_per_year', 0))}/ano; "
-        f"precisa de ~{sym}{round(vg.get('needed_per_year', 0))}/ano para cumprir o prazo.\n"
+        f"O empresário definiu uma META DE VALOR DA EMPRESA (não é meta de faturação). "
+        f"Usa SÓ estes números REAIS (nunca inventes):\n"
+        f"- Valor atual estimado da empresa: {sym}{round(out['current_value'])}\n"
+        f"- Meta de valor: {sym}{round(out['target_value'])} · Prazo: {round(out['years_left'], 1)} anos\n"
+        f"- Valor projetado mantendo o ritmo atual: {sym}{round(out['projected_pace'])}\n"
+        f"- Diferença até à meta: {sym}{round(out['difference'])}\n"
+        f"- Faturação anual atual: {sym}{round(out['current_revenue'] or 0)} · Margem atual: {out.get('current_margin')}%\n"
+        f"- Para chegar à meta é preciso ~{sym}{round(req.get('required_profit') or 0)} de lucro/ano, "
+        f"~{sym}{round(req.get('required_revenue') or 0)} de faturação/ano "
+        f"(~{sym}{round(req.get('required_monthly_revenue') or 0)}/mês) e margem ~{req.get('assumed_margin')}%.\n"
+        f"- Principal obstáculo identificado: {out['obstacle']['message']}\n"
+        f"- Viabilidade: {out['viability']['label']}.\n"
         "Devolve APENAS JSON: {\"diagnostico\":str,\"veredicto\":str,\"acoes\":[{\"acao\":str,\"impacto\":str}],\"frase\":str}. "
-        "'diagnostico': 2-3 frases, dizendo se vai chegar à meta no prazo e porquê, com os números. "
-        "'veredicto': 1 frase directa (ex: 'No bom caminho' ou 'Precisas de acelerar'). "
-        "'acoes': 3 a 4 ações concretas e priorizadas para fechar a diferença, cada uma com 'impacto' estimado em " + sym + " ou %. "
+        "'diagnostico': 2-3 frases sobre se vai chegar à meta no prazo e porquê, com os números e específico ao SETOR. "
+        "'veredicto': 1 frase directa. "
+        "'acoes': 3 a 4 ações concretas e priorizadas para fechar a diferença, cada uma com 'impacto' em " + sym + " ou %. "
         "'frase': 1 frase motivadora e realista. Português europeu. Sem texto fora do JSON."
     )
     plan = await cached_ai("goal_plan", uid, cid, sysmsg, prompt) or {}

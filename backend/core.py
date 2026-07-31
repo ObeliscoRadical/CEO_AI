@@ -498,6 +498,37 @@ def compute_value_generic(net_worth, annual_profit, annual_revenue, cash=0.0):
             "multiple": mult, "goodwill": round(goodwill, 2)}
 
 
+def value_multiple(margin_pct):
+    """Múltiplo setorial-agnóstico usado por TODO o valuation (fonte única)."""
+    mult = 2.0
+    if margin_pct >= 10: mult += 0.5
+    if margin_pct >= 20: mult += 0.5
+    if margin_pct >= 30: mult += 0.5
+    return mult
+
+
+def required_performance_for_value(target_value, net_worth, assumed_margin_pct, cash=0.0):
+    """Engenharia inversa: dado o VALOR-alvo da empresa e uma margem líquida assumida,
+    devolve o lucro/faturação anuais necessários usando o MESMO motor de avaliação
+    (valor = base patrimonial + lucro anual x múltiplo). Não é regra de três: o múltiplo
+    depende da margem, logo faturação/margem/rentabilidade entram no cálculo."""
+    floor = net_worth if net_worth and net_worth > 0 else 0.0
+    mult = value_multiple(assumed_margin_pct)
+    goodwill_needed = target_value - floor
+    if goodwill_needed <= 0:
+        return {"reached": True, "assumed_margin": round(assumed_margin_pct, 1), "multiple": mult,
+                "required_profit": 0.0, "required_revenue": 0.0, "required_monthly_revenue": 0.0,
+                "goodwill_needed": 0.0}
+    req_profit = goodwill_needed / mult
+    req_revenue = (req_profit / (assumed_margin_pct / 100.0)) if assumed_margin_pct and assumed_margin_pct > 0 else None
+    return {"reached": False, "assumed_margin": round(assumed_margin_pct, 1), "multiple": mult,
+            "required_profit": round(req_profit, 2),
+            "required_revenue": round(req_revenue, 2) if req_revenue is not None else None,
+            "required_monthly_revenue": round(req_revenue / 12, 2) if req_revenue is not None else None,
+            "goodwill_needed": round(goodwill_needed, 2)}
+
+
+
 async def build_snapshot(user_id: str):
     company = await resolve_company(user_id) or {}
     cid = str(company["_id"]) if company.get("_id") else None

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useAppData } from "@/context/AppDataContext";
-import { Home, Lightbulb, HeartPulse, Coins, MessageSquare, Wallet, TrendingUp, FileText, Settings as SettingsIcon, LogOut, Building2, Plus, Crown, Check, Menu, Compass, Lock, Shield, X, ChevronDown, Target } from "lucide-react";
+import { Home, Lightbulb, HeartPulse, Coins, MessageSquare, Wallet, TrendingUp, FileText, Settings as SettingsIcon, LogOut, Building2, Plus, Crown, Check, Menu, Compass, Lock, Shield, X, ChevronDown, Target, LineChart } from "lucide-react";
 import { motion } from "framer-motion";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -19,7 +19,7 @@ const NAV = [
   { to: "/conselhos", label: "Conselhos", short: "Conselhos", icon: Lightbulb, testid: "nav-conselhos", gated: true },
   { to: "/saude", label: "Saúde Empresarial", short: "Saúde", icon: HeartPulse, testid: "nav-saude", gated: true },
   { to: "/valor", label: "Valor da Empresa", short: "Valor", icon: Coins, testid: "nav-valor", gated: true },
-  { to: "/meta", label: "A Minha Meta", short: "Meta", icon: Target, testid: "nav-meta", gated: true },
+  { to: "/meta", label: "Metas e Projeções", short: "Metas", icon: LineChart, testid: "nav-meta", gated: true },
   { to: "/futuro", label: "Futuro", short: "Futuro", icon: TrendingUp, testid: "nav-futuro", premium: true, gated: true },
   { to: "/ceo", label: "Reunião com CEO", short: "CEO", icon: MessageSquare, testid: "nav-ceo", gated: true },
   { to: "/financas", label: "Finanças", short: "Finanças", icon: Wallet, testid: "nav-financas" },
