@@ -26,6 +26,7 @@ export default function PainelCEO() {
   const [bal, setBal] = useState(null);
   const [hist, setHist] = useState(null);
   const [valAlert, setValAlert] = useState(null);
+  const [goal, setGoal] = useState(null);
   const [vaDismissed, setVaDismissed] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -35,6 +36,7 @@ export default function PainelCEO() {
     api.get("/dashboard").then(({ data }) => setBal(data)).catch(() => {}),
     api.get("/equity-history").then(({ data }) => setHist(data)).catch(() => {}),
     api.get("/value-alert").then(({ data }) => setValAlert(data)).catch(() => {}),
+    api.get("/goal").then(({ data }) => setGoal(data)).catch(() => {}),
   ]).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
   useEffect(() => {
@@ -192,6 +194,32 @@ export default function PainelCEO() {
           )}
           {!bal.has_balance && <p className="text-[11px] text-amber-400 mt-3" data-testid="fill-balance-hint">Preenche o Perfil Financeiro em Finanças para veres o valor real da tua empresa →</p>}
           <p className="text-[11px] text-muted-foreground mt-2">O património líquido = total de ativos − total de passivos. Não representa necessariamente o preço de venda da empresa.</p>
+        </div>
+      )}
+
+      {/* Meta de valor (resumo) */}
+      {goal?.configured && (
+        <div className="mb-16" data-testid="panel-goal-card">
+          <div className="flex items-center justify-between mb-5">
+            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">A tua meta de valor</p>
+            <button onClick={() => navigate("/meta")} data-testid="panel-goal-link" className="text-xs text-[#3B82F6] hover:underline flex items-center gap-1">
+              Ver projeção <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <div className="surface rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <Target className="w-5 h-5 text-[#3B82F6]" />
+              <span className="text-lg font-medium">Chegar a {sym}{fmt(goal.target_value)} em {goal.years_left} anos</span>
+            </div>
+            <div className="h-2.5 rounded-full bg-white/[0.06] overflow-hidden mb-3">
+              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(100, goal.progress || 0)}%`, background: "#3B82F6" }} data-testid="panel-goal-progress" />
+            </div>
+            <div className="flex flex-wrap justify-between gap-2 text-sm text-muted-foreground">
+              <span><span className="text-foreground font-medium">{goal.progress}%</span> alcançado ({sym}{fmt(goal.current_value)})</span>
+              <span>Falta {sym}{fmt(Math.max(0, (goal.target_value || 0) - (goal.current_value || 0)))}</span>
+              {goal.viability?.label && <span className="text-foreground">{goal.viability.label}</span>}
+            </div>
+          </div>
         </div>
       )}
 

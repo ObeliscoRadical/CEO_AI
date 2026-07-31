@@ -995,6 +995,105 @@ async def send_monthly_value_alerts():
             logger.error(f"monthly value alert error for {uid}: {e}")
 
 
+def build_goal_alert_html(name: str, sym: str, current: float, target: float, pct: float, reached: bool, app_url: str):
+    fnum = lambda v: f"{int(round(v)):,}".replace(",", " ")
+    who = f", {name}" if name else ""
+    color = "#10B981"
+    lead = "Meta atingida!" if reached else "Estás quase lá"
+    headline = ("A tua empresa atingiu a meta de valor" if reached
+                else f"A tua empresa está a {int(round(pct))}% da tua meta de valor")
+    note = ("Parabéns — o valor estimado da tua empresa alcançou a meta que definiste. "
+            "Podes definir uma nova meta mais ambiciosa em Metas e Projeções."
+            if reached else
+            "Estás muito perto de atingir a meta de valor que definiste. Mantém o ritmo — o último empurrão conta.")
+    return f"""<!DOCTYPE html><html><body style="margin:0;background:#0b0c10;font-family:Arial,Helvetica,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#0b0c10;padding:32px 0;">
+      <tr><td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:18px;overflow:hidden;">
+          <tr><td style="background:#0b0c10;padding:28px 32px;">
+            <div style="color:#3B82F6;font-size:22px;font-weight:700;letter-spacing:1px;">CEO&nbsp;AI</div>
+            <div style="color:#a1a1aa;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-top:2px;">Executivo Digital · Meta de Valor</div>
+          </td></tr>
+          <tr><td style="padding:32px;">
+            <div style="font-size:13px;color:#71717a;margin-bottom:6px;">{lead}{who}</div>
+            <div style="font-size:24px;color:#18181b;font-weight:800;line-height:1.3;margin-bottom:10px;">{headline}</div>
+            <div style="font-size:16px;color:{color};font-weight:700;margin-bottom:6px;">
+              Valor atual: {sym}{fnum(current)} · Meta: {sym}{fnum(target)}
+            </div>
+            <div style="height:10px;background:#eee;border-radius:999px;overflow:hidden;margin:14px 0 22px;">
+              <div style="height:10px;width:{min(100, int(round(pct)))}%;background:{color};"></div>
+            </div>
+            <div style="font-size:14px;color:#52525b;line-height:1.6;margin-bottom:24px;">{note}</div>
+            <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+              <a href="{app_url}/meta" style="display:inline-block;background:#3B82F6;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:13px 28px;border-radius:999px;">Ver a minha projeção</a>
+            </td></tr></table>
+          </td></tr>
+          <tr><td style="padding:20px 32px;background:#faf9f6;border-top:1px solid #eee;">
+            <div style="font-size:11px;color:#a1a1aa;">Recebes este aviso quando o valor da tua empresa se aproxima ou atinge a meta. Podes desativar em Personalização.</div>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table></body></html>"""
+
+
+async def compute_goal_progress(user_id: str, cid):
+    """Progresso da meta de valor: valor atual (motor) vs meta guardada."""
+    g = await db.goals.find_one({"user_id": user_id, "company_id": cid}) or {}
+    tv = float(g.get("target_value") or 0)
+    if tv <= 0:
+        return None
+    snap = await build_snapshot(user_id)
+    cv = float(snap.get("company_value", 0) or 0)
+    pct = round(cv / tv * 100, 1) if tv else 0
+    return {"goal": g, "current": cv, "target": tv, "pct": pct,
+            "reached": cv >= tv, "currency_symbol": snap.get("currency_symbol", "€"),
+            "company_name": snap.get("company_name", "")}
+
+
+async def send_goal_alerts():
+    """Cron: avisa por email quando o valor da empresa se aproxima (>=90%) ou atinge (100%) a meta.
+    Idempotente via flags no documento da meta."""
+    goals = await db.goals.find({"target_value": {"$gt": 0}}).to_list(100000)
+    for g in goals:
+        uid = g.get("user_id"); cid = g.get("company_id")
+        if not uid:
+            continue
+        try:
+            prog = await compute_goal_progress(uid, cid)
+            if not prog:
+                continue
+            reached = prog["reached"]; pct = prog["pct"]
+            flag = None
+            if reached and not g.get("goal_reached_emailed"):
+                flag = "goal_reached_emailed"
+            elif not reached and pct >= 90 and not g.get("goal_near_emailed"):
+                flag = "goal_near_emailed"
+            if not flag:
+                continue
+            s = await db.settings.find_one({"user_id": uid}) or {}
+            if s.get("email_value_alert") is False:
+                continue
+            claim = await db.goals.update_one(
+                {"_id": g["_id"], flag: {"$ne": True}}, {"$set": {flag: True}})
+            if claim.modified_count != 1:
+                continue
+            u = await db.users.find_one({"_id": ObjectId(uid)})
+            if not u or not u.get("email"):
+                continue
+            html = build_goal_alert_html(u.get("name", ""), prog["currency_symbol"], prog["current"],
+                                         prog["target"], pct, reached, os.environ.get("FRONTEND_URL", ""))
+            subj = ("Atingiste a tua meta de valor — CEO AI" if reached
+                    else "Estás quase a atingir a tua meta de valor — CEO AI")
+            await send_email_raw(u["email"], subj, html)
+            try:
+                await send_push_to_user(uid, subj, f"Valor atual {prog['currency_symbol']}{int(round(prog['current']))} de {prog['currency_symbol']}{int(round(prog['target']))}", "/meta")
+            except Exception:
+                pass
+        except Exception as e:
+            logger.error(f"goal alert error for {uid}: {e}")
+
+
+
 async def ensure_vapid():
     cfg = await db.app_config.find_one({"_id": "vapid"})
     if cfg and cfg.get("public") and cfg.get("private"):

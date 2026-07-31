@@ -177,9 +177,28 @@ async def save_goal(inp: GoalInput, user: dict = Depends(premium_user)):
     uid = user["id"]; cid = await active_company_id(uid)
     data = {k: v for k, v in inp.model_dump().items() if v is not None}
     data.update({"user_id": uid, "company_id": cid, "updated_at": datetime.now(timezone.utc).isoformat()})
-    await db.goals.update_one({"user_id": uid, "company_id": cid}, {"$set": data}, upsert=True)
+    await db.goals.update_one({"user_id": uid, "company_id": cid},
+                              {"$set": data, "$unset": {"goal_near_emailed": "", "goal_reached_emailed": ""}}, upsert=True)
     await db.ai_cache.delete_many({"user_id": uid, "kind": "goal_plan"})
     return {"ok": True}
+
+
+@router.post("/goal/notify")
+async def goal_notify(user: dict = Depends(premium_user)):
+    """Envia (sob pedido) o estado atual da meta de valor para o email do utilizador."""
+    uid = user["id"]; cid = await active_company_id(uid)
+    prog = await compute_goal_progress(uid, cid)
+    if not prog:
+        return {"ok": False, "reason": "no_goal"}
+    u = await db.users.find_one({"_id": ObjectId(uid)})
+    if not u or not u.get("email"):
+        return {"ok": False, "reason": "no_email"}
+    html = build_goal_alert_html(u.get("name", ""), prog["currency_symbol"], prog["current"],
+                                 prog["target"], prog["pct"], prog["reached"], os.environ.get("FRONTEND_URL", ""))
+    subj = ("Atingiste a tua meta de valor — CEO AI" if prog["reached"]
+            else f"Estás a {int(round(prog['pct']))}% da tua meta de valor — CEO AI")
+    ok = await send_email_raw(u["email"], subj, html)
+    return {"ok": bool(ok), "sent_to": u["email"], "pct": prog["pct"]}
 
 
 @router.post("/goal/plan")

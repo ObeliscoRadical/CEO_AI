@@ -11,7 +11,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime, timezone
 
-from core import db, client, hash_password, verify_password, init_storage, send_daily_briefings, send_monthly_value_alerts, logger
+from core import db, client, hash_password, verify_password, init_storage, send_daily_briefings, send_monthly_value_alerts, send_goal_alerts, logger
 from routers import auth, companies, finance, ceo, documents, billing, misc, voice, founders, goals
 
 app = FastAPI()
@@ -82,6 +82,7 @@ async def startup():
         scheduler = AsyncIOScheduler(timezone="UTC")
         scheduler.add_job(send_daily_briefings, CronTrigger(hour=7, minute=0), id="daily_briefings", replace_existing=True)
         scheduler.add_job(send_monthly_value_alerts, CronTrigger(day=1, hour=8, minute=0), id="monthly_value_alerts", replace_existing=True)
+        scheduler.add_job(send_goal_alerts, CronTrigger(hour=8, minute=30), id="goal_alerts", replace_existing=True)
         scheduler.start()
         logger.info("Briefing scheduler started")
     except Exception as e:

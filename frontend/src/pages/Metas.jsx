@@ -12,6 +12,7 @@ import {
 import {
   Loader2, Target, TrendingUp, Sparkles, AlertTriangle, MapPin, Flag,
   Gauge, ArrowUpRight, Wallet, Percent, LineChart, CheckCircle2, Clock, SlidersHorizontal, Table2,
+  ChevronDown, FileDown, Mail, Info,
 } from "lucide-react";
 
 const fmt = (sym, n) => `${sym}${Number(n || 0).toLocaleString("pt-PT", { maximumFractionDigits: 0 })}`;
@@ -83,6 +84,8 @@ export default function Metas() {
   // Sliders / cenário ativo
   const [scenario, setScenario] = useState("realista");
   const [s, setS] = useState({ growth: 15, margin: 12, debtRed: 20, recur: 20 });
+  const [howOpen, setHowOpen] = useState(false);
+  const [notifying, setNotifying] = useState(false);
 
   const load = () => api.get("/goal").then(({ data }) => {
     setData(data);
@@ -193,6 +196,17 @@ export default function Metas() {
     setPlanLoading(false);
   };
 
+  const printReport = () => window.print();
+  const notifyEmail = async () => {
+    setNotifying(true);
+    try {
+      const { data } = await api.post("/goal/notify");
+      if (data.ok) toast.success(`Aviso enviado para ${data.sent_to} (${Math.round(data.pct)}% da meta).`);
+      else toast.error("Não foi possível enviar o aviso agora.");
+    } catch { toast.error("Não foi possível enviar o aviso agora."); }
+    setNotifying(false);
+  };
+
   if (failed) return <div className="text-center py-40 text-muted-foreground" data-testid="meta-error">Não foi possível carregar. Atualiza a página.</div>;
   if (!data) return <div className="flex justify-center py-40"><Loader2 className="w-6 h-6 animate-spin text-[#3B82F6]" /></div>;
 
@@ -238,7 +252,7 @@ export default function Metas() {
       )}
 
       {/* Pergunta ao utilizador */}
-      <div className="surface rounded-3xl p-6 md:p-8 mb-10" data-testid="meta-form">
+      <div className="surface rounded-3xl p-6 md:p-8 mb-10" data-testid="meta-form" data-print-hide>
         <h2 className="font-serif-lux text-2xl mb-1">Qual é o valor que pretende alcançar?</h2>
         <p className="text-sm text-muted-foreground mb-5">Esta é uma meta de <span className="text-foreground font-medium">valor da empresa</span> — não de faturação.</p>
         <div className="grid md:grid-cols-2 gap-6">
@@ -313,6 +327,16 @@ export default function Metas() {
                 <viab.Icon className="w-3.5 h-3.5" /> {data.viability.label}
               </span>
             )}
+          </div>
+
+          {/* Barra de ações: relatório + alerta */}
+          <div className="flex flex-wrap gap-3 mb-10" data-print-hide data-testid="meta-actions-bar">
+            <Button data-testid="report-btn" onClick={printReport} variant="outline" className="rounded-full border-white/15 hover:bg-white/5">
+              <FileDown className="w-4 h-4 mr-2" /> Ver Relatório Completo
+            </Button>
+            <Button data-testid="notify-btn" onClick={notifyEmail} disabled={notifying} variant="outline" className="rounded-full border-white/15 hover:bg-white/5">
+              {notifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Mail className="w-4 h-4 mr-2" />} Avisar-me por email
+            </Button>
           </div>
 
           {/* GRÁFICO */}
@@ -526,6 +550,33 @@ export default function Metas() {
                 {plan.frase && <p className="italic text-foreground/80 border-l-2 border-[#3B82F6] pl-4" data-testid="plan-phrase">{plan.frase}</p>}
               </motion.div>
             )}
+          </div>
+
+          {/* Como foi calculado */}
+          <div className="surface rounded-3xl p-6 md:p-8 mt-8" data-testid="how-calculated">
+            <button onClick={() => setHowOpen((o) => !o)} data-testid="how-calculated-toggle"
+              className="w-full flex items-center justify-between text-left" data-print-hide>
+              <h3 className="font-serif-lux text-2xl flex items-center gap-2"><Info className="w-5 h-5 text-[#3B82F6]" /> Como foi calculado?</h3>
+              <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${howOpen ? "rotate-180" : ""}`} />
+            </button>
+            <h3 className="font-serif-lux text-2xl items-center gap-2 hidden print:flex"><Info className="w-5 h-5" /> Como foi calculado?</h3>
+            <div className={`mt-6 grid md:grid-cols-2 gap-x-10 gap-y-3 text-sm ${howOpen ? "block" : "hidden print:grid"}`}>
+                <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Valor estimado atual</span><span className="font-medium">{fmt(sym, data.current_value)}</span></div>
+                <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Património líquido (ativos − passivos)</span><span className="font-medium">{fmt(sym, data.net_worth)}</span></div>
+                <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Faturação anual usada</span><span className="font-medium">{data.current_revenue != null ? fmt(sym, data.current_revenue) : "—"}</span></div>
+                <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Lucro anual usado</span><span className="font-medium">{data.current_profit != null ? fmt(sym, data.current_profit) : "—"}</span></div>
+                <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Margem líquida</span><span className="font-medium">{data.current_margin != null ? `${data.current_margin}%` : "—"}</span></div>
+                <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Múltiplo de avaliação aplicado</span><span className="font-medium">{data.multiple != null ? `${data.multiple}×` : "—"}</span></div>
+                <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Dívida / passivos</span><span className="font-medium">{fmt(sym, data.total_liabilities)}</span></div>
+                <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Caixa disponível</span><span className="font-medium">{fmt(sym, data.cash)}</span></div>
+                <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Prazo analisado</span><span className="font-medium">{data.years_left} anos</span></div>
+                <div className="flex justify-between border-b border-white/[0.05] py-1.5"><span className="text-muted-foreground">Fonte dos dados</span><span className="font-medium">{data.value_sources?.patrimonio || "Perfil Financeiro"}</span></div>
+                <div className="md:col-span-2 mt-3 text-muted-foreground leading-relaxed">
+                  <p className="mb-2"><span className="text-foreground font-medium">Método:</span> valor da empresa = base patrimonial (ativos − passivos, quando positiva) + rendimento (lucro anual × múltiplo). O múltiplo (2,0 a 3,5×) sobe com a margem líquida e com o peso das receitas recorrentes — por isso a rentabilidade vale tanto como a faturação.</p>
+                  <p className="mb-2"><span className="text-foreground font-medium">Engenharia inversa:</span> a partir da meta de valor e do prazo, resolvemos que lucro/faturação/margem seriam precisos para lá chegar — não é regra de três.</p>
+                  <p><span className="text-foreground font-medium">Pressupostos:</span> a projeção "ritmo atual" assume o lucro atual retido ao longo do prazo; os cenários e os sliders assumem crescimento e margem constantes por ano. É uma estimativa, não uma avaliação pericial.</p>
+                </div>
+              </div>
           </div>
 
           <p className="text-[11px] text-muted-foreground mt-8" data-testid="meta-disclaimer">
