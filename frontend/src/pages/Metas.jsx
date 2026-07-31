@@ -12,7 +12,7 @@ import {
 import {
   Loader2, Target, TrendingUp, Sparkles, AlertTriangle, MapPin, Flag,
   Gauge, ArrowUpRight, Wallet, Percent, LineChart, CheckCircle2, Clock, SlidersHorizontal, Table2,
-  ChevronDown, FileDown, Mail, Info,
+  ChevronDown, FileDown, Mail, Info, Share2, Copy, ExternalLink,
 } from "lucide-react";
 
 const fmt = (sym, n) => `${sym}${Number(n || 0).toLocaleString("pt-PT", { maximumFractionDigits: 0 })}`;
@@ -88,6 +88,8 @@ export default function Metas() {
   const [s, setS] = useState({ growth: 15, margin: 12, debtRed: 20, recur: 20 });
   const [howOpen, setHowOpen] = useState(false);
   const [notifying, setNotifying] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
 
   const load = () => api.get("/goal").then(({ data }) => {
     setData(data);
@@ -213,6 +215,22 @@ export default function Metas() {
       else toast.error("Não foi possível enviar o aviso agora.");
     } catch { toast.error("Não foi possível enviar o aviso agora."); }
     setNotifying(false);
+  };
+  const share = async () => {
+    setSharing(true);
+    try {
+      const { data } = await api.post("/goal/share");
+      if (data.ok && data.token) {
+        const url = `${window.location.origin}/partilha/meta/${data.token}`;
+        setShareUrl(url);
+        try { await navigator.clipboard.writeText(url); toast.success("Link copiado! Já o podes enviar."); }
+        catch { toast.success("Link de partilha gerado."); }
+      } else toast.error("Define e calcula a meta primeiro.");
+    } catch { toast.error("Não foi possível gerar o link agora."); }
+    setSharing(false);
+  };
+  const copyShare = async () => {
+    try { await navigator.clipboard.writeText(shareUrl); toast.success("Link copiado!"); } catch {}
   };
 
   if (failed) return <div className="text-center py-40 text-muted-foreground" data-testid="meta-error">Não foi possível carregar. Atualiza a página.</div>;
@@ -360,7 +378,19 @@ export default function Metas() {
             <Button data-testid="notify-btn" onClick={notifyEmail} disabled={notifying} variant="outline" className="rounded-full border-white/15 hover:bg-white/5">
               {notifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Mail className="w-4 h-4 mr-2" />} Avisar-me por email
             </Button>
+            <Button data-testid="share-btn" onClick={share} disabled={sharing} variant="outline" className="rounded-full border-white/15 hover:bg-white/5">
+              {sharing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Share2 className="w-4 h-4 mr-2" />} Partilhar meta
+            </Button>
           </div>
+          {shareUrl && (
+            <div className="surface rounded-2xl p-4 mb-10 flex items-center gap-3 flex-wrap" data-print-hide data-testid="share-box">
+              <span className="text-xs text-muted-foreground shrink-0">Link só de leitura para sócios/contabilista:</span>
+              <input readOnly value={shareUrl} data-testid="share-url" onFocus={(e) => e.target.select()}
+                className="flex-1 min-w-[200px] bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-foreground" />
+              <Button data-testid="share-copy" onClick={copyShare} size="sm" variant="outline" className="rounded-full border-white/15"><Copy className="w-3.5 h-3.5 mr-1.5" /> Copiar</Button>
+              <a href={shareUrl} target="_blank" rel="noopener noreferrer" data-testid="share-open" className="inline-flex items-center gap-1.5 text-sm text-[#3B82F6] hover:underline"><ExternalLink className="w-3.5 h-3.5" /> Abrir</a>
+            </div>
+          )}
 
           {/* GRÁFICO */}
           <div className="surface rounded-3xl p-6 md:p-8 mb-10" data-testid="meta-chart">

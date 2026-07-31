@@ -11,6 +11,7 @@ import Conselhos from "@/pages/Conselhos";
 import Saude from "@/pages/Saude";
 import Valor from "@/pages/Valor";
 import Metas from "@/pages/Metas";
+import MetaShare from "@/pages/MetaShare";
 import Relatorios from "@/pages/Relatorios";
 import Dashboard from "@/pages/Dashboard";
 import Chat from "@/pages/Chat";
@@ -73,6 +74,7 @@ function App() {
               <Route path="/privacidade" element={<Privacy />} />
               <Route path="/contacto" element={<Contact />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/partilha/meta/:token" element={<MetaShare />} />
               <Route path="/onboarding" element={<Protected><Onboarding /></Protected>} />
               <Route path="/payment/success" element={<Protected><AppDataProvider><PaymentResult /></AppDataProvider></Protected>} />
               <Route path="/payment/cancel" element={<Protected><PaymentResult /></Protected>} />

@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from core import *
 from models import *
 import math
+import uuid
 
 router = APIRouter()
 
@@ -256,3 +257,36 @@ async def goal_plan(user: dict = Depends(premium_user)):
     )
     plan = await cached_ai("goal_plan", uid, cid, sysmsg, prompt) or {}
     return {"configured": True, "ceo_plan": plan}
+
+
+
+@router.post("/goal/share")
+async def goal_share(user: dict = Depends(premium_user)):
+    """Cria/atualiza um link público (só de leitura) com o resumo da meta e progresso."""
+    uid = user["id"]; cid = await active_company_id(uid)
+    out = await _compute_projection(uid, cid)
+    if not out.get("configured"):
+        return {"ok": False, "reason": "no_goal"}
+    company = await resolve_company(uid) or {}
+    existing = await db.goal_shares.find_one({"user_id": uid, "company_id": cid})
+    token = existing["token"] if existing else uuid.uuid4().hex[:16]
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.goal_shares.update_one(
+        {"token": token},
+        {"$set": {"token": token, "user_id": uid, "company_id": cid,
+                  "company_name": company.get("name", "A minha empresa"),
+                  "owner_name": user.get("name", ""),
+                  "data": out, "updated_at": now_iso},
+         "$setOnInsert": {"created_at": now_iso}},
+        upsert=True)
+    return {"ok": True, "token": token}
+
+
+@router.get("/goal/share/{token}")
+async def goal_share_get(token: str):
+    """Público (sem autenticação) — resumo só de leitura para partilhar com sócios/contabilista."""
+    doc = await db.goal_shares.find_one({"token": token})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Link não encontrado")
+    return {"company_name": doc.get("company_name"), "owner_name": doc.get("owner_name"),
+            "updated_at": doc.get("updated_at"), "data": doc.get("data")}
