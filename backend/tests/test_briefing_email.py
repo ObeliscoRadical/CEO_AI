@@ -9,7 +9,7 @@ import os
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/") or "https://ceo-ai-app.preview.emergentagent.com"
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/") or "https://value-track-1.preview.emergentagent.com"
 ADMIN_EMAIL = "obeliscoradical@gmail.com"
 ADMIN_PASSWORD = "CeoAI2026!"
 

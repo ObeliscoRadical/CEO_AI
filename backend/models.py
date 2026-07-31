@@ -112,3 +112,12 @@ class FinancialProfileInput(BaseModel):
     total_debt: float = 0
     assets: List[CostItem] = []
     liabilities: List[CostItem] = []
+
+class GoalInput(BaseModel):
+    target_value: Optional[float] = None
+    target_revenue: Optional[float] = None
+    deadline_type: Optional[str] = None      # "years" | "date"
+    deadline_years: Optional[float] = None
+    deadline_date: Optional[str] = None       # ISO date "YYYY-MM-DD" ou "YYYY-MM"
+    ytd_revenue: Optional[float] = None
+    ytd_as_of: Optional[str] = None           # data a que se refere a faturação YTD
