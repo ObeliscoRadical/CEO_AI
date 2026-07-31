@@ -5,7 +5,7 @@ import json
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://value-track-1.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://goal-enterprise-hub.preview.emergentagent.com").rstrip("/")
 EMAIL = "obeliscoradical@gmail.com"
 PASSWORD = "CeoAI2026!"
 

@@ -1,436 +1,392 @@
 <analysis>original_problem_statement:
-- Aplicação SaaS “CEO AI — Diretor Executivo Digital” para PMEs portuguesas, em React + FastAPI + MongoDB.
-- O utilizador quer um consultor executivo que interprete finanças, património, valor empresarial, risco, relatórios e ações práticas.
-- Prioridades previamente pedidas:
-  - Extrator real de documentos financeiros portugueses com Gemini/PDF nativo, começando pelo Balancete analítico.
-  - Histórico financeiro e “Contas & Evolução”.
-  - Atualização do valor empresarial a partir de documentos oficiais, sem remover Perfil Financeiro manual.
-- Pedido mais recente, aprovado pelo utilizador:
-  - Criar nova página de menu “A Minha Meta” / objetivo.
-  - Permitir objetivos de **valor da empresa e faturação**.
-  - O utilizador insere manualmente a faturação do ano até hoje (YTD).
-  - Prazo pode ser definido por número de anos ou data alvo.
-  - Mostrar quanto falta, ritmo necessário vs. atual, projeção e plano do CEO por IA.
-  - Usuário escolheu explicitamente a opção de integração “c”: combinar dados manuais e documentos oficiais com transparência de origem.
+- Construir a SaaS “CEO AI — Diretor Executivo Digital” para PMEs portuguesas, em React + FastAPI + MongoDB.
+- O produto interpreta finanças, património, valuation, risco, relatórios e propõe ações práticas.
+- Requisitos financeiros existentes:
+  - Extrator de documentos financeiros portugueses (Balancete analítico e IES/demonstrações), com cálculos determinísticos.
+  - Histórico financeiro “Contas & Evolução”.
+  - Valuation atualizado a partir de documentos oficiais, preservando o Perfil Financeiro manual.
+  - Transparência de origem: documentos oficiais prevalecem apenas nos valores que contêm; perfil manual preenche lacunas.
+- Requisito mais recente implementado:
+  - Nova página de menu **“A Minha Meta”**.
+  - Metas de **valor da empresa** e **faturação anual**.
+  - Inserção manual de faturação YTD e mês/data de referência.
+  - Prazo por número de anos ou data-alvo.
+  - Mostrar diferença para a meta, ritmo necessário, projeções, veredito e plano do CEO.
+  - Funcionalidade **Premium**, bloqueada para plano gratuito, coerente com Saúde/Valor/Futuro.
+  - Plano por IA apenas por ação explícita no botão **“Gerar plano do CEO”**, com cache diário, para poupar créditos.
+  - IA só redige recomendações; cálculos financeiros são determinísticos no backend.
 
 **User's preferred language**: Português. O próximo agente deve responder exclusivamente em português.
 
 **what currently exists?**
-- Extrator financeiro dual-mode implementado:
-  - Balancete: extrai linhas/classifica e calcula totais deterministicamente; sinaliza quando o balanço não reconcilia.
-  - IES/demonstrações formais: lê totais impressos diretamente e reconcilia.
-- “Contas & Evolução” em , alimentado por histórico de extrações financeiras.
-- Valuation passou a considerar documentos oficiais e Perfil Financeiro manual; fontes são expostas por campo (“De onde vem este valor”).
-- Perfil Financeiro manual continua existente com dívida/financiamentos, ativos, passivos, caixa, faturação e custos.
-- Iniciada a implementação da nova funcionalidade de metas:
-  - Modelo Pydantic foi alterado.
-  - Novo router  foi criado.
-  -  foi alterado para registar router.
-  - Ainda faltam página frontend, rota, menu, validação e testes.
+- Aplicação React/FastAPI/MongoDB funcional com autenticação, empresas, perfil financeiro, uploads/documentos financeiros, valuation, dashboard e planos.
+- Extrator financeiro dual-mode:
+  - Balancete: classificação e cálculos determinísticos, com estado de reconciliação explícito.
+  - IES/formais: usa totais formais e reconcilia o balanço.
+- Valuation combina dados manuais e extrações oficiais com fontes visíveis.
+- Página “Valor” possui “Contas & Evolução” e transparência de fontes.
+- Funcionalidade “A Minha Meta” foi criada e testada:
+  - endpoints backend de leitura/gravação/projeção/plano;
+  - proteção Premium;
+  - página frontend ;
+  - menu desktop/mobile;
+  - plano IA sob botão e cache diário.
+- O PRD foi atualizado pelo agente após a conclusão.
 
 **Last working item**:
-- Last item agent was working: Implementação da página “A Minha Meta”, que deverá usar valor atual, metas de valor/faturação, faturação YTD manual e prazo, retornando projeções e plano IA.
-- Status: IN PROGRESS
-- Agent Testing Done: N
-- Which testing method agent to use?: both — backend por curl/Python e frontend por screenshot; depois  pois envolve página, persistência, cálculos e integração IA.
+- Last item agent was working: Conclusão e teste da funcionalidade Premium “A Minha Meta”, incluindo endurecimento da anualização YTD para data de referência que não seja do ano corrente.
+- Status: USER VERIFICATION PENDING
+- Agent Testing Done: Y, mas a alteração final de robustez feita **depois** do relatório do testing agent não foi explicitamente retestada.
+- Which testing method agent to use?: backend por curl/Python para regressão do cálculo ; frontend screenshot apenas se a alteração modificar a resposta/renderização. Para uma validação completa futura, testing agent backend/frontend.
 - User Testing Done: N
 
 **All Pending/In progress Issue list**:
 
-Issue 1: Nova funcionalidade “A Minha Meta” incompleta — P0
+Issue 1: Confirmar regressão após alteração final da lógica de anualização YTD — P0
 - Attempted fixes:
-  - Foram criados os primeiros elementos backend:
-    - alteração em ;
-    - novo ;
-    - registo em .
-  - Não há evidência de que o router tenha sido inspecionado/validado após ser criado.
-  - Não há implementação frontend ainda evidenciada.
+  - O testing agent validou a feature completa antes da última alteração.
+  - Depois do relatório aprovado, o agente modificou  para evitar sobre-anualização quando  pertence a ano não corrente.
 - Next debug checklist:
-  - Inspecionar  no fim do ficheiro para confirmar o modelo adicionado e defaults mutáveis.
-  - Ler integralmente  e verificar:
-    - prefixo ;
-    - autenticação;
-    - persistência com  e ;
-    - integração correta com , perfil financeiro e extrações.
-  - Ler  para confirmar import/registo de .
-  - Criar/concluir  seguindo padrões de páginas existentes.
-  - Adicionar import e rota protegida em .
-  - Adicionar item de menu desktop/mobile em .
-  - Verificar  em todos elementos interativos e informações críticas.
-  - Implementar claramente cálculos determinísticos antes do plano IA:
-    - valor atual;
-    - valor-alvo;
-    - faturação YTD;
-    - projeção anualizada;
-    - diferença absoluta/%;
-    - meses/anos restantes;
-    - ritmo necessário;
-    - previsão de atingir/não atingir.
-  - Só usar IA para plano textual e recomendações; não permitir que IA invente valores financeiros.
+  - Inspecionar o diff/trecho alterado em .
+  - Executar  e os testes de metas existentes.
+  - Testar  ou endpoint de projeção com  no ano atual e num ano anterior.
+  - Confirmar que:
+    - ano atual anualiza conforme os meses decorridos;
+    - ano anterior não projeta incorretamente para o futuro;
+    - os valores de gap, ritmo necessário e vereditos mantêm consistência.
 - Why fix this issue and what will be achieved with the fix?
-  - Entrega a funcionalidade que o usuário acabou de especificar: rota visível para atingir meta empresarial e faturação com orientação concreta.
-- Status: IN PROGRESS
-- Is recurring issue?: N
-- Should Test frontend/backend/both after fix?: both
-- Blocked on other issue: Não, mas a lógica atual do valuation/documentos deve ser entendida para garantir consistência.
-
-Issue 2: Contrato e precedência entre Perfil Financeiro manual e documentos oficiais pode continuar confuso — P1
-- Attempted fixes:
-  - Foi implementada fusão de fontes: documento oficial tem prioridade nos números que traz; manual preenche lacunas.
-  - UI mostra “De onde vem este valor”.
-  - Teste determinístico para manual/documento/ambos passou.
-- Next debug checklist:
-  - Confirmar que esta regra está explicitamente refletida na nova página de metas.
-  - Não sobrescrever dados manuais quando um documento é enviado.
-  - Mostrar a fonte de valor/faturação usada em projeções/metas.
-  - Considerar permitir ao utilizador escolher uma fonte por métrica apenas se ele pedir; não expandir agora sem necessidade.
-- Why fix this issue and what will be achieved with the fix?
-  - Evita repetir a confusão que levou o usuário a acreditar que os seus campos de financiamento tinham sido removidos.
+  - Garante que a alegação de “testada” continua válida após o último edit e evita projeções financeiras erradas para YTD histórico.
 - Status: TESTING PENDING
-- Is recurring issue?: Y, é uma preocupação explícita do utilizador.
-- Should Test frontend/backend/both after fix?: both
-- Blocked on other issue: Issue 1.
+- Is recurring issue?: N
+- Should Test frontend/backend/both after fix?: backend; frontend smoke test opcional.
+- Blocked on other issue: Não.
 
-Issue 3: Extrator do Balancete ainda não produz balanço totalmente reconciliado — P1
+Issue 2: Balancete analítico pode ainda gerar balanço não reconciliado — P1
 - Attempted fixes:
-  - Agregação determinística e deduplicação de contas-filhas.
-  - Netting parcial de contas de Estado/IVA.
-  - Uso de conta 81 como resultado autoritativo.
-  - Badge de reconciliação para não inventar valores.
+  - Deduplicação de contas-filhas, netting parcial de IVA/Estado e uso de conta 81 como resultado autoritativo.
+  - UI/extração expõe  em vez de inventar números.
 - Next debug checklist:
-  - Para documentos Balancete reais, continuar a reportar  se houver diferença.
-  - Não tratar total de ativo/passivo de Balancete como autoritativo até validar regras de sinal, IVA/Estado, amortizações e contas agregadas.
-  - Manter IES como fonte prioritária de balanço quando disponível para o mesmo exercício.
+  - Continuar a testar com Balancetes reais.
+  - Validar sinais de contas 24/IVA/Estado, amortizações, contas mãe/filha e agregação SNC.
+  - Preferir IES/formais para totais de balanço no mesmo exercício.
 - Why fix this issue and what will be achieved with the fix?
-  - Melhora credibilidade financeira sem falsear resultados.
+  - Evita valuation patrimonial incorreto ou excessivamente confiante.
 - Status: IN PROGRESS / validação incremental necessária
 - Is recurring issue?: N
-- Should Test frontend/backend/both after fix?: both
-- Blocked on other issue: Depende de mais documentos reais e regras contábeis SNC validadas.
+- Should Test frontend/backend/both after fix?: both.
+- Blocked on other issue: Depende de documentos reais e regras SNC validadas.
+
+Issue 3: Claridade contínua da precedência manual/documento — P1
+- Attempted fixes:
+  - Valuation e metas expõem  / .
+  - Documento oficial prevalece por campo; manual completa lacunas.
+- Next debug checklist:
+  - Ao alterar a feature de metas, garantir sempre que a origem dos números continua visível.
+  - Não substituir automaticamente o Perfil Financeiro ao processar uploads.
+- Why fix this issue and what will be achieved with the fix?
+  - Evita a confusão anterior de que campos manuais de financiamento tinham sido removidos.
+- Status: USER VERIFICATION PENDING
+- Is recurring issue?: Y.
+- Should Test frontend/backend/both after fix?: both se houver mudanças de merge/origem.
+- Blocked on other issue: Não.
 
 **In progress Task List**:
 
-Task 1: Concluir “A Minha Meta” — P0
+Task 1: Retestar a última alteração de anualização da Meta — P0
 - Where to resume:
-  - Inspecionar imediatamente os últimos edits:
-    - 
-    - 
-    - 
-  - O último agente anunciou que escreveria “modelo, router backend, registo, página, rota e menu”, mas o histórico só confirma os primeiros três.
+  - , no cálculo de projeção YTD/data .
+  - , criado/indicado pelo relatório .
 - What will be achieved with this?
-  - Nova página Premium no menu para metas de valor/faturação, YTD manual, prazo por anos/data, projeção e plano do CEO por IA.
-- Status: IN PROGRESS
-- Should Test frontend/backend/both after fix?: both
+  - Confirmação de regressão depois da edição final e cobertura do caso de data histórica.
+- Status: TESTING PENDING
+- Should Test frontend/backend/both after fix?: backend.
 - Blocked on something: Não.
 
-Task 2: Integrar plano do CEO com IA de forma controlada — P1
+Task 2: Aguardar validação do utilizador da página “A Minha Meta” — P1
 - Where to resume:
-  - Rever  e .
-  - Usar os dados calculados pelo backend no prompt: meta, valor atual, faturação YTD, projeção, prazo, gap e fontes.
-  - Persistir/cachear plano de forma consistente para evitar consumo excessivo de créditos.
+  - Pedir ao utilizador que valide a área Premium no seu ambiente e confirme se a proposta de trajetória versus evolução deve avançar.
 - What will be achieved with this?
-  - Recomendações acionáveis sem usar IA para cálculo financeiro base.
-- Status: NOT STARTED
-- Should Test frontend/backend/both after fix?: both
-- Blocked on something: Finalização de Task 1.
+  - Confirmação funcional e de UX pelo utilizador.
+- Status: USER VERIFICATION PENDING
+- Should Test frontend/backend/both after fix?: NA.
+- Blocked on something: Não.
 
 **Upcoming and Future Tasks**
 
 Upcoming Tasks:
-1. P0 — Concluir e testar a nova área “A Minha Meta”.
-   - Backend: CRUD de metas por empresa e endpoint de projeção.
-   - Frontend: página, navegação, formulário, indicadores, trajetória e plano CEO.
-   - Deve expor origem dos dados usados (manual/documento) e não apagar nem sobrescrever perfil manual.
-2. P1 — Completar template Balancete analítico com reconciliação SNC mais precisa.
-3. P1 — Validar incrementalmente templates de:
-   - IES/DA completa + Anexo A;
-   - Demonstração de Resultados;
-   - Balanço;
-   - Modelo 22;
-   - Declarações periódicas de IVA.
-4. P1 — Melhorar sincronização de extração para Perfil Financeiro com proposta/aceitação do utilizador, em vez de substituições automáticas.
-5. P1 — Mostrar/garantir no upload que os campos extraídos aparecem no retorno, evitando UX de .
+1. P1 — Ligar as metas ao gráfico de “Evolução do património”, mostrando trajetória real versus necessária.
+   - Esta foi uma melhoria sugerida pelo agente no encerramento; não foi aprovada pelo utilizador.
+   - Implementar apenas após confirmação explícita do utilizador.
+2. P1 — Completar reconciliação SNC do template Balancete analítico.
+3. P1 — Validar templates de IES/DA completa + Anexo A, Demonstração de Resultados, Balanço, Modelo 22 e declarações periódicas de IVA.
+4. P1 — Melhorar sincronização de extração para Perfil Financeiro com proposta/aceitação do utilizador, em vez de substituição automática.
+5. P1 — Garantir no upload que campos extraídos aparecem na resposta/UI, sem estado ambíguo como .
 
 Future Tasks:
-1. P1 — Configurar receção real de relatórios por email: domínio inbound, MX e fornecedor (Resend Receiving ou SendGrid Inbound Parse), mediante escolha do utilizador e playbook de integração.
-2. P1 — Confirmar Stripe Live por pagamento real controlado, webhook e ambiente de produção.
-3. P1 — Testar push real em iPhone/Apple Watch e entrega real Resend.
-4. P2 — Open Banking real após escolha de fornecedor, região e requisitos legais.
-5. P2 — NIF.PT se o utilizador fornecer credencial.
-6. P2 — CAE/objeto social e especialização/setor em valuation e relatórios.
+1. P1 — Receção real de relatórios por email, dependente de domínio inbound, MX, fornecedor e .
+2. P1 — Confirmar Stripe Live com pagamento controlado, webhook e ambiente produtivo.
+3. P1 — Testar push real em iPhone/Apple Watch e entrega real por Resend.
+4. P2 — Open Banking real após escolha de fornecedor/região/requisitos legais.
+5. P2 — Integração NIF.PT, se o utilizador fornecer credencial.
+6. P2 — Incorporar CAE/objeto social/especialização/setor em valuation e relatórios.
 7. P2 — Voz contínua e eventual app nativa watchOS.
-8. P2 — Reservas Founder de 15 minutos, explicitamente adiado.
+8. P2 — Reservas Founder de 15 minutos, explicitamente adiadas.
 
 **Completed work in this session**
-- Extrator SNC dual-mode validado contra documentos reais:
-  - Balancete analítico 2025: vendas, lucro, capital e gastos extraídos; reconciliação de balanço explicitamente sinalizada quando divergente.
-  - IES 2025: totais formais, vendas, resultado líquido e EBITDA extraídos; balanço reconciliado.
-- Ligação da valuation a documentos financeiros extraídos, com teste determinístico e screenshot.
-- Fusão manual + documento oficial com transparência de fonte:
-  -  em .
-  - Perfil Financeiro manual preservado.
-- Início da funcionalidade “A Minha Meta”:
-  - modelo/backend router/registo começaram, mas não está concluído.
+- Concluída a feature Premium “A Minha Meta”.
+- Corrigido o registo do router de metas em .
+- Backend de metas implementado/refatorado com:
+  - persistência por utilizador/empresa;
+  - cálculo determinístico de valor, meta de valor, faturação anualizada, gap, ritmo e veredito;
+  - fontes financeiras;
+  - endpoint de plano CEO por IA sob pedido, com cache.
+- Página  criada, rota  protegida adicionada e item de menu desktop/mobile criado.
+- Testes E2E feitos:
+  - compilação backend;
+  - curl autenticado para GET/POST de metas e projeções;
+  - plano IA chamado com sucesso;
+  - screenshot autenticado confirmou menu, formulário, persistência e indicadores;
+  - testing agent gerou relatório aprovado sem bugs.
+- PRD atualizado após implementação.
 
 - Recently completed:
-  - Valuation baseada em documentos oficiais e manual, com fonte por campo (agent-tested).
-  - “Contas & Evolução” na página Valor (agent-tested).
-  - Extrator IES/Balancete com PDFs reais (agent-tested).
+  - “A Minha Meta” Premium (agent-tested; validação do utilizador pendente).
+  - Plano CEO IA por botão com cache diário (agent-tested).
+  - Navegação/rota  (agent-tested).
 
 **Earlier issues found/mentioned but not fixed**
-- Issue 1: Balancete pode gerar ativo/passivo inflados ou não reconciliados.
+- Issue 1: Reconciliação incompleta de Balancete.
   - Debug checklist:
-    - Validar contas 24/IVA/Estado, depreciações e sinal de saldos.
-    - Tratar contas-mãe/filhas sem dupla contagem.
-    - Preferir documentos formais para totais de balanço.
-  - Why to solve:
-    - Evita valuation patrimonial incorreto.
+    - Testar documentos reais.
+    - Rever IVA/Estado, amortizações, sinais e contas agregadas SNC.
+    - Preferir documentos formais quando existirem para o exercício.
+  - Why to solve this issue:
+    - Garante valuation patrimonial fiável.
   - Should Test frontend/backend/both after fix: both.
   - Is recurring issue: N.
-- Issue 2: Email inbound de relatórios não está realmente ativo.
+
+- Issue 2: Inbound email de relatórios ainda não configurado no mundo real.
   - Debug checklist:
     - Não alterar sem pedido.
-    - Requer domínio, MX, , fornecedor escolhido e .
-  - Why to solve:
-    - Habilita envio de relatórios por email no mundo real.
+    - Requer domínio, MX, fornecedor selecionado e .
+  - Why to solve this issue:
+    - Permite envio real de relatórios por email.
   - Should Test frontend/backend/both after fix: both.
   - Is recurring issue: N.
+
 - Issue 3: Stripe Live não confirmado.
   - Debug checklist:
-    - Nunca pedir nem aceitar chave em chat.
-    - Confirmar env live, catálogo, webhook e pagamento pequeno controlado.
-  - Why to solve:
-    - Necessário para pagamentos em produção.
+    - Nunca pedir chave pelo chat.
+    - Confirmar ambiente live, catálogo, webhook e pagamento controlado.
+  - Why to solve this issue:
+    - Necessário para cobrança produtiva.
   - Should Test frontend/backend/both after fix: both.
   - Is recurring issue: N.
 
 **Known issue recurrence from previous fork**
-- Issue recurrence in previous fork: Extrator financeiro foi inicialmente considerado pronto com dados sintéticos, mas falhou em PDF real por cálculo/inferência de totais.
+- Issue recurrence in previous fork: O extrator financeiro foi anteriormente considerado pronto com dados sintéticos, mas falhou em documentos PDF reais devido a inferência/cálculo de totais.
 - Recurrence count: 1 relevante.
 - Status: IN PROGRESS
-- Regra para o próximo agente:
-  - Não afirmar precisão de OCR/tabelas/template sem validação em documento real.
-  - Não gastar créditos em reprocessamentos desnecessários.
-  - Cálculos financeiros devem ser determinísticos; IA deve extrair/classificar e redigir recomendações.
+- Regra:
+  - Não alegar precisão de OCR/tabelas/templates sem teste em documento real.
+  - Cálculos financeiros devem ser determinísticos.
+  - IA deve extrair/classificar e redigir recomendações, nunca inventar totais financeiros.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- Frontend: React, React Router, Tailwind/Shadcn UI, Lucide icons, Sonner.
-- Backend: FastAPI, Pydantic v2, async MongoDB.
-- Database: MongoDB via .
-- Auth: JWT/cookie plus Google auth; alterações de auth exigem .
-- IA: , Gemini nativo para PDF e GPT para texto/visão via Emergent LLM Key.
+- Frontend: React, React Router, Tailwind, Shadcn UI, Lucide, Sonner.
+- Backend: FastAPI e Pydantic v2.
+- Persistência: MongoDB async via .
+- Autenticação: JWT/cookie e Google Auth existente.
+- IA: ; Gemini para PDF e LLM de texto para recomendações, via Emergent LLM Key.
 - Financeiro:
   - 
   - 
   - 
-  - extração financeira estruturada e 
-  - histórico .
-- Fonte de dados:
-  - manual: ;
-  - documento oficial: ;
-  - documentos oficiais têm prioridade apenas nos campos que trazem; manual completa lacunas.
-- Nova feature deve manter cálculos financeiros no backend e IA apenas para plano/conselhos.
+  - 
+  - 
+- Metas:
+  - Dados base calculados no backend.
+  - IA recebe snapshot calculado para redigir plano.
+  - Plano só é solicitado pelo utilizador e é cacheado.
 
 **key DB schema**
 - :
   - , , , , , , , , , .
 - :
   - , , , , , , , , timestamps.
-  -  inclui ativo, passivo, capital próprio, vendas, rendimentos, gastos, resultado, EBITDA.
+  - : ativo, passivo, capital próprio, vendas, rendimentos, gastos, resultado, EBITDA.
 - :
-  - empresa ativa, objetivos/perfil de empresa existentes.
+  - empresa ativa e dados/perfis associados.
 - :
-  - , , mês, património e valor da empresa.
-- Possível coleção a confirmar para nova feature:
-  - recomendação:  com , , , , , , , .
-  - Verificar se  já criou um nome/contrato diferente antes de editar.
+  - , , mês, património, valor da empresa.
+- Coleção de metas:
+  - Confirmar o nome exato dentro de  antes de quaisquer alterações.
+  - Armazena meta de valor, meta de faturação, YTD, referência temporal, prazo, ,  e timestamps.
 
 **changes in tech stack**
-- Sem migração de stack ou BD.
-- Integração Gemini/PDF nativo já adicionada através de ; não instalar SDK de terceiros diretamente.
+- Não houve migração de stack nem de base de dados.
+- Nenhuma nova dependência externa foi adicionada nesta sessão.
+- A integração LLM já existente foi reutilizada para o plano CEO; não foi introduzido SDK de terceiros.
 
 **All files of reference**
-1. Criados/atualizados nesta sessão:
+1. Atualizados/criados nesta sessão:
    - 
-     - Extração dual-mode, totais/reconciliação e merge de dados para valuation.
+     -  e modelos relacionados a metas.
    - 
-     - Persistência/histórico de extrações e campos de reconciliação.
+     - endpoints de metas, projeções determinísticas, gating Premium, plano IA/cache e alteração final de anualização.
    - 
-     - Endpoint valuation expõe fontes financeiras.
+     - registo efetivo do router .
    - 
-     - Alterado para iniciar suporte a metas; inspecionar alteração exata.
+     - nova página da feature.
    - 
-     - Novo router de metas, criado mas não confirmado/testado.
+     - import e rota protegida .
    - 
-     - Alterado para importar/registar .
+     - entrada de menu desktop e mobile para Meta; import do ícone .
    - 
-     - “Contas & Evolução”, origem do valor e badge de fontes.
+     - atualizado com conclusão da funcionalidade.
    - 
-     - Histórico financeiro e estado de reconciliação.
+     - teste/regressão de metas mencionado pelo testing agent.
    - 
-     - Atualizado com extrator e valuation.
-   - 
-     - Teste real criado.
-   - 
-     - Teste real criado.
-   - 
-     - Teste determinístico de reconciliação criado.
+     - relatório completo aprovado do testing agent.
 2. Outros ficheiros importantes:
    - 
+     - , , funções de valuation e fontes.
    - 
+     - Perfil Financeiro manual.
    - 
+     - extrações financeiras e documentos.
    - 
+     - padrão de linguagem/formatação/transparência financeira.
    - 
-   - relatório de teste mais recente antes desta sessão: .
+     - credenciais de teste; não expor em respostas.
 
 **Areas that need refactoring**
--  é muito grande e centraliza extração, IA, valuation, snapshots, storage e outros domínios. Não refatorar agora, pois não foi pedido e há risco de regressão.
-- Alguns testes financeiros criados foram orientados a valores dos documentos reais e podem conter dados sensíveis/temporários. Rever se documentos/valores são aceitáveis no repositório antes de ampliar testes.
-- A nova feature deve evitar criar duplicação de lógica de valuation no router ; reutilizar /funções de cálculo existentes.
+-  concentra múltiplos domínios (extração, IA, valuation, snapshots, storage). Não refatorar sem pedido explícito, pois é arriscado.
+- Verificar se a lógica de projeção de metas está concentrada exclusivamente em  e reutiliza snapshot/valuation, sem duplicar indevidamente regras de valuation.
+- Os testes com valores provenientes de documentos reais podem precisar de revisão de sensibilidade antes de serem ampliados.
 
 **key api endpoints**
 -  — snapshot com valuation e fontes.
 -  — valuation detalhada.
 -  — grava Perfil Financeiro manual.
--  — dados para Contas & Evolução.
-- Rotas de documentos em :
-  - upload/análise de documento;
-  - histórico/documentos;
-  - remoção.
-- Novos endpoints de metas:
-  - Ainda a confirmar em ; não assumir path/contrato antes de ler.
+-  — dados de Contas & Evolução.
+- Rotas de metas em :
+  -  — meta guardada + dados/projeções.
+  -  — guardar/atualizar meta.
+  -  — gerar/obter o plano IA sob pedido.
+- Confirmar o contrato exato no router antes de integrações futuras.
 
 **Critical Info for New Agent**
-- O usuário está insatisfeito/confuso com alterações anteriores. Comunicação deve ser clara, respeitosa e evitar prometer “melhor app já feito” sem evidência.
-- O usuário escolheu explicitamente a combinação transparente de dados: documento oficial prevalece em números existentes, manual preenche o que faltar.
-- Não remover nem ocultar campos de Finanças/Perfil Financeiro.
-- A funcionalidade de metas deve ser explicável:
-  - mostrar valores usados, fontes, data de atualização e fórmula;
-  - separar “valor atual estimado” de “faturação acumulada”.
-- Para IA/plano:
-  - exigir confirmação/planeamento antes de integrar serviço externo se houver alteração de integração;
-  -  já existe, mas usar  se for modificar integração LLM.
-  - Fazer plano sob demanda ou com cache para reduzir gasto de créditos.
-- Produção e preview são ambientes distintos; para qualquer problema informado pelo usuário, perguntar primeiro se acontece em preview ou produção. Não incluir URLs na resposta.
-- Nunca expor secret keys, passwords ou connection strings.
-- Não afirmar que o usuário testou ou confirmou algo que foi apenas agent-tested.
-- O agente anterior disse que “documento manda nos números”; isso é uma decisão implementada e testada, mas precisa ser expressa no UI para não gerar nova confusão.
+- Responder em português.
+- O utilizador demonstrou preocupação anterior sobre alterações não visíveis e sobre perda de campos financeiros; comunicar com precisão e evitar promessas não verificadas.
+- Não remover/ocultar campos de Perfil Financeiro manual.
+- Regra de dados: documento oficial prevalece apenas no campo que possui; manual preenche lacunas.
+- Explicar as fontes na UI sempre que forem apresentadas projeções ou valuation.
+- Metas devem manter:
+  - cálculos financeiros no backend;
+  - IA apenas para texto/recomendações;
+  - geração explícita por botão e cache, evitando gasto de créditos.
+- O agente declarou a feature concluída, mas a alteração de robustez feita após  exige teste adicional antes de voltar a declará-la completamente validada.
+- Produção e preview são ambientes distintos. Para bugs reportados, perguntar primeiro em qual ambiente ocorre, sem partilhar URLs.
+- Não expor segredos, palavras-passe, tokens ou connection strings.
 
-**documents and test reports created in this job**
-- Supporting docs:
+**documents and test reports created in this job** (provide absolute path)
+- Relatório de testes:
   - 
-- Testes backend:
+- Documento de produto atualizado:
   - 
-  - 
-  - 
-- Relatórios existentes a consultar:
-  - 
-  - 
-  - 
-- Testes temporários criados e limpos:
-  - 
-  - 
-  - 
+- Teste backend:
   - 
 
 **Last 10 User Messages and any pending HUMAN messages**
-1. “Onde queres esta área?...” — respondeu ao :
-   - Nova página no menu.
-   - Meta dupla: valor e faturação.
-   - Faturação YTD manual.
-   - Prazo por anos ou data.
-   - Plano CEO já incluído.
-   - Status: em implementação.
-2. Pediu sugestões para uma área onde o utilizador pode inserir faturação atual/YTD, comparar com meta e prazo, e receber orientação para aumentar valor empresarial.
-   - Status: requisitos recolhidos e aprovados.
-3. Escolheu opção “c” para combinar manual + documentos de forma transparente.
-   - Status: implementado e agent-tested.
-4. Manifestou confusão e receio de que financiamento/outros campos tivessem sido removidos, perguntou sobre devolução.
-   - Status: confirmado que Perfil Financeiro continua; suporte foi acionado para a parte de reembolso.
-5. Pediu atualização automática do valor conforme “alimentações” inseridas.
-   - Status: implementado e agent-tested, com fonte apresentada.
-6. Disse que a mudança não aparecia e créditos estavam terminando.
-   - Status: preview testado; foi explicado que dados precisam existir e que ambientes são distintos.
-7. Enviou IES/IRC.
-   - Status: IES validada em extractor real.
-8. Enviou Balancete 2025.
-   - Status: validado parcialmente; P&L sólido, balanço não plenamente reconciliado.
-9. Pediu uso de  para confirmar plano.
-   - Status: respondido.
-10. Handoff inicial descreveu P0 do extractor financeiro.
-   - Status: parcialmente concluído/validado para IES e parcialmente para Balancete.
+1. Mais recente: forneceu a resposta ao :
+   - Acesso à funcionalidade deve ser **Premium**.
+   - Plano do CEO por IA deve ser gerado **só sob botão**.
+   - Status: implementado e agent-tested; validação do utilizador pendente.
+2. Pediu ao agente para usar  e confirmar o plano para retomar a implementação.
+   - Status: cumprido.
+3. Handoff anterior: pediu uma nova área para inserir faturação atual/YTD, comparar com meta/prazo e receber orientação para aumentar valor empresarial.
+   - Status: implementado.
+4. Escolheu combinação transparente de dados manuais e documentos oficiais.
+   - Status: implementado.
+5. Demonstrou preocupação de que financiamento/outros campos pudessem ter sido removidos e perguntou sobre devolução.
+   - Status: Perfil Financeiro preservado; parte de suporte/reembolso já encaminhada anteriormente.
+6. Pediu atualização automática do valor conforme dados inseridos.
+   - Status: implementado previamente.
+7. Informou que mudanças não apareciam e créditos estavam a terminar.
+   - Status: preview foi verificado anteriormente; atenção à separação preview/produção.
+8. Enviou IES/IRC.
+   - Status: IES validada pelo extrator.
+9. Enviou Balancete 2025.
+   - Status: extração parcial validada; reconciliação de balanço continua pendente.
+10. Pediu confirmação de plano via .
+   - Status: cumprido.
 
 Pending HUMAN messages:
-- Nenhuma pergunta pendente. A próxima ação deve ser retomar a implementação aprovada de “A Minha Meta”.
+- Não há pergunta pendente.
+- Há validação de utilizador pendente da funcionalidade “A Minha Meta”.
+- A sugestão de ligar Meta ao gráfico de evolução não foi aprovada; não iniciar sem nova confirmação.
 
 **Project Health Check:**
 - Broken:
-  - Nova área “A Minha Meta” ainda incompleta; pode haver backend parcialmente registado sem frontend.
-  - Balancete pode continuar com ativo/passivo não reconciliados.
+  - Não há quebra confirmada na feature de metas.
+  - A alteração final de anualização ainda não foi retestada após ser aplicada.
+  - Balancete pode produzir ativo/passivo não reconciliados.
 - Mocked:
   - Open Banking é mock/demo.
-  - Inbound email foi testado sinteticamente; não há domínio/provider real configurado.
-  - Push foi agent-tested; entrega em dispositivo real não confirmada.
-  - Stripe Live não confirmado.
+  - Inbound email não possui domínio/provider real configurado.
+  - Push foi testado pelo agente, mas não em dispositivo real.
+  - Stripe Live não foi confirmado.
 - Healthy:
-  - Backend compilou após últimas mudanças anteriores.
-  - Extrator IES real e valuation/documento/manual foram agent-tested.
-  - Perfil manual permanece disponível.
+  - Feature de metas passou em validação E2E do testing agent antes da última pequena alteração.
+  - Backend compilou e endpoints de metas/plano responderam corretamente.
+  - Página Meta foi validada visualmente com sessão autenticada.
+  - Perfil financeiro e fusão documento/manual permanecem funcionais.
 
 **3rd Party Integrations**
-- MongoDB — plataforma/configuração existente; não requer chave do utilizador.
-- Emergent LLM Key /  — CEO chat, análise, PDF Gemini, visão; usa Emergent LLM Key.
-- Gemini 2.5 Pro via emergentintegrations — leitura nativa de PDF/OCR/tabelas; usa Emergent LLM Key.
-- OpenAI via emergentintegrations — geração de texto/visão, incluindo plano CEO potencial; usa Emergent LLM Key.
-- Resend — emails/reset/briefing/alertas; integração gerida/configuração existente. Alterações requerem .
-- Stripe — subscrições/checkout; requer configuração da conta/ambiente do utilizador para Live; nunca pedir chave pelo chat.
-- Web Push/VAPID +  — push PWA; chave/configuração backend existente, não requer chave do utilizador.
-- Object storage/document uploads — integração/plataforma existente; quaisquer alterações a uploads exigem .
-- Google Auth — Emergent-managed Google Auth; alteração exige .
+- MongoDB — configuração existente via ambiente; não requer chave do utilizador.
+- Emergent LLM Key /  — chat CEO, análise, PDFs Gemini e plano CEO; usa Emergent LLM Key.
+- Gemini via  — leitura PDF/OCR/tabelas; usa Emergent LLM Key.
+- OpenAI/Claude via  — geração de texto/visão e recomendações; usa Emergent LLM Key.
+- Resend — emails/reset/briefings; integração existente. Alterações exigem .
+- Stripe — subscrições/checkout; Live requer configuração da conta/ambiente do utilizador; nunca pedir chave pelo chat.
+- Web Push/VAPID +  — push PWA; configuração existente.
+- Object storage/uploads — integração existente; mudanças exigem .
+- Google Auth — Emergent-managed Google Auth; alterações exigem .
 - NIF.PT — requer API key fornecida pelo utilizador; não configurado.
-- Open Banking — nenhum fornecedor escolhido; mock atual.
+- Open Banking — nenhum fornecedor selecionado; implementação atual é mock.
 
 **Testing status**
-- Testing agent used after significant changes: NO nesta última implementação de metas (porque ainda não terminou).
-- Troubleshoot agent used after agent stuck in loop: NO.
+- Testing agent used after significant changes: YES.
+- Relatório: .
+- Resultado reportado:
+  - Todos os 6 testes backend passaram.
+  - Validação E2E backend/frontend da funcionalidade Meta passou.
+  - Cálculos de anualização, persistência, proteção Premium, UI, botão de plano e test IDs foram validados.
+  - “No bugs found.”
+- Self-tests adicionais realizados:
+  - .
+  - Curl autenticado GET/POST para metas.
+  - Verificação da matemática: YTD 120k em 6 meses → projeção 240k, meta de receita 500k → gap 260k.
+  - Chamada real a .
+  - Screenshot autenticado.
 - Test files created:
   - 
-  - 
-  - 
-- Agent tests realizados:
-  -  para backend.
-  - Testes determinísticos de valuation/merge.
-  - Screenshot autenticado da página Valor com fontes.
-  - Extrações reais Gemini para Balancete e IES.
 - Known regressions:
-  - Não há confirmação de que o recém-criado  compile ou esteja corretamente incluído.
-  - Nenhuma rota/menu/página de metas foi comprovada.
-  - Possível consumo excessivo de créditos se plano IA for recalculado automaticamente a cada render/upload; desenhar chamada sob demanda/cache.
+  - A correção final de data YTD/histórico foi feita após o testing report e precisa ser retestada.
 
 **Credentials to test flow:**
-- Consultar .
-- Não reproduzir credenciais em respostas ao usuário.
-- O arquivo contém credenciais de admin de preview usadas anteriormente em screenshot/API tests.
+- Consultar exclusivamente .
+- Não reproduzir credenciais, cookies, tokens ou passwords em conversas/resumos.
 
 **What agent forgot to execute**
-- O agente prometeu completar em paralelo “modelo, router backend, registo, página, rota e menu”, mas a evidência final só contém:
-  -  editado;
-  -  criado;
-  -  editado.
-- Não há evidência de:
-  - criação da página frontend de metas;
-  - edição de ;
-  - edição de ;
-  - implementação de endpoint/UI para plano IA;
-  - testes do novo router;
-  - teste de persistência;
-  - screenshot;
-  - ;
-  - atualização do PRD após iniciar esta task.
-- O próximo agente deve inspecionar o estado real antes de escrever alterações adicionais, pois edições por  em sessões anteriores causaram blocos duplicados/corrompidos.
+- Retestar a alteração de robustez da anualização YTD feita após o relatório .
+- Não houve confirmação do utilizador final sobre a nova página Premium, embora os testes do agente estejam aprovados.
+- Não iniciar a melhoria sugerida de ligar metas à trajetória de património sem consentimento explícito do utilizador.
 
 **Debugging checklist for current issue**
+
 </analysis>
