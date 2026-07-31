@@ -55,7 +55,7 @@ async def _compute_goal(uid: str, cid):
 
     ytd = float(g.get("ytd_revenue") or 0)
     aod = _parse_date(g.get("ytd_as_of")) or now
-    months_elapsed = max(1, min(12, aod.month))
+    months_elapsed = 12 if aod.year < now.year else max(1, min(12, aod.month))
     annualized_revenue = round(ytd / months_elapsed * 12, 2) if ytd > 0 else float(current_revenue or 0)
 
     margin = None

@@ -84,6 +84,14 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 - ✅ Transparência: snapshot/`/api/valuation` devolvem `value_sources` {patrimonio, lucro, faturacao, ativos, passivos} com a etiqueta da origem ("IES 2025" ou "os teus dados (Perfil Financeiro)") + `annual_revenue`. `Valor.jsx` mostra o bloco "De onde vem este valor" com cada número e a sua fonte.
 - ✅ Testado (3 cenários): só manual (€227k, fonte "os teus dados"), só documento (€25.611, fonte "IES 2025"), ambos (documento manda nos números que traz). Screenshot confirma o bloco no ecrã. Dados de teste limpos.
 
+## "A Minha Meta" — metas de valor + faturação com plano do CEO (2026-07-31)
+- ✅ Nova página PREMIUM `/meta` (item de menu `nav-meta`, gated como Saúde/Valor/Futuro): o empresário define meta de VALOR da empresa e/ou de FATURAÇÃO anual, insere a faturação YTD (acumulada este ano) + o mês a que se refere, e o prazo por nº de anos OU por data alvo.
+- ✅ Cálculos 100% DETERMINÍSTICOS no backend (`routers/goals.py::_compute_goal`, reutiliza `build_snapshot`): valor atual, faturação anualizada (ytd/mês*12; se `as_of` for ano anterior usa 12 meses), gap absoluto/%, ritmo necessário/ano, crescimento ao ritmo atual, anos-para-chegar, veredicto (reached/on/tight/off) e marcos por ano. Faturação: projeção fim-de-ano, gap, %, crescimento necessário/ano. A IA NUNCA inventa números.
+- ✅ Plano do CEO por IA SÓ SOB PEDIDO (decisão do utilizador, poupa créditos): endpoint separado `POST /api/goal/plan` (cache diário via `cached_ai`, invalidado ao gravar meta) acionado pelo botão `generate-plan-btn`; devolve diagnóstico, veredicto, 3-4 ações com impacto em €/% e frase. GET /api/goal NÃO chama IA.
+- ✅ Endpoints: `GET /api/goal`, `POST /api/goal`, `POST /api/goal/plan` — todos `Depends(premium_user)` (402 para grátis). Modelo `GoalInput`. Persistência em `db.goals` por `user_id`+`company_id`. Bug corrigido: `server.py` importava mas não incluía o router `goals`.
+- ✅ Transparência de fonte: a página mostra a origem do valor atual (`value_sources.patrimonio`) coerente com a regra documento-oficial-manda / manual-completa-lacunas.
+- ✅ Testado E2E (iteration_27): backend 6/6 (matemática determinística, prazo por data, plano sob pedido, gating 402), frontend 100% (nav, form, persistência, indicadores, plano só sob botão, UpgradeWall no grátis). Zero bugs. Regressão em `backend/tests/test_goals.py`.
+
 
 ## "Alimentar o CEO" — relatórios/documentos como consultor (2026-07-28)
 - ✅ `build_system_prompt` passou a injetar os documentos carregados (resumo IA + números extraídos, últimos 12) → o CEO "lê" os relatórios em TODO o lado (chat, valor, sinais). Verificado: CEO citou faturação €12.400, cliente principal e €5.200 a receber de um relatório carregado.
