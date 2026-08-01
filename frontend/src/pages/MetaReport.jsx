@@ -27,7 +27,7 @@ export default function MetaReport() {
   if (!d) return <div className="min-h-screen flex items-center justify-center bg-white"><Loader2 className="w-6 h-6 animate-spin text-blue-600" /></div>;
 
   const sym = d.currency_symbol || "€";
-  const fmt = (n) => `${sym}${Number(n || 0).toLocaleString("pt-PT", { maximumFractionDigits: 0 })}`;
+  const fmt = (n) => `${sym}${Number(n || 0).toLocaleString(sym === "R$" ? "pt-BR" : "pt-PT", { maximumFractionDigits: 0 })}`;
   const req = d.required || {};
   const traj = d.trajectory || [];
   const chartData = traj.map((t) => ({ label: t.label, Meta: t.goal, "Ritmo atual": t.pace }));

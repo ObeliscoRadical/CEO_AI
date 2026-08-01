@@ -16,7 +16,7 @@ import {
   ChevronDown, FileDown, Mail, Info, Share2, Copy, ExternalLink,
 } from "lucide-react";
 
-const fmt = (sym, n) => `${sym}${Number(n || 0).toLocaleString("pt-PT", { maximumFractionDigits: 0 })}`;
+const fmt = (sym, n) => `${sym}${Number(n || 0).toLocaleString(sym === "R$" ? "pt-BR" : "pt-PT", { maximumFractionDigits: 0 })}`;
 const PRESETS = [1, 2, 3, 5, 7, 10];
 const VIAB = {
   green: { color: "#10B981", Icon: CheckCircle2 },

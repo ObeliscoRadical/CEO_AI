@@ -205,6 +205,24 @@ export default function Settings() {
             <Input data-testid="co-name" value={company.name || ""} onChange={(e) => upC({ name: e.target.value })} className="mt-1 bg-transparent" /></div>
           <div><Label className="text-xs text-muted-foreground">O que a empresa faz (área)</Label>
             <Input data-testid="co-sector" value={company.sector || ""} onChange={(e) => upC({ sector: e.target.value })} placeholder="Ex: restauração, construção, loja online" className="mt-1 bg-transparent" /></div>
+          <div><Label className="text-xs text-muted-foreground">País</Label>
+            <Select value={company.region || "PT"} onValueChange={(v) => upC({ region: v, currency: v === "BR" ? "BRL" : v === "PT" ? "EUR" : (company.currency || "EUR") })}>
+              <SelectTrigger data-testid="co-region" className="mt-1 bg-transparent"><SelectValue placeholder="Escolhe o país" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="PT">Portugal</SelectItem>
+                <SelectItem value="BR">Brasil</SelectItem>
+                <SelectItem value="OUTRO">Outro</SelectItem>
+              </SelectContent>
+            </Select></div>
+          <div><Label className="text-xs text-muted-foreground">Moeda</Label>
+            <Select value={company.currency || "EUR"} onValueChange={(v) => upC({ currency: v })}>
+              <SelectTrigger data-testid="co-currency" className="mt-1 bg-transparent"><SelectValue placeholder="Escolhe a moeda" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="EUR">Euro (€)</SelectItem>
+                <SelectItem value="BRL">Real brasileiro (R$)</SelectItem>
+                <SelectItem value="USD">Dólar americano ($)</SelectItem>
+              </SelectContent>
+            </Select></div>
           <div><Label className="text-xs text-muted-foreground">CAE (código de atividade)</Label>
             <Input data-testid="co-cae" value={prof.cae || ""} onChange={(e) => upProf({ cae: e.target.value })} placeholder="Ex: 70220" className="mt-1 bg-transparent" /></div>
           <div><Label className="text-xs text-muted-foreground">Onde fica</Label>

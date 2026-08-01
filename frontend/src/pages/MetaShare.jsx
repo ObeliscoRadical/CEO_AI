@@ -30,7 +30,7 @@ export default function MetaShare() {
 
   const g = d.data || {};
   const sym = g.currency_symbol || "€";
-  const fmt = (n) => `${sym}${Number(n || 0).toLocaleString("pt-PT", { maximumFractionDigits: 0 })}`;
+  const fmt = (n) => `${sym}${Number(n || 0).toLocaleString(sym === "R$" ? "pt-BR" : "pt-PT", { maximumFractionDigits: 0 })}`;
   const req = g.required || {};
   const viab = g.viability ? (VIAB[g.viability.level] || VIAB.amber) : null;
   const chartData = (g.trajectory || []).map((t) => ({ label: t.label, goal: t.goal, pace: t.pace }));
