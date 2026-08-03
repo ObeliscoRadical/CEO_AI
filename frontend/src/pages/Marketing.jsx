@@ -23,6 +23,7 @@ export default function Marketing() {
   const [targets, setTargets] = useState({ instagram: true, facebook: true });
   const [logo, setLogo] = useState(null);
   const [logoBusy, setLogoBusy] = useState(false);
+  const [imgBusy, setImgBusy] = useState(null);
 
   const load = () => api.get("/marketing/content").then(({ data }) => {
     if (data.content?.content) { setContent(data.content.content); setUpdated(data.content.updated_at); }
@@ -83,8 +84,8 @@ export default function Marketing() {
     setBusy(i);
     try {
       const { data } = await api.post("/social/publish", {
-        caption: captionOf(p), image_prompt: `${p.titulo}. ${content?.brand?.tom || ""}`,
-        generate_image: true, instagram: targets.instagram, facebook: targets.facebook,
+        caption: captionOf(p), image_url: p.image_url || null, image_prompt: `${p.titulo}. ${content?.brand?.tom || ""}`,
+        generate_image: !p.image_url, instagram: targets.instagram, facebook: targets.facebook,
       });
       const r = data.results || {};
       const errs = Object.entries(r).filter(([, v]) => v?.error).map(([k, v]) => `${k}: ${v.error}`);
@@ -109,8 +110,8 @@ export default function Marketing() {
     const p = schedFor;
     try {
       await api.post("/social/schedule", {
-        caption: captionOf(p), image_prompt: `${p.titulo}. ${content?.brand?.tom || ""}`,
-        generate_image: true, instagram: targets.instagram, facebook: targets.facebook,
+        caption: captionOf(p), image_url: p.image_url || null, image_prompt: `${p.titulo}. ${content?.brand?.tom || ""}`,
+        generate_image: !p.image_url, instagram: targets.instagram, facebook: targets.facebook,
         run_at: new Date(schedWhen).toISOString(),
       });
       toast.success("Publicação agendada!"); setSchedFor(null); loadJobs();
@@ -132,6 +133,16 @@ export default function Marketing() {
   };
 
   const removeLogo = async () => { await api.delete("/social/logo"); setLogo(null); toast.success("Logo removido."); };
+
+  const genImage = async (i) => {
+    setImgBusy(i);
+    try {
+      const { data } = await api.post("/marketing/image", { index: i });
+      setContent((c) => { const posts = [...(c.posts || [])]; posts[i] = { ...posts[i], image_url: data.image_url }; return { ...c, posts }; });
+      toast.success("Imagem criada com o seu logo!");
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+    setImgBusy(null);
+  };
 
   if (!loaded) return <div className="flex justify-center py-40"><Loader2 className="w-6 h-6 animate-spin text-[#A78BFA]" /></div>;
 
@@ -261,6 +272,16 @@ export default function Marketing() {
           <div className="grid md:grid-cols-2 gap-5 mb-10" data-testid="mkt-posts">
             {(content.posts || []).map((p, i) => (
               <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className="surface rounded-3xl p-6 flex flex-col" data-testid={`mkt-post-${i}`}>
+                {p.image_url ? (
+                  <img src={p.image_url} alt={p.titulo} className="w-full aspect-square object-cover rounded-2xl mb-4" data-testid={`mkt-img-${i}`} />
+                ) : (
+                  <button onClick={() => genImage(i)} disabled={imgBusy === i} data-testid={`mkt-genimg-${i}`}
+                    className="w-full aspect-square rounded-2xl border border-dashed border-white/15 flex flex-col items-center justify-center gap-2 mb-4 hover:bg-white/[0.03] transition-colors disabled:opacity-60">
+                    {imgBusy === i
+                      ? <><Loader2 className="w-6 h-6 animate-spin text-[#A78BFA]" /><span className="text-xs text-muted-foreground">A criar imagem (~30s)…</span></>
+                      : <><ImageIcon className="w-6 h-6 text-[#A78BFA]" /><span className="text-xs text-muted-foreground">Gerar imagem (com o seu logo)</span></>}
+                  </button>
+                )}
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full" style={{ color: FORMAT_COLOR[p.formato] || "#94a3b8", background: `${FORMAT_COLOR[p.formato] || "#94a3b8"}18` }}>{p.formato}</span>
                   {p.dia && <span className="text-xs text-muted-foreground">{p.dia}</span>}

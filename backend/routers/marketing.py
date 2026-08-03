@@ -1,6 +1,8 @@
 """Diretor de Marketing — gera identidade de marca, conteúdos (Posts/Stories/Reels) e calendário editorial.
 Modo rascunho/exportar (sem publicação real; integrações sociais chegam na Fase 4)."""
-from fastapi import APIRouter, Depends
+import base64
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from core import *
 
 router = APIRouter()
@@ -52,3 +54,36 @@ async def generate_content(user: dict = Depends(premium_user)):
     doc = {"user_id": uid, "company_id": cid, "content": content, "updated_at": now_iso}
     await db.marketing_content.update_one({"user_id": uid, "company_id": cid}, {"$set": doc}, upsert=True)
     return {"content": {"content": content, "updated_at": now_iso}}
+
+
+class ImageIn(BaseModel):
+    index: int
+
+
+@router.post("/marketing/image")
+async def gen_post_image(inp: ImageIn, user: dict = Depends(premium_user)):
+    """Gera (sob pedido) a imagem de UM post, com o logo da empresa aplicado, e guarda-a (cache)."""
+    uid = user["id"]; cid = await active_company_id(uid)
+    doc = await db.marketing_content.find_one({"user_id": uid, "company_id": cid})
+    if not doc or not doc.get("content"):
+        raise HTTPException(404, "Gere os conteúdos primeiro.")
+    posts = doc["content"].get("posts") or []
+    if inp.index < 0 or inp.index >= len(posts):
+        raise HTTPException(404, "Post não encontrado.")
+    p = posts[inp.index]
+    c = await _ctx(uid)
+    brand = doc["content"].get("brand") or {}
+    prompt = (f"Cena visual conceptual para uma publicação de marketing de '{c['name']}' "
+              f"(setor: {c['sector']}). Ideia a transmitir: {p.get('titulo', '')}. "
+              f"Estilo/tom visual: {brand.get('tom', 'profissional e moderno')}.")
+    img = await generate_marketing_image(prompt)
+    logo = await db.brand_assets.find_one({"user_id": uid, "company_id": cid})
+    if logo and logo.get("logo_data"):
+        try:
+            img = composite_logo(img, base64.b64decode(logo["logo_data"]))
+        except Exception as e:
+            logger.error(f"logo composite (marketing): {e}")
+    url = await store_public_media(uid, img)
+    posts[inp.index]["image_url"] = url
+    await db.marketing_content.update_one({"user_id": uid, "company_id": cid}, {"$set": {"content.posts": posts}})
+    return {"image_url": url}

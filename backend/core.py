@@ -11,7 +11,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
-import logging, uuid, jwt, bcrypt, io, json, requests, random, stripe, httpx, hashlib, secrets
+import logging, uuid, jwt, bcrypt, io, json, requests, random, stripe, httpx, hashlib, secrets, base64
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone, ImageContent, FileContentWithMimeType
 
 # ---------------------------------------------------------------- config
@@ -134,7 +134,8 @@ async def generate_marketing_image(prompt: str) -> bytes:
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
     gen = OpenAIImageGeneration(api_key=EMERGENT_KEY)
     imgs = await gen.generate_images(
-        prompt=f"{prompt}. Fotografia/ilustração publicitária profissional de alta qualidade, composição limpa, sem texto sobreposto.",
+        prompt=f"{prompt}. NÃO incluir qualquer texto, palavras, letras, números ou logótipos na imagem. "
+               "Composição limpa e profissional, fotografia/ilustração publicitária de alta qualidade.",
         model="gpt-image-1", number_of_images=1)
     if not imgs:
         raise RuntimeError("Nenhuma imagem gerada")
@@ -179,6 +180,15 @@ def composite_logo(base_bytes: bytes, logo_bytes: bytes) -> bytes:
     out = io.BytesIO()
     base.convert("RGB").save(out, format="PNG")
     return out.getvalue()
+
+async def store_public_media(uid: str, data: bytes, ct: str = "image/png") -> str:
+    """Guarda bytes de imagem e devolve URL público (servido por /api/public/media/{id})."""
+    mid = str(uuid.uuid4())
+    await db.social_media.insert_one({"_id": mid, "user_id": uid,
+                                      "data": base64.b64encode(data).decode(), "content_type": ct,
+                                      "created_at": datetime.now(timezone.utc).isoformat()})
+    base = (os.environ.get("FRONTEND_URL", "") or "").rstrip("/")
+    return f"{base}/api/public/media/{mid}"
 
 def extract_document_text(data: bytes, content_type: str, filename: str) -> str:
     name = (filename or "").lower(); ct = (content_type or "").lower()
