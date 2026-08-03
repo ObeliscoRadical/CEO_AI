@@ -92,7 +92,11 @@ async def _run_director(key: str, ctx_text: str, sym: str):
         f"TAREFA: {d['focus']}\n\n" + _JSON_SHAPE + f"{sym} ou %). \"execucao\": 2-4 itens do que executarias após aprovação."
     )
     out = await ai_json(d["system"], prompt)
-    return key, (out or {})
+    out = out or {}
+    out.setdefault("situacao", "Análise indisponível de momento — tente gerar a reunião novamente.")
+    for k in ("indicadores", "prioridades", "acoes", "execucao"):
+        out.setdefault(k, [])
+    return key, out
 
 
 async def _run_brain(ctx_text: str, directors: dict, sym: str):

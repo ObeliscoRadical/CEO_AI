@@ -1,4 +1,14 @@
-# CEO AI — O Executivo Digital (PRD)
+# CEO AI — O Executivo Digital
+
+## CEO AI V2 — Conselho Executivo Digital (2026-08-03, FASE 1 concluída)
+- ✅ Arquitetura modular: `backend/routers/council.py` com **Orquestrador (Cérebro)** + 3 **Diretores IA especializados** (Financeiro/Comercial/Marketing) que partilham um **contexto comum** determinístico (`build_council_context` a partir de `build_snapshot` + perfil + meta).
+- ✅ **Reunião Executiva de Hoje** (experiência central): `POST /api/council/meeting/generate` corre os 3 diretores em paralelo (`asyncio.gather`) + o Cérebro que cruza tudo numa **estratégia única recomendada** (foco principal, passos com responsável, KPIs, risco). Cache por dia (user+company+data em `db.council_meetings`) para poupar créditos; `/refresh` força nova geração.
+- ✅ `POST /api/council/meeting/approve` → marca aprovada e cria tarefas de execução por diretor (`db.council_tasks`); `GET /api/council/tasks`. `GET /api/council/meeting` devolve contexto determinístico quando ainda não gerada.
+- ✅ Frontend `Conselho.jsx` (rota `/conselho-executivo`, Premium, item de menu `nav-conselho-exec`): intro com "Reunir o Conselho", 3 cartões de diretor (situação/indicadores/prioridades/ações + toggle execução), cartão do Cérebro (estratégia recomendada), botão único **"Aprovar estratégia"** e painel de execução com tarefas + integrações sociais **preparadas** (Instagram/Facebook/Google Business, status not_connected, "brevemente").
+- ✅ Preparado para integrações reais (Fase 4) sem refatorar. IA via chave Emergent (ai_json). Testado por testing_agent (iteration_30): backend 5/5, frontend 100%, zero bugs. Defaults defensivos adicionados nos diretores.
+- 📌 Próximas fases: F2 CRM interno (Comercial: ICP, lead score, propostas/emails, pipeline); F3 geração de conteúdos/calendário editorial (Marketing, modo rascunho); F4 integrações sociais reais + agendamento/publicação (integration_expert + credenciais Meta/Google); F5 execução + aprendizagem contínua com resultados.
+
+ (PRD)
 
 ## Problem Statement
 App web (dashboard desktop) que funciona como um executivo digital 24/7 para PMEs: entende objetivos do empresário, monitoriza a saúde da empresa e diz o que decidir hoje, com foco no futuro. Multi-região (PT €, BR R$). Idioma: Português.

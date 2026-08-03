@@ -220,7 +220,7 @@ export default function Conselho() {
           {/* Aprovação / Execução */}
           {!m.approved ? (
             <div className="text-center mb-10">
-              <Button data-testid="approve-strategy-btn" onClick={approve} disabled={approving} className="rounded-full bg-[#10B981] text-white hover:bg-[#059669] px-10 h-13 text-base h-12">
+              <Button data-testid="approve-strategy-btn" onClick={approve} disabled={approving} className="rounded-full bg-[#10B981] text-white hover:bg-[#059669] px-10 h-12 text-base">
                 {approving ? <><Loader2 className="w-5 h-5 animate-spin mr-2" /> A aprovar…</> : <><CheckCircle2 className="w-5 h-5 mr-2" /> Aprovar estratégia</>}
               </Button>
               <p className="text-xs text-muted-foreground mt-3">Ao aprovar, cada diretor recebe a sua parte para executar. As publicações reais em redes ligam-se na próxima fase.</p>
