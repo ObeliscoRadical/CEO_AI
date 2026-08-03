@@ -144,6 +144,17 @@ export default function Marketing() {
     setImgBusy(null);
   };
 
+  const downloadImage = async (url, i) => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const u = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = u; a.download = `obelisco-post-${i + 1}.png`; a.click();
+      URL.revokeObjectURL(u);
+      toast.success("Imagem guardada no seu dispositivo!");
+    } catch { toast.error("Não foi possível guardar a imagem."); }
+  };
+
   if (!loaded) return <div className="flex justify-center py-40"><Loader2 className="w-6 h-6 animate-spin text-[#A78BFA]" /></div>;
 
   const Target = ({ k, Icon, label }) => (
@@ -291,7 +302,10 @@ export default function Marketing() {
                 {p.hashtags?.length > 0 && <div className="text-xs text-[#3B82F6] mb-3 flex items-start gap-1"><Hash className="w-3 h-3 mt-0.5 shrink-0" /><span>{p.hashtags.join(" ")}</span></div>}
                 {p.cta && <div className="text-sm font-medium text-[#10B981] mb-4">{p.cta}</div>}
                 <div className="flex flex-wrap gap-2 mt-auto">
-                  <Button data-testid={`mkt-copy-${i}`} onClick={() => copyPost(p)} variant="outline" size="sm" className="rounded-full border-white/15 hover:bg-white/5"><Copy className="w-3.5 h-3.5 mr-1.5" /> Copiar</Button>
+                  <Button data-testid={`mkt-copy-${i}`} onClick={() => copyPost(p)} variant="outline" size="sm" className="rounded-full border-white/15 hover:bg-white/5"><Copy className="w-3.5 h-3.5 mr-1.5" /> Copiar texto</Button>
+                  {p.image_url && (
+                    <Button data-testid={`mkt-download-${i}`} onClick={() => downloadImage(p.image_url, i)} size="sm" className="rounded-full bg-[#A78BFA] text-white hover:bg-[#9333EA]"><Download className="w-3.5 h-3.5 mr-1.5" /> Guardar imagem</Button>
+                  )}
                   {social?.connected && (
                     <>
                       <Button data-testid={`mkt-publish-${i}`} onClick={() => publishNow(p, i)} disabled={busy === i} size="sm" className="rounded-full bg-[#A78BFA] text-white hover:bg-[#9333EA]">
@@ -320,7 +334,7 @@ export default function Marketing() {
             </div>
           )}
 
-          <p className="text-[11px] text-muted-foreground mt-8">A imagem de cada publicação é gerada por IA no momento de publicar. Em modo de desenvolvimento da Meta, só é possível publicar nas contas com papel na sua app (admin/tester) até à revisão oficial da Meta.</p>
+          <p className="text-[11px] text-muted-foreground mt-8">Sem ligação às redes, use <b>Gerar imagem</b> → <b>Guardar imagem</b> e <b>Copiar texto</b> para publicar manualmente no Instagram/Facebook. A imagem inclui o seu logo. Quando ligar a conta Meta, poderá publicar e agendar automaticamente daqui.</p>
         </>
       )}
 
