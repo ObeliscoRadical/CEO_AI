@@ -1,5 +1,12 @@
 # CEO AI — O Executivo Digital
 
+## CEO AI V2 — Marketing + Simulação de Envio (2026-06, FASE 3 concluída)
+- ✅ `backend/routers/marketing.py`: geração por IA de **identidade de marca** (tom, pilares), **conteúdos** (Post/Story/Reel com título, legenda, hashtags[], CTA, dia) e **calendário editorial** (7 dias: dia/formato/tema). `GET /api/marketing/content` (nullable), `POST /api/marketing/generate` (upsert por user+company em `db.marketing_content`). IA via chave Emergent (ai_json).
+- ✅ `backend/routers/crm.py::send_sim` — **Simulação de Envio** ao lead: canal **WhatsApp** (devolve `wa_link` `https://wa.me/<digits>?text=<urlencoded>`, limpa não-dígitos do contacto; fallback `https://wa.me/?text=` sem telefone) e canal **email** (usa Resend existente, devolve `sent_to`). Regista em `db.crm_outreach`. 404 em lead desconhecido.
+- ✅ Frontend `Marketing.jsx` (rota `/marketing`, menu `nav-marketing`): marca (`mkt-brand`), posts (`mkt-posts`, `mkt-post-N`, copiar `mkt-copy-N`), calendário (`mkt-calendar`), regenerar (`mkt-regen-btn`), exportar (`mkt-export-btn`). `CRM.jsx`: no diálogo de rascunho, botões copiar/WhatsApp (`draft-wa-btn`)/email (`draft-email-self-btn`).
+- ✅ Testado por testing_agent (iteration_32): backend 12/12 pytest (`test_phase3_marketing.py`), frontend 100%, zero bugs críticos. Limitação: **NÃO é integração Meta/Google real** — é geração de conteúdo + simulação/exportação manual. Publicação real fica para a Fase 4.
+- ⚠️ Estado: testado pelo agente; aguarda validação do utilizador em uso real.
+
 ## CEO AI V2 — CRM do Diretor Comercial (2026-08-03, FASE 2 concluída)
 - ✅ `backend/routers/crm.py`: **Cliente Ideal (ICP)** (`GET/POST /api/crm/icp`, `POST /api/crm/icp/suggest` por IA), **pipeline de leads** (CRUD `/api/crm/leads`, `/{id}/stage`, DELETE), **Lead Score determinístico** (`compute_lead_score`: valor, urgência, fit ao ICP, fase), e **rascunhos por IA** (`/{id}/draft` kind email/proposal). Coleções `db.crm_icp`, `db.crm_leads`. STAGES=[novo,qualificado,reuniao,proposta,negociacao,ganho,perdido]. Isolamento por user+company.
 - ✅ Frontend `CRM.jsx` (rota `/crm`, Premium, menu `nav-crm`): card ICP editável + "Sugerir com IA"; board kanban por fase; criar/editar lead (diálogo); mover fase; apagar; score badge (quente/morno/frio); diálogos de rascunho de email/proposta com copiar.
