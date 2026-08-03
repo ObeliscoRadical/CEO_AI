@@ -1,5 +1,10 @@
 # CEO AI — O Executivo Digital
 
+## CEO AI V2 — CRM do Diretor Comercial (2026-08-03, FASE 2 concluída)
+- ✅ `backend/routers/crm.py`: **Cliente Ideal (ICP)** (`GET/POST /api/crm/icp`, `POST /api/crm/icp/suggest` por IA), **pipeline de leads** (CRUD `/api/crm/leads`, `/{id}/stage`, DELETE), **Lead Score determinístico** (`compute_lead_score`: valor, urgência, fit ao ICP, fase), e **rascunhos por IA** (`/{id}/draft` kind email/proposal). Coleções `db.crm_icp`, `db.crm_leads`. STAGES=[novo,qualificado,reuniao,proposta,negociacao,ganho,perdido]. Isolamento por user+company.
+- ✅ Frontend `CRM.jsx` (rota `/crm`, Premium, menu `nav-crm`): card ICP editável + "Sugerir com IA"; board kanban por fase; criar/editar lead (diálogo); mover fase; apagar; score badge (quente/morno/frio); diálogos de rascunho de email/proposta com copiar.
+- ✅ Testado por testing_agent (iteration_31): backend 15/15 pytest, frontend 100%, zero bugs. Fixes defensivos: 404 em update de lead inexistente + isolamento company_id em update/stage/delete.
+
 ## CEO AI V2 — Conselho Executivo Digital (2026-08-03, FASE 1 concluída)
 - ✅ Arquitetura modular: `backend/routers/council.py` com **Orquestrador (Cérebro)** + 3 **Diretores IA especializados** (Financeiro/Comercial/Marketing) que partilham um **contexto comum** determinístico (`build_council_context` a partir de `build_snapshot` + perfil + meta).
 - ✅ **Reunião Executiva de Hoje** (experiência central): `POST /api/council/meeting/generate` corre os 3 diretores em paralelo (`asyncio.gather`) + o Cérebro que cruza tudo numa **estratégia única recomendada** (foco principal, passos com responsável, KPIs, risco). Cache por dia (user+company+data em `db.council_meetings`) para poupar créditos; `/refresh` força nova geração.

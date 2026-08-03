@@ -148,10 +148,12 @@ async def upsert_lead(inp: LeadIn, user: dict = Depends(premium_user)):
     if data.get("stage") and data["stage"] not in STAGES:
         data["stage"] = "novo"
     if lead_id:
-        existing = await db.crm_leads.find_one({"_id": ObjectId(lead_id), "user_id": uid})
-        merged = {**(existing or {}), **data}
+        existing = await db.crm_leads.find_one({"_id": ObjectId(lead_id), "user_id": uid, "company_id": cid})
+        if not existing:
+            raise HTTPException(404, "lead não encontrado")
+        merged = {**existing, **data}
         merged["score"] = compute_lead_score(merged, icp, mrev)
-        await db.crm_leads.update_one({"_id": ObjectId(lead_id), "user_id": uid},
+        await db.crm_leads.update_one({"_id": ObjectId(lead_id), "user_id": uid, "company_id": cid},
                                       {"$set": {**data, "score": merged["score"], "updated_at": datetime.now(timezone.utc).isoformat()}})
         doc = await db.crm_leads.find_one({"_id": ObjectId(lead_id)})
     else:
@@ -171,19 +173,19 @@ async def move_stage(lead_id: str, body: dict, user: dict = Depends(premium_user
         raise HTTPException(400, "stage inválido")
     icp = await db.crm_icp.find_one({"user_id": uid, "company_id": cid}) or {}
     mrev = await _monthly_revenue(uid)
-    existing = await db.crm_leads.find_one({"_id": ObjectId(lead_id), "user_id": uid})
+    existing = await db.crm_leads.find_one({"_id": ObjectId(lead_id), "user_id": uid, "company_id": cid})
     if not existing:
         raise HTTPException(404, "lead não encontrado")
     existing["stage"] = stage
     sc = compute_lead_score(existing, icp, mrev)
-    await db.crm_leads.update_one({"_id": ObjectId(lead_id)}, {"$set": {"stage": stage, "score": sc}})
+    await db.crm_leads.update_one({"_id": ObjectId(lead_id), "user_id": uid, "company_id": cid}, {"$set": {"stage": stage, "score": sc}})
     return {"ok": True, "score": sc}
 
 
 @router.delete("/crm/leads/{lead_id}")
 async def delete_lead(lead_id: str, user: dict = Depends(premium_user)):
-    uid = user["id"]
-    await db.crm_leads.delete_one({"_id": ObjectId(lead_id), "user_id": uid})
+    uid = user["id"]; cid = await active_company_id(uid)
+    await db.crm_leads.delete_one({"_id": ObjectId(lead_id), "user_id": uid, "company_id": cid})
     return {"ok": True}
 
 
