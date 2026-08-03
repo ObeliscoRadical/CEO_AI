@@ -1,5 +1,14 @@
 # CEO AI — O Executivo Digital
 
+## CEO AI V2 — Notificações Proativas do CRM (2026-06, FASE 1 concluída)
+- ✅ `backend/routers/notifications.py`: motor de regras + centro de notificações. Coleção `db.notifications` ({type,title,body,data,status,snooze_until}). Gatilhos: **novos_sem_contacto** (prospects não contactados por campanha ≥ `min_new`, default 10) e **followup** (leads em estágios ativos criados há > `followup_days`, default 5). Dedup por tipo+campanha nas últimas 20h.
+  - Endpoints: `GET /api/crm/notifications` (lista+unread, exclui snoozed/dismissed/acted), `POST .../{id}/read|snooze|dismiss|act`, `POST /api/crm/notifications/run-eval` (teste manual, só o próprio user), `GET/POST /api/crm/alert-settings` (min_new, followup_days).
+  - Job APScheduler `crm_alerts` a cada 6h (`server.py`). `core.send_push_to_user` agora aceita `actions`+`extra`.
+- ✅ Push com **botões de ação**: `sw.js` mostra ações "Sim, preparar"/"Lembrar depois"; clique em snooze faz fetch em background (`/snooze`, sem abrir app), "approve"/clique normal abre a app no módulo (`data.route`).
+- ✅ Frontend `components/NotificationBell.jsx` (sino no `AppLayout` desktop+mobile, `notif-bell`/`notif-badge`/`notif-panel`): polling 45s, badge de não lidas, painel com "Sim, preparar" (`notif-act-*` → navega para `/captacao` ou `/crm`), "Lembrar depois" (`notif-snooze-*`), dispensar (`notif-dismiss-*`). Aprovação primeiro: reutiliza os ecrãs existentes (Captação/CRM) para o utilizador rever antes de contactar.
+- ✅ Testado ponta-a-ponta: 2 gatilhos disparam, dedup (2ª run=0), act devolve route+sai da lista, snooze esconde, UI (badge/painel/botões) renderiza. Dados de teste limpos.
+- ⚠️ WhatsApp continua manual (wa.me). Envio automático de email (Fase 3) não incluído — aprovação primeiro. Produção exige novo deploy.
+
 ## CEO AI V2 — Captação: Campanhas Segmentadas (2026-06, construída — aguarda chave Google Places)
 - ✅ `backend/routers/prospecting.py`: 3 campanhas (`contratos_mensais`→condomínios/escritórios/ginásios; `grandes_obras`→construtoras/empreiteiras/arquitetos; `reparos`→lojas/farmácias/comércio local).
   - `GET /api/prospecting/campaigns` (lista + `configured`), `POST /api/prospecting/search {campaign,region}` (minera via **Google Places API New** `places:searchText` os alvos da campanha na região, extrai **email best-effort** do website, deduplica por `place_id`, guarda em `db.prospects`), `POST /api/prospecting/update` (delta — só adiciona empresas novas), `GET /api/prospecting/list`, `GET /api/prospecting/export` (CSV), `POST /api/prospecting/message` (proposta por IA adaptada ao segmento).

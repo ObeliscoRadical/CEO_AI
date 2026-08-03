@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
+import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/context/AuthContext";
 import { useAppData } from "@/context/AppDataContext";
 import { Home, Lightbulb, HeartPulse, Coins, MessageSquare, Wallet, TrendingUp, FileText, Settings as SettingsIcon, LogOut, Building2, Plus, Crown, Check, Menu, Compass, Lock, Shield, X, ChevronDown, Target, LineChart, Landmark, Briefcase, Megaphone } from "lucide-react";
@@ -158,6 +159,7 @@ export function AppLayout() {
             <div className="text-[13px] font-medium truncate">{user?.name || "Utilizador"}</div>
             <div className="text-[11px] text-slate-500 truncate">{user?.email}</div>
           </div>
+          <NotificationBell />
           <button data-testid="logout-btn" title="Sair" onClick={doLogout} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"><LogOut className="w-[17px] h-[17px]" /></button>
         </div>
       </div>
@@ -200,7 +202,10 @@ export function AppLayout() {
 
       <header className="md:hidden fixed top-0 left-0 right-0 h-14 z-30 flex items-center justify-between px-4 border-b border-white/[0.08] bg-[#05050A]/90 backdrop-blur-xl">
         <div className="flex items-center gap-2"><Logo /><span className="font-serif-lux text-lg">CEO AI</span></div>
-        <button onClick={() => setMobileOpen(true)} data-testid="mobile-menu-btn" className="w-10 h-10 flex items-center justify-center rounded-xl border border-white/10"><Menu className="w-5 h-5" /></button>
+        <div className="flex items-center gap-1">
+          <NotificationBell compact />
+          <button onClick={() => setMobileOpen(true)} data-testid="mobile-menu-btn" className="w-10 h-10 flex items-center justify-center rounded-xl border border-white/10"><Menu className="w-5 h-5" /></button>
+        </div>
       </header>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>

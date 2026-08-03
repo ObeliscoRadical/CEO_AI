@@ -12,11 +12,11 @@ from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime, timezone
 
 from core import db, client, hash_password, verify_password, init_storage, send_daily_briefings, send_monthly_value_alerts, send_goal_alerts, logger
-from routers import auth, companies, finance, ceo, documents, billing, misc, voice, founders, goals, council, crm, marketing, social, prospecting
+from routers import auth, companies, finance, ceo, documents, billing, misc, voice, founders, goals, council, crm, marketing, social, prospecting, notifications
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
-for _m in (auth, companies, finance, ceo, documents, billing, misc, voice, founders, goals, council, crm, marketing, social, prospecting):
+for _m in (auth, companies, finance, ceo, documents, billing, misc, voice, founders, goals, council, crm, marketing, social, prospecting, notifications):
     api_router.include_router(_m.router)
 app.include_router(api_router)
 
@@ -85,6 +85,8 @@ async def startup():
         scheduler.add_job(send_goal_alerts, CronTrigger(hour=8, minute=30), id="goal_alerts", replace_existing=True)
         from routers.social import run_due_social_jobs
         scheduler.add_job(run_due_social_jobs, "interval", seconds=60, id="social_publisher", replace_existing=True, max_instances=1)
+        from routers.notifications import evaluate_crm_alerts
+        scheduler.add_job(evaluate_crm_alerts, "interval", hours=6, id="crm_alerts", replace_existing=True, max_instances=1)
         scheduler.start()
         logger.info("Briefing scheduler started")
     except Exception as e:

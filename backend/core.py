@@ -1224,11 +1224,16 @@ def _webpush_send(sub, payload, priv, subject):
         return getattr(getattr(e, "response", None), "status_code", None)
 
 
-async def send_push_to_user(user_id: str, title: str, body: str, url: str = "/"):
+async def send_push_to_user(user_id: str, title: str, body: str, url: str = "/", actions=None, extra=None):
     import asyncio as _asyncio, json as _json
     cfg = await ensure_vapid()
     subs = await db.push_subscriptions.find({"user_id": user_id}).to_list(50)
-    payload = _json.dumps({"title": title, "body": body, "url": url})
+    data = {"title": title, "body": body, "url": url}
+    if actions:
+        data["actions"] = actions
+    if extra:
+        data.update(extra)
+    payload = _json.dumps(data)
     sent = 0
     for s in subs:
         res = await _asyncio.to_thread(_webpush_send, {"endpoint": s["endpoint"], "keys": s["keys"]}, payload, cfg["private"], cfg["subject"])
