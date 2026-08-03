@@ -1,0 +1,28 @@
+{
+  "summary": "Iteration 31: tested new CRM Comercial (Fase 2). Backend: 15/15 pytest passed in /app/backend/tests/test_crm.py — covers ICP GET/POST + AI suggest (structure), lead CRUD, deterministic lead score changes (low: 54 morno -> high: >=70 quente after urgency alta + valor alto + fit ICP + stage negociacao), move stage (200 + invalid stage 400), email/proposal drafts (return kind + draft dict), pipeline_value excludes 'perdido', DELETE removes lead, and regression on /goal and /council/meeting. Frontend: full UI flow verified live on admin — nav-crm, crm-page, icp-card, icp-suggest-btn, icp-save-btn present, all 7 columns column-<stage> render, add-lead-btn opens lead-dialog, lead-input-name/value + lead-save-btn create lead with score badge (lead-score-<id>), lead-stage-<id> Select moves card between columns, lead-delete-<id> removes it, draft-email-<id> opens draft-dialog with body and draft-copy-btn. Regression: /painel, /meta, /conselho-executivo all 200.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_crm.py",
+    "/app/test_reports/pytest/iter31_crm.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "crm.py compute_lead_score baseline is 40; even an empty lead with default stage 'novo' scores at least 44 (baseline + baixa default 4). This is fine but a totally empty lead visually appears 'morno' with no data — consider making the baseline lower or gating urgency default to 0.",
+    "crm.py upsert_lead does not validate lead ownership via company_id on update path (only user_id). If a user moves companies but the lead belongs to another company_id, it could still be edited via the user_id filter. Consider adding company_id to the filter for stricter isolation.",
+    "crm.py upsert_lead: when lead_id references a non-existent doc, code silently upserts nothing then returns the (None) doc which will 500. Recommend returning 404 explicitly if existing is None on update path.",
+    "crm.py list_leads pipeline_value: could also exclude 'ganho' if the intent is 'open' pipeline (currently 'ganho' is included). Confirm product intent; today only 'perdido' is excluded per spec — matches spec.",
+    "CRM.jsx saveLead: closes dialog before awaiting the toast — fine, but the newly-created lead object is not read from the response; instead loadLeads() re-fetches. Acceptable but adds an extra roundtrip.",
+    "CRM.jsx genDraft: on error, closes dialog (setDraft(null)) which is good UX; however draftLoading is still set true briefly — no visible glitch observed. Cosmetic.",
+    "CRM.jsx uses navigator.clipboard.writeText which requires a secure context; on preview URL it works, but consider a fallback for embedded iframes.",
+    "crm.py draft_lead ai_json can return {} if AI response is empty; UI will render empty draft-body silently. Consider returning 502 or a default body when AI fails."
+  ],
+  "updated_files": ["/app/backend/tests/test_crm.py"],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "100% (all data-testids and flows verified)"},
+  "test_credentials": "adminceoai@gmail.com / 12345 (Premium/admin)",
+  "seed_data_creation": "Created transient TEST_ leads (TEST_low, TEST_UI_Lead) which were deleted at end of tests. ICP for admin was updated with sector=Restauração, size=pequena, region=Lisboa (real change persisted).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run backend tests with: python -m pytest backend/tests/test_crm.py -p no:xdist -o addopts=''. All CRM endpoints under /api/crm/*. Stages array: [novo, qualificado, reuniao, proposta, negociacao, ganho, perdido]. Lead score is deterministic (compute_lead_score in routers/crm.py) — validated via score change on update. Drafts use ai_json — allow up to 90s. Admin ICP was set during tests; if this affects other tests, reset via POST /api/crm/icp with empty values.",
+  "rca of the issue": "No bugs found."
+}

@@ -12,6 +12,7 @@ import Saude from "@/pages/Saude";
 import Valor from "@/pages/Valor";
 import Metas from "@/pages/Metas";
 import Conselho from "@/pages/Conselho";
+import CRM from "@/pages/CRM";
 import MetaShare from "@/pages/MetaShare";
 import MetaReport from "@/pages/MetaReport";
 import Relatorios from "@/pages/Relatorios";
@@ -88,6 +89,7 @@ function App() {
                 <Route path="/valor" element={<PremiumRoute><Valor /></PremiumRoute>} />
                 <Route path="/meta" element={<PremiumRoute><Metas /></PremiumRoute>} />
                 <Route path="/conselho-executivo" element={<PremiumRoute><Conselho /></PremiumRoute>} />
+                <Route path="/crm" element={<PremiumRoute><CRM /></PremiumRoute>} />
                 <Route path="/relatorios" element={<PremiumRoute><Relatorios /></PremiumRoute>} />
                 <Route path="/ceo" element={<PremiumRoute><Chat /></PremiumRoute>} />
                 <Route path="/financas" element={<Finances />} />
