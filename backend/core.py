@@ -140,6 +140,46 @@ async def generate_marketing_image(prompt: str) -> bytes:
         raise RuntimeError("Nenhuma imagem gerada")
     return imgs[0]
 
+def prepare_logo(data: bytes) -> bytes:
+    """Normaliza o logo para PNG RGBA. Se não tiver transparência, remove o fundo claro
+    ligado às bordas (mantém partes claras internas do logo, ex.: texto branco)."""
+    from PIL import Image
+    import numpy as np
+    img = Image.open(io.BytesIO(data)).convert("RGBA")
+    arr = np.array(img)
+    if (arr[:, :, 3] < 250).mean() <= 0.02:
+        try:
+            from scipy import ndimage
+            rgb = arr[:, :, :3].astype(int)
+            mx, mn = rgb.max(2), rgb.min(2)
+            light = (mn > 205) & ((mx - mn) < 30)
+            labeled, _ = ndimage.label(light)
+            border = (set(labeled[0, :]) | set(labeled[-1, :]) |
+                      set(labeled[:, 0]) | set(labeled[:, -1]))
+            border.discard(0)
+            if border:
+                arr[np.isin(labeled, list(border)), 3] = 0
+                img = Image.fromarray(arr, "RGBA")
+        except Exception as e:
+            logger.error(f"prepare_logo keying: {e}")
+    out = io.BytesIO(); img.save(out, format="PNG"); return out.getvalue()
+
+def composite_logo(base_bytes: bytes, logo_bytes: bytes) -> bytes:
+    """Sobrepõe o logo REAL da empresa (canto inferior direito) sobre a imagem gerada, mantendo-o nítido."""
+    from PIL import Image
+    base = Image.open(io.BytesIO(base_bytes)).convert("RGBA")
+    logo = Image.open(io.BytesIO(logo_bytes)).convert("RGBA")
+    bw, bh = base.size
+    target_w = max(1, int(bw * 0.20))
+    ratio = target_w / logo.width
+    logo = logo.resize((target_w, max(1, int(logo.height * ratio))), Image.LANCZOS)
+    margin = int(bw * 0.04)
+    x, y = bw - logo.width - margin, bh - logo.height - margin
+    base.alpha_composite(logo, (x, y))
+    out = io.BytesIO()
+    base.convert("RGB").save(out, format="PNG")
+    return out.getvalue()
+
 def extract_document_text(data: bytes, content_type: str, filename: str) -> str:
     name = (filename or "").lower(); ct = (content_type or "").lower()
     try:

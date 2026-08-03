@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Loader2, Megaphone, Sparkles, Copy, Download, RefreshCw, Calendar, Play, Hash, Share2, Instagram, Facebook, Send, Clock, CheckCircle2, XCircle, Link2, Unlink } from "lucide-react";
+import { Loader2, Megaphone, Sparkles, Copy, Download, RefreshCw, Calendar, Play, Hash, Share2, Instagram, Facebook, Send, Clock, CheckCircle2, XCircle, Link2, Unlink, Image as ImageIcon, Upload, Trash2 } from "lucide-react";
 
 const FORMAT_COLOR = { Post: "#3B82F6", Story: "#A78BFA", Reel: "#F59E0B" };
 const captionOf = (p) => `${p.legenda || ""}\n\n${(p.hashtags || []).join(" ")}\n${p.cta || ""}`.trim();
@@ -21,6 +21,8 @@ export default function Marketing() {
   const [schedFor, setSchedFor] = useState(null);    // post a agendar
   const [schedWhen, setSchedWhen] = useState("");
   const [targets, setTargets] = useState({ instagram: true, facebook: true });
+  const [logo, setLogo] = useState(null);
+  const [logoBusy, setLogoBusy] = useState(false);
 
   const load = () => api.get("/marketing/content").then(({ data }) => {
     if (data.content?.content) { setContent(data.content.content); setUpdated(data.content.updated_at); }
@@ -29,9 +31,10 @@ export default function Marketing() {
 
   const loadSocial = () => api.get("/social/status").then(({ data }) => setSocial(data)).catch(() => {});
   const loadJobs = () => api.get("/social/jobs").then(({ data }) => setJobs(data.jobs || [])).catch(() => {});
+  const loadLogo = () => api.get("/social/logo").then(({ data }) => setLogo(data.has_logo ? data.preview : null)).catch(() => {});
 
   useEffect(() => {
-    load(); loadSocial(); loadJobs();
+    load(); loadSocial(); loadJobs(); loadLogo();
     const params = new URLSearchParams(window.location.search);
     if (params.get("connected")) { toast.success("Redes ligadas com sucesso!"); window.history.replaceState({}, "", "/marketing"); loadSocial(); }
     if (params.get("social_error")) { toast.error("Não foi possível ligar: " + params.get("social_error")); window.history.replaceState({}, "", "/marketing"); }
@@ -116,6 +119,20 @@ export default function Marketing() {
 
   const cancelJob = async (id) => { await api.delete(`/social/jobs/${id}`); loadJobs(); };
 
+  const uploadLogo = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoBusy(true);
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const { data } = await api.post("/social/logo", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      setLogo(data.preview); toast.success("Logo carregado! Será aplicado nas imagens geradas.");
+    } catch (err) { toast.error(formatApiError(err.response?.data?.detail)); }
+    setLogoBusy(false); e.target.value = "";
+  };
+
+  const removeLogo = async () => { await api.delete("/social/logo"); setLogo(null); toast.success("Logo removido."); };
+
   if (!loaded) return <div className="flex justify-center py-40"><Loader2 className="w-6 h-6 animate-spin text-[#A78BFA]" /></div>;
 
   const Target = ({ k, Icon, label }) => (
@@ -175,6 +192,30 @@ export default function Marketing() {
             <Target k="facebook" Icon={Facebook} label="Facebook" />
           </div>
         )}
+      </div>
+
+      {/* Logo da empresa */}
+      <div className="surface rounded-3xl p-6 md:p-7 mb-8" data-testid="mkt-logo-card">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center overflow-hidden shrink-0">
+              {logo ? <img src={logo} alt="Logo" className="w-full h-full object-contain p-1.5" data-testid="mkt-logo-preview" /> : <ImageIcon className="w-6 h-6 text-muted-foreground" />}
+            </div>
+            <div>
+              <h2 className="font-serif-lux text-xl">Logo da empresa</h2>
+              <p className="text-sm text-muted-foreground mt-1 max-w-md">
+                {logo ? "O seu logo será sobreposto automaticamente em todas as imagens geradas." : "Carregue o seu logo (PNG com fundo transparente, de preferência) para aparecer nas imagens geradas."}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <label data-testid="mkt-logo-upload" className="cursor-pointer inline-flex items-center gap-2 text-sm px-4 h-10 rounded-full border border-white/15 hover:bg-white/5 transition-colors">
+              {logoBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} {logo ? "Alterar" : "Carregar logo"}
+              <input type="file" accept="image/*" className="hidden" onChange={uploadLogo} disabled={logoBusy} />
+            </label>
+            {logo && <Button data-testid="mkt-logo-remove" onClick={removeLogo} variant="outline" className="rounded-full border-white/15 hover:bg-white/5 h-10"><Trash2 className="w-4 h-4" /></Button>}
+          </div>
+        </div>
       </div>
 
       {/* Agendamentos */}

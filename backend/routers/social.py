@@ -4,7 +4,7 @@ Em modo de desenvolvimento a Meta só permite publicar em contas com papel na ap
 import os, base64, uuid, hmac, hashlib
 from urllib.parse import urlencode, quote
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, File
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 import httpx
@@ -174,6 +174,13 @@ async def _publish_core(uid: str, payload: dict) -> dict:
     if not image_url and want_img and (do_ig or do_fb):
         prompt = payload.get("image_prompt") or caption[:220] or "Conteúdo de marketing profissional"
         img = await generate_marketing_image(prompt)
+        cid = await active_company_id(uid)
+        logo = await db.brand_assets.find_one({"user_id": uid, "company_id": cid})
+        if logo and logo.get("logo_data"):
+            try:
+                img = composite_logo(img, base64.b64decode(logo["logo_data"]))
+            except Exception as e:
+                logger.error(f"logo composite falhou: {e}")
         image_url = await _store_public_image(uid, img)
     results = {}
     if do_ig:
@@ -228,6 +235,43 @@ async def social_jobs(user: dict = Depends(premium_user)):
 @router.delete("/social/jobs/{jid}")
 async def del_job(jid: str, user: dict = Depends(premium_user)):
     await db.social_jobs.delete_one({"_id": jid, "user_id": user["id"]})
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------- logo da empresa (sobreposto nas imagens)
+@router.get("/social/logo")
+async def get_logo(user: dict = Depends(premium_user)):
+    cid = await active_company_id(user["id"])
+    doc = await db.brand_assets.find_one({"user_id": user["id"], "company_id": cid})
+    if not doc or not doc.get("logo_data"):
+        return {"has_logo": False}
+    return {"has_logo": True, "preview": f"data:{doc.get('content_type', 'image/png')};base64,{doc['logo_data']}"}
+
+
+@router.post("/social/logo")
+async def upload_logo(file: UploadFile = File(...), user: dict = Depends(premium_user)):
+    ct = file.content_type or ""
+    if not ct.startswith("image/"):
+        raise HTTPException(400, "Envie um ficheiro de imagem (PNG de preferência, com fundo transparente).")
+    data = await file.read()
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(400, "Logo demasiado grande (máx 5 MB).")
+    try:
+        data = prepare_logo(data); ct = "image/png"
+    except Exception as e:
+        logger.error(f"prepare_logo: {e}")
+    b64 = base64.b64encode(data).decode()
+    cid = await active_company_id(user["id"])
+    await db.brand_assets.update_one({"user_id": user["id"], "company_id": cid}, {"$set": {
+        "user_id": user["id"], "company_id": cid, "logo_data": b64, "content_type": ct,
+        "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
+    return {"ok": True, "preview": f"data:{ct};base64,{b64}"}
+
+
+@router.delete("/social/logo")
+async def delete_logo(user: dict = Depends(premium_user)):
+    cid = await active_company_id(user["id"])
+    await db.brand_assets.delete_one({"user_id": user["id"], "company_id": cid})
     return {"ok": True}
 
 
