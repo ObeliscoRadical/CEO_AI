@@ -1,5 +1,13 @@
 # CEO AI — O Executivo Digital
 
+## CEO AI V2 — Captação: Campanhas Segmentadas (2026-06, construída — aguarda chave Google Places)
+- ✅ `backend/routers/prospecting.py`: 3 campanhas (`contratos_mensais`→condomínios/escritórios/ginásios; `grandes_obras`→construtoras/empreiteiras/arquitetos; `reparos`→lojas/farmácias/comércio local).
+  - `GET /api/prospecting/campaigns` (lista + `configured`), `POST /api/prospecting/search {campaign,region}` (minera via **Google Places API New** `places:searchText` os alvos da campanha na região, extrai **email best-effort** do website, deduplica por `place_id`, guarda em `db.prospects`), `POST /api/prospecting/update` (delta — só adiciona empresas novas), `GET /api/prospecting/list`, `GET /api/prospecting/export` (CSV), `POST /api/prospecting/message` (proposta por IA adaptada ao segmento).
+  - Chave em `GOOGLE_PLACES_API_KEY` (backend/.env, vazia até o utilizador fornecer). Sem chave, `search` devolve 400 com mensagem clara.
+- ✅ Frontend `Prospeccao.jsx` (rota `/captacao`, menu `nav-captacao`, Premium): seletor de campanha (3 cartões), região editável (`prosp-region`), botões `prosp-search-btn`/`prosp-update-btn`/`prosp-message-btn`/`prosp-export-btn`, tabela de resultados (Nome/Segmento/Email/Telefone/Endereço + link website), export CSV client-side, diálogo de proposta IA.
+- ✅ Verificado (sem chave): campanhas listam, search→400 claro, message IA gera proposta por segmento, UI renderiza (screenshot).
+- ⚠️ **Busca real só funciona com a chave Google Places API (New) + faturação ativa.** Emails são best-effort (extraídos do site; nem sempre existem) — telefone/website sempre que faltar. Testar no preview; produção exige novo deploy.
+
 ## CEO AI V2 — Publicação automática nas redes (2026-06, FASE 4 — construída, aguarda credenciais Meta)
 - ✅ `backend/routers/social.py`: integração **Meta Graph API** (Instagram + Facebook) para a conta do próprio utilizador.
   - OAuth: `GET /api/social/connect` (gera state, devolve auth_url), `GET /api/social/callback` (troca código → long-lived user token → escolhe Página com IG ligado → guarda `page_token`/`ig_user_id`/`ig_username` em `db.social_connections`), `POST /api/social/disconnect`, `GET /api/social/status` (configured/connected/redirect_uri).

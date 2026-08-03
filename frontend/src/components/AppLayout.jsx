@@ -18,6 +18,7 @@ const NAV = [
   { to: "/", label: "Painel do CEO", short: "Painel", icon: Home, end: true, testid: "nav-painel" },
   { to: "/conselho-executivo", label: "Conselho Executivo", short: "Conselho", icon: Landmark, testid: "nav-conselho-exec", gated: true },
   { to: "/crm", label: "CRM Comercial", short: "CRM", icon: Briefcase, testid: "nav-crm", gated: true },
+  { to: "/captacao", label: "Captação", short: "Captação", icon: Target, testid: "nav-captacao", gated: true },
   { to: "/marketing", label: "Marketing", short: "Marketing", icon: Megaphone, testid: "nav-marketing", gated: true },
   { to: "/conselhos", label: "Conselhos", short: "Conselhos", icon: Lightbulb, testid: "nav-conselhos", gated: true },
   { to: "/saude", label: "Saúde Empresarial", short: "Saúde", icon: HeartPulse, testid: "nav-saude", gated: true },
