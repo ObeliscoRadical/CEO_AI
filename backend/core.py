@@ -170,7 +170,7 @@ def composite_logo(base_bytes: bytes, logo_bytes: bytes) -> bytes:
     base = Image.open(io.BytesIO(base_bytes)).convert("RGBA")
     logo = Image.open(io.BytesIO(logo_bytes)).convert("RGBA")
     bw, bh = base.size
-    target_w = max(1, int(bw * 0.20))
+    target_w = max(1, int(bw * 0.26))
     ratio = target_w / logo.width
     logo = logo.resize((target_w, max(1, int(logo.height * ratio))), Image.LANCZOS)
     margin = int(bw * 0.04)
