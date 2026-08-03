@@ -25,6 +25,9 @@ FIELD_MASK = ",".join([
     "places.internationalPhoneNumber", "places.websiteUri", "places.types", "places.primaryTypeDisplayName",
 ])
 EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
+_JUNK_LOCAL = {"user", "name", "email", "your", "you", "example", "nome", "test", "no-reply", "noreply"}
+_JUNK_DOMAIN = {"domain.com", "example.com", "email.com", "sentry.io", "wixpress.com", "yourdomain.com",
+                "sentry-next.wixpress.com", "test.com", "domain.tld", "email.tld"}
 
 
 def _key():
@@ -58,8 +61,12 @@ async def _extract_email(website: Optional[str]) -> Optional[str]:
             r = await c.get(website)
         for e in EMAIL_RE.findall(r.text or ""):
             el = e.lower()
-            if not el.endswith((".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg")) and "example" not in el and "@sentry" not in el:
-                return e
+            local, _, domain = el.partition("@")
+            if el.endswith((".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg")):
+                continue
+            if local in _JUNK_LOCAL or domain in _JUNK_DOMAIN or any(j in domain for j in ("sentry", "wixpress", "exemplo", "example")):
+                continue
+            return e
     except Exception:
         return None
     return None
