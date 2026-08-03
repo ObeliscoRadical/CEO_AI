@@ -1,24 +1,41 @@
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, formatApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Loader2, Megaphone, Sparkles, Copy, Download, RefreshCw, Calendar, Play, Hash } from "lucide-react";
+import { Loader2, Megaphone, Sparkles, Copy, Download, RefreshCw, Calendar, Play, Hash, Share2, Instagram, Facebook, Send, Clock, CheckCircle2, XCircle, Link2, Unlink } from "lucide-react";
 
 const FORMAT_COLOR = { Post: "#3B82F6", Story: "#A78BFA", Reel: "#F59E0B" };
+const captionOf = (p) => `${p.legenda || ""}\n\n${(p.hashtags || []).join(" ")}\n${p.cta || ""}`.trim();
 
 export default function Marketing() {
   const [content, setContent] = useState(null);
   const [updated, setUpdated] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const [gen, setGen] = useState(false);
+  const [social, setSocial] = useState(null);
+  const [jobs, setJobs] = useState([]);
+  const [busy, setBusy] = useState(null);            // index a publicar
+  const [schedFor, setSchedFor] = useState(null);    // post a agendar
+  const [schedWhen, setSchedWhen] = useState("");
+  const [targets, setTargets] = useState({ instagram: true, facebook: true });
 
   const load = () => api.get("/marketing/content").then(({ data }) => {
     if (data.content?.content) { setContent(data.content.content); setUpdated(data.content.updated_at); }
     setLoaded(true);
   }).catch(() => setLoaded(true));
 
-  useEffect(() => { load(); }, []);
+  const loadSocial = () => api.get("/social/status").then(({ data }) => setSocial(data)).catch(() => {});
+  const loadJobs = () => api.get("/social/jobs").then(({ data }) => setJobs(data.jobs || [])).catch(() => {});
+
+  useEffect(() => {
+    load(); loadSocial(); loadJobs();
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("connected")) { toast.success("Redes ligadas com sucesso!"); window.history.replaceState({}, "", "/marketing"); loadSocial(); }
+    if (params.get("social_error")) { toast.error("Não foi possível ligar: " + params.get("social_error")); window.history.replaceState({}, "", "/marketing"); }
+  }, []);
 
   const generate = async () => {
     setGen(true);
@@ -49,7 +66,64 @@ export default function Marketing() {
     toast.success("Ficheiro exportado.");
   };
 
+  const connect = async () => {
+    try { const { data } = await api.get("/social/connect"); window.location.href = data.auth_url; }
+    catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+  };
+
+  const disconnect = async () => {
+    await api.post("/social/disconnect"); toast.success("Redes desligadas."); loadSocial();
+  };
+
+  const publishNow = async (p, i) => {
+    if (!social?.connected) { toast.error("Ligue primeiro as suas redes."); return; }
+    setBusy(i);
+    try {
+      const { data } = await api.post("/social/publish", {
+        caption: captionOf(p), image_prompt: `${p.titulo}. ${content?.brand?.tom || ""}`,
+        generate_image: true, instagram: targets.instagram, facebook: targets.facebook,
+      });
+      const r = data.results || {};
+      const errs = Object.entries(r).filter(([, v]) => v?.error).map(([k, v]) => `${k}: ${v.error}`);
+      if (errs.length) toast.warning("Publicado com avisos — " + errs.join(" · "));
+      else toast.success("Publicado nas suas redes! 🎉");
+    } catch (e) {
+      const d = e.response?.data?.detail;
+      toast.error("Falha ao publicar: " + (d?.meta_error ? JSON.stringify(d.meta_error).slice(0, 180) : formatApiError(d)));
+    }
+    setBusy(null); loadJobs();
+  };
+
+  const openSchedule = (p) => {
+    setSchedFor(p);
+    const dt = new Date(Date.now() + 60 * 60 * 1000);
+    dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+    setSchedWhen(dt.toISOString().slice(0, 16));
+  };
+
+  const confirmSchedule = async () => {
+    if (!schedWhen) return;
+    const p = schedFor;
+    try {
+      await api.post("/social/schedule", {
+        caption: captionOf(p), image_prompt: `${p.titulo}. ${content?.brand?.tom || ""}`,
+        generate_image: true, instagram: targets.instagram, facebook: targets.facebook,
+        run_at: new Date(schedWhen).toISOString(),
+      });
+      toast.success("Publicação agendada!"); setSchedFor(null); loadJobs();
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+  };
+
+  const cancelJob = async (id) => { await api.delete(`/social/jobs/${id}`); loadJobs(); };
+
   if (!loaded) return <div className="flex justify-center py-40"><Loader2 className="w-6 h-6 animate-spin text-[#A78BFA]" /></div>;
+
+  const Target = ({ k, Icon, label }) => (
+    <button type="button" data-testid={`mkt-target-${k}`} onClick={() => setTargets((t) => ({ ...t, [k]: !t[k] }))}
+      className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-colors ${targets[k] ? "border-[#A78BFA] text-[#A78BFA] bg-[#A78BFA]/10" : "border-white/15 text-muted-foreground"}`}>
+      <Icon className="w-3.5 h-3.5" /> {label}
+    </button>
+  );
 
   return (
     <div className="px-6 md:px-16 py-14 md:py-20 max-w-[1100px] mx-auto" data-testid="marketing-page">
@@ -64,11 +138,68 @@ export default function Marketing() {
         )}
       </div>
 
+      {/* Ligação de redes */}
+      <div className="surface rounded-3xl p-6 md:p-7 mb-8" data-testid="mkt-social">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex items-start gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-[#A78BFA]/18 flex items-center justify-center shrink-0"><Share2 className="w-5 h-5 text-[#A78BFA]" /></div>
+            <div>
+              <h2 className="font-serif-lux text-xl">Publicação automática nas redes</h2>
+              {social?.connected ? (
+                <p className="text-sm text-muted-foreground mt-1" data-testid="mkt-social-connected">
+                  Ligado a <b className="text-foreground">{social.page_name || "Página"}</b>
+                  {social.ig_username ? <> · Instagram <b className="text-foreground">@{social.ig_username}</b></> : <> · <span className="text-amber-400">sem Instagram ligado</span></>}
+                </p>
+              ) : social?.configured ? (
+                <p className="text-sm text-muted-foreground mt-1">Ligue o seu Instagram/Facebook para publicar e agendar diretamente a partir daqui.</p>
+              ) : (
+                <p className="text-sm text-amber-400 mt-1" data-testid="mkt-social-notconfigured">A integração da Meta ainda não está configurada. Assim que colarmos o App ID/Secret, o botão de ligar fica ativo.</p>
+              )}
+              {social && !social.connected && social.configured && (
+                <p className="text-[11px] text-muted-foreground mt-2">URL de redireccionamento (adicione na app Meta): <code className="text-[#A78BFA] break-all">{social.redirect_uri}</code></p>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {social?.connected ? (
+              <Button data-testid="mkt-disconnect-btn" onClick={disconnect} variant="outline" className="rounded-full border-white/15 hover:bg-white/5"><Unlink className="w-4 h-4 mr-2" /> Desligar</Button>
+            ) : (
+              <Button data-testid="mkt-connect-btn" onClick={connect} disabled={!social?.configured} className="rounded-full bg-[#A78BFA] text-white hover:bg-[#9333EA] disabled:opacity-50"><Link2 className="w-4 h-4 mr-2" /> Ligar Instagram/Facebook</Button>
+            )}
+          </div>
+        </div>
+        {social?.connected && (
+          <div className="flex items-center gap-2 mt-4 pt-4 border-t border-white/[0.06]">
+            <span className="text-xs text-muted-foreground mr-1">Publicar em:</span>
+            <Target k="instagram" Icon={Instagram} label="Instagram" />
+            <Target k="facebook" Icon={Facebook} label="Facebook" />
+          </div>
+        )}
+      </div>
+
+      {/* Agendamentos */}
+      {jobs.length > 0 && (
+        <div className="surface rounded-3xl p-6 mb-8" data-testid="mkt-jobs">
+          <h2 className="font-serif-lux text-lg mb-4 flex items-center gap-2"><Clock className="w-4 h-4 text-[#A78BFA]" /> Publicações agendadas</h2>
+          <div className="space-y-2">
+            {jobs.map((j) => (
+              <div key={j.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]" data-testid={`mkt-job-${j.id}`}>
+                {j.status === "published" ? <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0" /> : j.status === "failed" ? <XCircle className="w-4 h-4 text-red-400 shrink-0" /> : <Clock className="w-4 h-4 text-amber-400 shrink-0" />}
+                <span className="text-xs text-muted-foreground w-40 shrink-0">{new Date(j.run_at).toLocaleString("pt-PT")}</span>
+                <span className="text-sm flex-1 truncate">{j.caption}</span>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{j.status}</span>
+                {j.status === "queued" && <button onClick={() => cancelJob(j.id)} className="text-xs text-red-400 hover:underline" data-testid={`mkt-job-cancel-${j.id}`}>cancelar</button>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {!content ? (
         <div className="surface rounded-3xl p-8 md:p-12 text-center" data-testid="mkt-intro">
           <div className="w-14 h-14 rounded-2xl bg-[#A78BFA]/18 flex items-center justify-center mx-auto mb-6"><Megaphone className="w-7 h-7 text-[#A78BFA]" /></div>
           <h2 className="font-serif-lux text-2xl mb-2">O Diretor de Marketing está pronto</h2>
-          <p className="text-muted-foreground max-w-xl mx-auto mb-8">Vou analisar a identidade da sua marca e criar posts, Stories, Reels e um calendário editorial coerente com o seu setor — prontos a copiar e publicar.</p>
+          <p className="text-muted-foreground max-w-xl mx-auto mb-8">Vou analisar a identidade da sua marca e criar posts, Stories, Reels e um calendário editorial coerente com o seu setor — prontos a copiar, publicar ou agendar.</p>
           <Button data-testid="mkt-generate-btn" onClick={generate} disabled={gen} className="rounded-full bg-[#A78BFA] text-white hover:bg-[#9333EA] px-8 h-12 text-base">
             {gen ? <><Loader2 className="w-5 h-5 animate-spin mr-2" /> A criar conteúdos…</> : <><Play className="w-5 h-5 mr-2" /> Gerar conteúdos</>}
           </Button>
@@ -97,7 +228,17 @@ export default function Marketing() {
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap mb-3 flex-1">{p.legenda}</p>
                 {p.hashtags?.length > 0 && <div className="text-xs text-[#3B82F6] mb-3 flex items-start gap-1"><Hash className="w-3 h-3 mt-0.5 shrink-0" /><span>{p.hashtags.join(" ")}</span></div>}
                 {p.cta && <div className="text-sm font-medium text-[#10B981] mb-4">{p.cta}</div>}
-                <Button data-testid={`mkt-copy-${i}`} onClick={() => copyPost(p)} variant="outline" size="sm" className="rounded-full border-white/15 hover:bg-white/5 self-start mt-auto"><Copy className="w-3.5 h-3.5 mr-1.5" /> Copiar</Button>
+                <div className="flex flex-wrap gap-2 mt-auto">
+                  <Button data-testid={`mkt-copy-${i}`} onClick={() => copyPost(p)} variant="outline" size="sm" className="rounded-full border-white/15 hover:bg-white/5"><Copy className="w-3.5 h-3.5 mr-1.5" /> Copiar</Button>
+                  {social?.connected && (
+                    <>
+                      <Button data-testid={`mkt-publish-${i}`} onClick={() => publishNow(p, i)} disabled={busy === i} size="sm" className="rounded-full bg-[#A78BFA] text-white hover:bg-[#9333EA]">
+                        {busy === i ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Send className="w-3.5 h-3.5 mr-1.5" />} Publicar
+                      </Button>
+                      <Button data-testid={`mkt-schedule-${i}`} onClick={() => openSchedule(p)} variant="outline" size="sm" className="rounded-full border-white/15 hover:bg-white/5"><Clock className="w-3.5 h-3.5 mr-1.5" /> Agendar</Button>
+                    </>
+                  )}
+                </div>
               </motion.div>
             ))}
           </div>
@@ -117,9 +258,31 @@ export default function Marketing() {
             </div>
           )}
 
-          <p className="text-[11px] text-muted-foreground mt-8">A publicação automática no Instagram/Facebook/Google Business chega numa próxima fase. Por agora, copie ou exporte os conteúdos e publique manualmente.</p>
+          <p className="text-[11px] text-muted-foreground mt-8">A imagem de cada publicação é gerada por IA no momento de publicar. Em modo de desenvolvimento da Meta, só é possível publicar nas contas com papel na sua app (admin/tester) até à revisão oficial da Meta.</p>
         </>
       )}
+
+      {/* Diálogo de agendamento */}
+      <Dialog open={!!schedFor} onOpenChange={(o) => !o && setSchedFor(null)}>
+        <DialogContent data-testid="mkt-schedule-dialog">
+          <DialogHeader>
+            <DialogTitle>Agendar publicação</DialogTitle>
+            <DialogDescription>Escolha a data e hora. A publicação (com imagem gerada por IA) será enviada automaticamente às redes selecionadas.</DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <label className="text-xs text-muted-foreground">Data e hora</label>
+            <Input type="datetime-local" data-testid="mkt-schedule-when" value={schedWhen} onChange={(e) => setSchedWhen(e.target.value)} className="mt-1" />
+            <div className="flex gap-2 mt-4">
+              <Target k="instagram" Icon={Instagram} label="Instagram" />
+              <Target k="facebook" Icon={Facebook} label="Facebook" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSchedFor(null)} className="rounded-full">Cancelar</Button>
+            <Button data-testid="mkt-schedule-confirm" onClick={confirmSchedule} className="rounded-full bg-[#A78BFA] text-white hover:bg-[#9333EA]">Agendar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -129,6 +129,17 @@ def put_object(path: str, data: bytes, content_type: str) -> dict:
     resp.raise_for_status()
     return resp.json()
 
+async def generate_marketing_image(prompt: str) -> bytes:
+    """Gera 1 imagem de marketing (GPT Image 1 via chave Emergent) e devolve os bytes PNG."""
+    from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
+    gen = OpenAIImageGeneration(api_key=EMERGENT_KEY)
+    imgs = await gen.generate_images(
+        prompt=f"{prompt}. Fotografia/ilustração publicitária profissional de alta qualidade, composição limpa, sem texto sobreposto.",
+        model="gpt-image-1", number_of_images=1)
+    if not imgs:
+        raise RuntimeError("Nenhuma imagem gerada")
+    return imgs[0]
+
 def extract_document_text(data: bytes, content_type: str, filename: str) -> str:
     name = (filename or "").lower(); ct = (content_type or "").lower()
     try:
