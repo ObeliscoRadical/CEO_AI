@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Loader2, Target, Search, RefreshCw, Download, Mail, Phone, Globe, MapPin, Building2, Sparkles, Copy } from "lucide-react";
+import { Loader2, Target, Search, RefreshCw, Download, Mail, Phone, Globe, MapPin, Building2, Sparkles, Copy, UserPlus, CheckCircle2 } from "lucide-react";
 
 const ICONS = { contratos_mensais: Building2, grandes_obras: Target, reparos: Sparkles };
 
@@ -20,6 +20,7 @@ export default function Prospeccao() {
   const [loaded, setLoaded] = useState(false);
   const [msg, setMsg] = useState(null);
   const [msgBusy, setMsgBusy] = useState(false);
+  const [crmBusy, setCrmBusy] = useState(false);
 
   useEffect(() => {
     api.get("/prospecting/campaigns").then(({ data }) => {
@@ -63,6 +64,16 @@ export default function Prospeccao() {
     try { const { data } = await api.post("/prospecting/message", { campaign: selected }); setMsg(data.message); }
     catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
     setMsgBusy(false);
+  };
+
+  const sendToCrm = async () => {
+    setCrmBusy(true);
+    try {
+      const { data } = await api.post("/prospecting/to-crm", { campaign: selected });
+      toast.success(data.added > 0 ? `${data.added} empresa(s) enviada(s) para o CRM.` : "Nenhuma empresa nova para enviar (já estão no CRM).");
+      const { data: l } = await api.get(`/prospecting/list?campaign=${selected}`); setRows(l.prospects || []);
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+    setCrmBusy(false);
   };
 
   const copyMsg = () => {
@@ -114,6 +125,9 @@ export default function Prospeccao() {
         <Button data-testid="prosp-message-btn" onClick={genMessage} disabled={msgBusy} variant="outline" className="rounded-full border-white/15 hover:bg-white/5 h-10">
           {msgBusy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />} Gerar proposta (IA)
         </Button>
+        <Button data-testid="prosp-tocrm-btn" onClick={sendToCrm} disabled={crmBusy} variant="outline" className="rounded-full border-[#3B82F6]/40 text-[#3B82F6] hover:bg-[#3B82F6]/10 h-10">
+          {crmBusy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />} Enviar ao CRM
+        </Button>
         <Button data-testid="prosp-export-btn" onClick={exportCsv} variant="outline" className="rounded-full border-white/15 hover:bg-white/5 h-10"><Download className="w-4 h-4 mr-2" /> Exportar CSV</Button>
       </div>
 
@@ -129,7 +143,7 @@ export default function Prospeccao() {
               <tbody>
                 {rows.map((r, i) => (
                   <tr key={r.id} className="border-b border-white/[0.04] hover:bg-white/[0.02]" data-testid={`prosp-row-${i}`}>
-                    <td className="px-5 py-3 font-medium">{r.name || "—"}{r.website && <a href={r.website} target="_blank" rel="noreferrer" className="ml-2 inline-flex text-[#3B82F6]"><Globe className="w-3.5 h-3.5" /></a>}</td>
+                    <td className="px-5 py-3 font-medium">{r.name || "—"}{r.website && <a href={r.website} target="_blank" rel="noreferrer" className="ml-2 inline-flex text-[#3B82F6]"><Globe className="w-3.5 h-3.5" /></a>}{r.sent_to_crm && <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-[#10B981]" data-testid={`prosp-incrm-${i}`}><CheckCircle2 className="w-3 h-3" />no CRM</span>}</td>
                     <td className="px-3 py-3 text-muted-foreground capitalize">{r.segment || "—"}</td>
                     <td className="px-3 py-3">{r.email ? <a href={`mailto:${r.email}`} className="text-[#3B82F6] flex items-center gap-1"><Mail className="w-3 h-3" />{r.email}</a> : <span className="text-muted-foreground">—</span>}</td>
                     <td className="px-3 py-3">{r.phone ? <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-muted-foreground" />{r.phone}</span> : <span className="text-muted-foreground">—</span>}</td>

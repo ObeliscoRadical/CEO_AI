@@ -68,7 +68,8 @@ async def _extract_email(website: Optional[str]) -> Optional[str]:
 def _ser(d):
     return {"id": str(d["_id"]), "name": d.get("name"), "segment": d.get("segment"), "email": d.get("email"),
             "phone": d.get("phone"), "website": d.get("website"), "address": d.get("address"),
-            "campaign": d.get("campaign"), "contacted": bool(d.get("contacted"))}
+            "campaign": d.get("campaign"), "contacted": bool(d.get("contacted")),
+            "sent_to_crm": bool(d.get("sent_to_crm"))}
 
 
 async def _mine_and_store(uid, cid, campaign, region):
@@ -190,3 +191,34 @@ async def message(inp: MsgIn, user: dict = Depends(premium_user)):
               "Corpo curto (2-3 parágrafos), com proposta de valor específica ao segmento e um CTA claro para reunião/orçamento.")
     draft = await ai_json(system, prompt) or {}
     return {"message": draft, "campaign": inp.campaign}
+
+
+class CampIn(BaseModel):
+    campaign: str
+
+
+@router.post("/prospecting/to-crm")
+async def to_crm(inp: CampIn, user: dict = Depends(premium_user)):
+    """Envia as empresas encontradas (ainda não enviadas) para o pipeline do CRM, com lead score."""
+    if inp.campaign not in CAMPAIGNS:
+        raise HTTPException(400, "Campanha inválida.")
+    from routers.crm import compute_lead_score
+    uid = user["id"]; cid = await active_company_id(uid)
+    icp = await db.crm_icp.find_one({"user_id": uid, "company_id": cid}) or {}
+    snap = await build_snapshot(uid)
+    ar = (snap.get("valuation") or {}).get("annual_revenue")
+    mrev = (ar / 12.0) if isinstance(ar, (int, float)) and ar else None
+    prospects = await db.prospects.find({"user_id": uid, "company_id": cid, "campaign": inp.campaign,
+                                         "sent_to_crm": {"$ne": True}}).to_list(500)
+    added = 0
+    for p in prospects:
+        lead = {"name": p.get("name"), "contact": p.get("email") or p.get("phone"),
+                "sector": p.get("segment"), "region": p.get("region"), "stage": "novo", "urgency": "media",
+                "source": f"Captação · {CAMPAIGNS[inp.campaign]['label']}",
+                "notes": "\n".join(x for x in [p.get("address"), p.get("website")] if x)}
+        lead["score"] = compute_lead_score(lead, icp, mrev)
+        lead.update({"user_id": uid, "company_id": cid, "created_at": _now()})
+        await db.crm_leads.insert_one(lead)
+        await db.prospects.update_one({"_id": p["_id"]}, {"$set": {"sent_to_crm": True}})
+        added += 1
+    return {"added": added}

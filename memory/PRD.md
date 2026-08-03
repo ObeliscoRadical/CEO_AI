@@ -6,6 +6,7 @@
   - Chave em `GOOGLE_PLACES_API_KEY` (backend/.env, vazia até o utilizador fornecer). Sem chave, `search` devolve 400 com mensagem clara.
 - ✅ Frontend `Prospeccao.jsx` (rota `/captacao`, menu `nav-captacao`, Premium): seletor de campanha (3 cartões), região editável (`prosp-region`), botões `prosp-search-btn`/`prosp-update-btn`/`prosp-message-btn`/`prosp-export-btn`, tabela de resultados (Nome/Segmento/Email/Telefone/Endereço + link website), export CSV client-side, diálogo de proposta IA.
 - ✅ Verificado (sem chave): campanhas listam, search→400 claro, message IA gera proposta por segmento, UI renderiza (screenshot).
+- ✅ **Ligação ao CRM** (2026-06): `POST /api/prospecting/to-crm {campaign}` envia prospects ainda não enviados para `db.crm_leads` (etapa "novo", `source="Captação · <campanha>"`, lead score via `crm.compute_lead_score`), marca `prospect.sent_to_crm=True` (sem duplicar). Frontend: botão `prosp-tocrm-btn` + badge "no CRM" por linha (`prosp-incrm-{i}`).
 - ⚠️ **Busca real só funciona com a chave Google Places API (New) + faturação ativa.** Emails são best-effort (extraídos do site; nem sempre existem) — telefone/website sempre que faltar. Testar no preview; produção exige novo deploy.
 
 ## CEO AI V2 — Publicação automática nas redes (2026-06, FASE 4 — construída, aguarda credenciais Meta)
