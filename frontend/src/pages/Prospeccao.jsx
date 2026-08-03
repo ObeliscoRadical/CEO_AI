@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Loader2, Target, Search, RefreshCw, Download, Mail, Phone, Globe, MapPin, Building2, Sparkles, Copy, UserPlus, CheckCircle2 } from "lucide-react";
+import { Loader2, Target, Search, RefreshCw, Download, Mail, Phone, Globe, MapPin, Building2, Sparkles, Copy, UserPlus, CheckCircle2, MessageSquare, Check, Eye, EyeOff } from "lucide-react";
 
 const ICONS = { contratos_mensais: Building2, grandes_obras: Target, reparos: Sparkles };
 
@@ -21,6 +21,13 @@ export default function Prospeccao() {
   const [msg, setMsg] = useState(null);
   const [msgBusy, setMsgBusy] = useState(false);
   const [crmBusy, setCrmBusy] = useState(false);
+  const [picked, setPicked] = useState(new Set());
+  const [showContacted, setShowContacted] = useState(false);
+  const [contactBusy, setContactBusy] = useState(null);
+
+  const loadList = (campaign, inclContacted) =>
+    api.get(`/prospecting/list?campaign=${campaign}&include_contacted=${inclContacted ? "true" : "false"}`)
+      .then(({ data }) => setRows(data.prospects || [])).catch(() => {});
 
   useEffect(() => {
     api.get("/prospecting/campaigns").then(({ data }) => {
@@ -32,16 +39,16 @@ export default function Prospeccao() {
 
   useEffect(() => {
     if (!selected) return;
-    api.get(`/prospecting/list?campaign=${selected}`).then(({ data }) => setRows(data.prospects || [])).catch(() => {});
-    setMsg(null);
-  }, [selected]);
+    loadList(selected, showContacted);
+    setMsg(null); setPicked(new Set());
+  }, [selected, showContacted]);
 
   const run = async (endpoint, setLoading) => {
     if (!region.trim()) { toast.error("Escreva a região (ex.: Lisboa)."); return; }
     setLoading(true);
     try {
       const { data } = await api.post(endpoint, { campaign: selected, region: region.trim() });
-      setRows(data.prospects || []);
+      setRows(data.prospects || []); setPicked(new Set());
       toast.success(endpoint.includes("update") ? `${data.added} nova(s) empresa(s) adicionada(s).` : `${data.added} empresa(s) encontrada(s).`);
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
     setLoading(false);
@@ -69,11 +76,43 @@ export default function Prospeccao() {
   const sendToCrm = async () => {
     setCrmBusy(true);
     try {
-      const { data } = await api.post("/prospecting/to-crm", { campaign: selected });
+      const ids = Array.from(picked);
+      const { data } = await api.post("/prospecting/to-crm", { campaign: selected, ids: ids.length ? ids : null });
       toast.success(data.added > 0 ? `${data.added} empresa(s) enviada(s) para o CRM.` : "Nenhuma empresa nova para enviar (já estão no CRM).");
-      const { data: l } = await api.get(`/prospecting/list?campaign=${selected}`); setRows(l.prospects || []);
+      setPicked(new Set());
+      loadList(selected, showContacted);
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
     setCrmBusy(false);
+  };
+
+  const togglePick = (id) => setPicked((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleAll = () => setPicked((s) => s.size === rows.length ? new Set() : new Set(rows.map((r) => r.id)));
+
+  const contactVia = async (r, channel) => {
+    if (channel === "email" && !r.email) { toast.error("Esta empresa não tem email — use o WhatsApp ou o website."); return; }
+    if (channel === "whatsapp" && !r.phone) { toast.error("Esta empresa não tem telefone."); return; }
+    setContactBusy(`${r.id}-${channel}`);
+    try {
+      const { data } = await api.post("/prospecting/message", { campaign: selected, prospect_id: r.id });
+      const m = data.message || {};
+      const body = m.corpo || "";
+      if (channel === "whatsapp") {
+        const phone = (r.phone || "").replace(/\D/g, "");
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(body)}`, "_blank");
+      } else {
+        window.open(`mailto:${r.email}?subject=${encodeURIComponent(m.assunto || "")}&body=${encodeURIComponent(body)}`, "_blank");
+      }
+      await api.post("/prospecting/contacted", { ids: [r.id], contacted: true });
+      toast.success("Proposta pronta — reveja e envie. Empresa marcada como contactada.");
+      loadList(selected, showContacted);
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+    setContactBusy(null);
+  };
+
+  const markContacted = async (r) => {
+    await api.post("/prospecting/contacted", { ids: [r.id], contacted: !r.contacted });
+    toast.success(r.contacted ? "Marcada como não contactada." : "Empresa marcada como contactada.");
+    loadList(selected, showContacted);
   };
 
   const copyMsg = () => {
@@ -126,7 +165,7 @@ export default function Prospeccao() {
           {msgBusy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />} Gerar proposta (IA)
         </Button>
         <Button data-testid="prosp-tocrm-btn" onClick={sendToCrm} disabled={crmBusy} variant="outline" className="rounded-full border-[#3B82F6]/40 text-[#3B82F6] hover:bg-[#3B82F6]/10 h-10">
-          {crmBusy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />} Enviar ao CRM
+          {crmBusy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />} {picked.size > 0 ? `Enviar ${picked.size} ao CRM` : "Enviar tudo ao CRM"}
         </Button>
         <Button data-testid="prosp-export-btn" onClick={exportCsv} variant="outline" className="rounded-full border-white/15 hover:bg-white/5 h-10"><Download className="w-4 h-4 mr-2" /> Exportar CSV</Button>
       </div>
@@ -134,20 +173,40 @@ export default function Prospeccao() {
       {/* Resultados */}
       {rows.length > 0 ? (
         <div className="surface rounded-3xl overflow-hidden" data-testid="prosp-results">
-          <div className="px-5 py-3 border-b border-white/[0.06] text-sm text-muted-foreground">{rows.length} empresa(s) na lista</div>
+          <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">{rows.length} empresa(s){picked.size > 0 ? ` · ${picked.size} selecionada(s)` : ""}</span>
+            <button data-testid="prosp-toggle-contacted" onClick={() => setShowContacted((v) => !v)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5">
+              {showContacted ? <><EyeOff className="w-3.5 h-3.5" /> Esconder contactadas</> : <><Eye className="w-3.5 h-3.5" /> Mostrar contactadas</>}
+            </button>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr className="text-left text-xs text-muted-foreground border-b border-white/[0.06]">
-                <th className="px-5 py-3">Empresa</th><th className="px-3 py-3">Segmento</th><th className="px-3 py-3">E-mail</th><th className="px-3 py-3">Telefone</th><th className="px-3 py-3">Endereço</th>
+                <th className="px-4 py-3 w-10"><input type="checkbox" data-testid="prosp-select-all" checked={picked.size === rows.length && rows.length > 0} onChange={toggleAll} className="accent-[#3B82F6] w-4 h-4" /></th>
+                <th className="px-3 py-3">Empresa</th><th className="px-3 py-3">Segmento</th><th className="px-3 py-3">E-mail</th><th className="px-3 py-3">Telefone</th><th className="px-3 py-3">Endereço</th><th className="px-3 py-3 text-right">Ações</th>
               </tr></thead>
               <tbody>
                 {rows.map((r, i) => (
-                  <tr key={r.id} className="border-b border-white/[0.04] hover:bg-white/[0.02]" data-testid={`prosp-row-${i}`}>
-                    <td className="px-5 py-3 font-medium">{r.name || "—"}{r.website && <a href={r.website} target="_blank" rel="noreferrer" className="ml-2 inline-flex text-[#3B82F6]"><Globe className="w-3.5 h-3.5" /></a>}{r.sent_to_crm && <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-[#10B981]" data-testid={`prosp-incrm-${i}`}><CheckCircle2 className="w-3 h-3" />no CRM</span>}</td>
+                  <tr key={r.id} className={`border-b border-white/[0.04] hover:bg-white/[0.02] ${r.contacted ? "opacity-60" : ""}`} data-testid={`prosp-row-${i}`}>
+                    <td className="px-4 py-3"><input type="checkbox" data-testid={`prosp-check-${i}`} checked={picked.has(r.id)} onChange={() => togglePick(r.id)} className="accent-[#3B82F6] w-4 h-4" /></td>
+                    <td className="px-3 py-3 font-medium">{r.name || "—"}{r.website && <a href={r.website} target="_blank" rel="noreferrer" className="ml-2 inline-flex text-[#3B82F6]"><Globe className="w-3.5 h-3.5" /></a>}{r.sent_to_crm && <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-[#10B981]" data-testid={`prosp-incrm-${i}`}><CheckCircle2 className="w-3 h-3" />no CRM</span>}{r.contacted && <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-amber-400"><CheckCircle2 className="w-3 h-3" />contactada</span>}</td>
                     <td className="px-3 py-3 text-muted-foreground capitalize">{r.segment || "—"}</td>
                     <td className="px-3 py-3">{r.email ? <a href={`mailto:${r.email}`} className="text-[#3B82F6] flex items-center gap-1"><Mail className="w-3 h-3" />{r.email}</a> : <span className="text-muted-foreground">—</span>}</td>
                     <td className="px-3 py-3">{r.phone ? <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-muted-foreground" />{r.phone}</span> : <span className="text-muted-foreground">—</span>}</td>
-                    <td className="px-3 py-3 text-muted-foreground text-xs max-w-[240px]"><span className="flex items-start gap-1"><MapPin className="w-3 h-3 mt-0.5 shrink-0" />{r.address || "—"}</span></td>
+                    <td className="px-3 py-3 text-muted-foreground text-xs max-w-[220px]"><span className="flex items-start gap-1"><MapPin className="w-3 h-3 mt-0.5 shrink-0" />{r.address || "—"}</span></td>
+                    <td className="px-3 py-3">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button data-testid={`prosp-wa-${i}`} title="Contactar por WhatsApp (proposta IA)" onClick={() => contactVia(r, "whatsapp")} disabled={contactBusy === `${r.id}-whatsapp`} className="w-8 h-8 rounded-full flex items-center justify-center bg-[#25D366]/15 text-[#25D366] hover:bg-[#25D366]/25 disabled:opacity-50">
+                          {contactBusy === `${r.id}-whatsapp` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageSquare className="w-3.5 h-3.5" />}
+                        </button>
+                        <button data-testid={`prosp-email-${i}`} title="Contactar por email (proposta IA)" onClick={() => contactVia(r, "email")} disabled={contactBusy === `${r.id}-email`} className="w-8 h-8 rounded-full flex items-center justify-center bg-[#3B82F6]/15 text-[#3B82F6] hover:bg-[#3B82F6]/25 disabled:opacity-50">
+                          {contactBusy === `${r.id}-email` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+                        </button>
+                        <button data-testid={`prosp-markcontacted-${i}`} title={r.contacted ? "Marcar como não contactada" : "Marcar como contactada"} onClick={() => markContacted(r)} className={`w-8 h-8 rounded-full flex items-center justify-center ${r.contacted ? "bg-amber-400/15 text-amber-400" : "bg-white/5 text-muted-foreground hover:text-foreground"}`}>
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

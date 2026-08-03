@@ -1,7 +1,7 @@
 """Captação — Campanhas Segmentadas de Prospeção (Google Places API) + atualização contínua (delta).
 Minera empresas reais por segmento e região, extrai email best-effort do website, deduplica e gera proposta por IA."""
 import os, re, asyncio, csv, io
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -56,10 +56,10 @@ async def _extract_email(website: Optional[str]) -> Optional[str]:
     if not website:
         return None
     try:
-        async with httpx.AsyncClient(timeout=6, follow_redirects=True,
+        async with httpx.AsyncClient(timeout=httpx.Timeout(5.0, connect=3.0), follow_redirects=True,
                                      headers={"User-Agent": "Mozilla/5.0"}) as c:
             r = await c.get(website)
-        for e in EMAIL_RE.findall(r.text or ""):
+        for e in EMAIL_RE.findall((r.text or "")[:300000]):
             el = e.lower()
             local, _, domain = el.partition("@")
             if el.endswith((".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg")):
@@ -95,12 +95,23 @@ async def _mine_and_store(uid, cid, campaign, region):
         if await db.prospects.find_one({"user_id": uid, "company_id": cid, "place_id": pid}):
             continue
         new_items.append((pid, p, kw))
-    sem = asyncio.Semaphore(10)
+    sem = asyncio.Semaphore(40)
 
     async def _ge(w):
         async with sem:
             return await _extract_email(w)
-    emails = await asyncio.gather(*[_ge(p.get("websiteUri")) for _, p, _ in new_items]) if new_items else []
+    emails = [None] * len(new_items)
+    if new_items:
+        tasks = [asyncio.create_task(_ge(p.get("websiteUri"))) for _, p, _ in new_items]
+        done, pending = await asyncio.wait(tasks, timeout=25)
+        for t in pending:
+            t.cancel()
+        for i, t in enumerate(tasks):
+            if t in done:
+                try:
+                    emails[i] = t.result()
+                except Exception:
+                    emails[i] = None
     docs = []
     for (pid, p, kw), email in zip(new_items, emails):
         docs.append({
@@ -112,7 +123,8 @@ async def _mine_and_store(uid, cid, campaign, region):
             "contacted": False, "created_at": _now()})
     if docs:
         await db.prospects.insert_many(docs)
-    allp = await db.prospects.find({"user_id": uid, "company_id": cid, "campaign": campaign}).sort("created_at", -1).to_list(500)
+    allp = await db.prospects.find({"user_id": uid, "company_id": cid, "campaign": campaign,
+                                    "contacted": {"$ne": True}}).sort("created_at", -1).to_list(500)
     return len(docs), [_ser(x) for x in allp]
 
 
@@ -150,9 +162,12 @@ async def update(inp: SearchIn, user: dict = Depends(premium_user)):
 
 
 @router.get("/prospecting/list")
-async def list_prospects(campaign: str, user: dict = Depends(premium_user)):
+async def list_prospects(campaign: str, include_contacted: bool = False, user: dict = Depends(premium_user)):
     uid = user["id"]; cid = await active_company_id(uid)
-    allp = await db.prospects.find({"user_id": uid, "company_id": cid, "campaign": campaign}).sort("created_at", -1).to_list(500)
+    q = {"user_id": uid, "company_id": cid, "campaign": campaign}
+    if not include_contacted:
+        q["contacted"] = {"$ne": True}
+    allp = await db.prospects.find(q).sort("created_at", -1).to_list(500)
     return {"prospects": [_ser(x) for x in allp]}
 
 
@@ -202,11 +217,12 @@ async def message(inp: MsgIn, user: dict = Depends(premium_user)):
 
 class CampIn(BaseModel):
     campaign: str
+    ids: Optional[List[str]] = None
 
 
 @router.post("/prospecting/to-crm")
 async def to_crm(inp: CampIn, user: dict = Depends(premium_user)):
-    """Envia as empresas encontradas (ainda não enviadas) para o pipeline do CRM, com lead score."""
+    """Envia empresas encontradas (todas ou as selecionadas) para o pipeline do CRM, com lead score."""
     if inp.campaign not in CAMPAIGNS:
         raise HTTPException(400, "Campanha inválida.")
     from routers.crm import compute_lead_score
@@ -215,8 +231,10 @@ async def to_crm(inp: CampIn, user: dict = Depends(premium_user)):
     snap = await build_snapshot(uid)
     ar = (snap.get("valuation") or {}).get("annual_revenue")
     mrev = (ar / 12.0) if isinstance(ar, (int, float)) and ar else None
-    prospects = await db.prospects.find({"user_id": uid, "company_id": cid, "campaign": inp.campaign,
-                                         "sent_to_crm": {"$ne": True}}).to_list(500)
+    q = {"user_id": uid, "company_id": cid, "campaign": inp.campaign, "sent_to_crm": {"$ne": True}}
+    if inp.ids:
+        q["_id"] = {"$in": [ObjectId(x) for x in inp.ids]}
+    prospects = await db.prospects.find(q).to_list(500)
     added = 0
     for p in prospects:
         lead = {"name": p.get("name"), "contact": p.get("email") or p.get("phone"),
@@ -229,3 +247,18 @@ async def to_crm(inp: CampIn, user: dict = Depends(premium_user)):
         await db.prospects.update_one({"_id": p["_id"]}, {"$set": {"sent_to_crm": True}})
         added += 1
     return {"added": added}
+
+
+class ContactedIn(BaseModel):
+    ids: List[str]
+    contacted: bool = True
+
+
+@router.post("/prospecting/contacted")
+async def set_contacted(inp: ContactedIn, user: dict = Depends(premium_user)):
+    """Marca (ou desmarca) empresas como contactadas — as contactadas deixam de aparecer nas buscas."""
+    uid = user["id"]; cid = await active_company_id(uid)
+    oids = [ObjectId(x) for x in inp.ids]
+    r = await db.prospects.update_many({"_id": {"$in": oids}, "user_id": uid, "company_id": cid},
+                                       {"$set": {"contacted": inp.contacted}})
+    return {"ok": True, "updated": r.modified_count}
