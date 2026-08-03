@@ -45,7 +45,7 @@ async def _places_search(keyword: str, region: str, api_key: str):
             err = r.json().get("error", {}).get("message", r.text)
         except Exception:
             err = r.text
-        raise HTTPException(502, f"Google Places: {err}")
+        raise HTTPException(400, f"Google Places: {err}")
     return r.json().get("places", [])
 
 
