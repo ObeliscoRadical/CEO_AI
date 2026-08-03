@@ -1,0 +1,25 @@
+{
+  "summary": "Iteration 30: tested new Conselho Executivo Digital V2 (Council). Backend: 5/5 pytest pass covering GET /council/meeting (shape+integrations), POST /generate + cache idempotency, POST /approve + tasks creation, GET /council/tasks, POST /refresh (via test_generate_meeting_and_cache using refresh first), and regression on /api/goal. Frontend: full flow verified end-to-end on the admin account (meeting was already generated today, so verified persisted state; refresh-meeting-btn available). All required data-testids present and integrations pill shows 'brevemente'. Regression: /meta, /conselhos and /painel continue to load.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_council.py",
+    "/app/test_reports/pytest/iter30_council.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "council.py Approve endpoint returns {ok:false, reason:'no_meeting'} with HTTP 200 when no meeting exists — consider 404 for stricter semantics; UI already handles it with a toast.",
+    "council.py _generate_meeting fires 3 director LLM calls in parallel + 1 brain call (~20-40s total). Consider adding a soft timeout/fallback for the LLM (ai_json) so a stuck upstream doesn't leave the user without any meeting.",
+    "council.py _run_director / _run_brain trust the LLM JSON shape without validation; if the LLM omits a key (e.g. 'estrategia' or 'kpis'), the UI still renders because of Array.isArray guards — good. But 'situacao' / 'foco_principal' could be null and the card would show blanks. Consider defensive defaults server-side.",
+    "council.py Cache key is (user_id, company_id, date-UTC). On the day boundary crossing UTC vs Europe/Lisbon (UTC+0/+1) this may regenerate at midnight local — acceptable for now, worth documenting.",
+    "Conselho.jsx (~270 lines) button has duplicate 'h-13' and 'h-12' classes on approve-strategy-btn — cosmetic only.",
+    "Conselho.jsx load() re-fetches tasks only when meeting.approved is true; fine. No dependency issues seen."
+  ],
+  "updated_files": ["/app/backend/tests/test_council.py"],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% (all data-testids present, full approve flow verified)"},
+  "test_credentials": "adminceoai@gmail.com / 12345 (Premium, bypass gating)",
+  "seed_data_creation": "None — admin already had a meeting for today. Force-refresh was covered by the pytest test_generate_meeting_and_cache which calls /refresh then verifies cache on /generate.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests: /app/backend/tests/test_council.py. Run with `python -m pytest backend/tests/test_council.py -p no:xdist -o addopts=''`. Admin has profile: sector empty, cash 40000, monthly_net 0, health 71, annual_revenue 300000. Because the admin account may already have a cached meeting for today, hitting /generate returns the same doc; use /refresh to force new AI content. UI selectors verified live: nav-conselho-exec, council-page, council-intro/generate-meeting-btn, directors-grid, director-{financeiro|comercial|marketing}, exec-toggle-{key}, brain-strategy, strategy-step-N, approve-strategy-btn, execution-panel, exec-{key}, integration-{instagram|facebook|google_business}, refresh-meeting-btn. Regression: /meta, /conselhos, /painel loaded fine (no console errors)."
+}
