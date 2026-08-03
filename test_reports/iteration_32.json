@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 32: Phase 3 (Marketing + CRM Simulação de Envio) tested end-to-end. Backend: 12/12 pytest passed in /app/backend/tests/test_phase3_marketing.py — covers GET /api/marketing/content (nullable), POST /api/marketing/generate (validates brand.tom, pilares[], posts[] with formato in {Post,Story,Reel} + titulo/legenda/hashtags[]/cta/dia, calendario[] with dia/formato/tema, and persistence via subsequent GET), CRM send-sim WhatsApp (returns ok+wa_link starting https://wa.me/, correctly strips non-digits from contact ‘+351 912 345 678’→‘351912345678’, urlencoded message), WhatsApp with empty phone (falls back to https://wa.me/?text=), email channel (returns ok + sent_to == admin email, actual Resend delivery), 404 on unknown lead_id, plus regression on /api/council/meeting, /api/crm/leads, /api/crm/icp, /api/goal, /api/dashboard. Frontend live on admin: /marketing shows mkt-brand + mkt-posts + mkt-post-0..N + mkt-copy-N + mkt-calendar + mkt-export-btn + mkt-regen-btn (content pre-seeded). /crm draft-dialog for lead ‘Padaria Central’ shows draft-body + draft-copy-btn + draft-wa-btn + draft-email-self-btn; WhatsApp button opens new tab with wa.me link (browser then redirects to api.whatsapp.com/send/?text=... which is normal WA behaviour — link URL from API is correct). Toast ‘WhatsApp aberto com a mensagem.’ shown. nav-marketing menu item present.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "draft-dialog / lead-dialog", "issues": ["Radix DialogContent warns ‘Missing Description or aria-describedby={undefined}’ — add DialogDescription for a11y (non-blocking)."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase3_marketing.py",
+    "/app/test_reports/pytest/iter32_phase3.xml"
+  ],
+  "action_items": [
+    "(Optional) Add <DialogDescription> to draft-dialog and lead-dialog to silence Radix a11y warning.",
+    "(Optional) marketing/generate has no failure fallback — if ai_json returns {}, persisted content will be empty and UI would show empty brand/posts/calendar. Consider validating minimum shape (>=1 post + brand.tom present) and returning 502 otherwise."
+  ],
+  "critical_code_review_comments": [
+    "routers/marketing.py generate_content: no minimal validation on ai_json output; empty {} would upsert as empty content. Add guard: assert brand + posts>=1 else HTTPException 502.",
+    "routers/crm.py send_sim: whatsapp branch logs to crm_outreach with the raw message but truncates nothing; consider capping message length (e.g., 2000 chars) since wa.me links have length limits.",
+    "routers/crm.py send_sim: no ownership check by company_id for security is included (uses user_id + company_id) — good.",
+    "routers/crm.py send_sim email branch: returns {ok:false, reason:'no_email'} with HTTP 200 — inconsistent with error semantics; consider HTTP 400/409 for clarity.",
+    "Marketing.jsx: content shape not defensively guarded — if brand missing but posts present, UI would still render without warning; consider a friendly empty state.",
+    "CRM.jsx sendSim: builds message by concatenating subject/title with corpo; whitespace strip only trims edges — if only corpo empty, message could be just a title. Acceptable for MVP.",
+    "auth cookie login worked; register/login tests not re-run in this iteration but no changes to auth in Phase 3."
+  ],
+  "updated_files": ["/app/backend/tests/test_phase3_marketing.py"],
+  "success_rate": {"backend": "100% (12/12)", "frontend": "100% (all data-testids and flows verified)"},
+  "test_credentials": "adminceoai@gmail.com / 12345 (admin/Premium)",
+  "seed_data_creation": "Created transient TEST_SendSim Lead and TEST_NoPhone; both deleted at teardown. POST /marketing/generate overwrote admin marketing_content (upsert per user+company) with fresh AI content — persistent side effect but idempotent shape.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests: `python -m pytest backend/tests/test_phase3_marketing.py -v -p no:xdist -o addopts=''`. Marketing generate takes 10-20s; send-sim email uses Resend (allow up to 10s). WhatsApp wa.me links get redirected by the browser to api.whatsapp.com/send/ — check the returned wa_link from the API (starts with https://wa.me/), not the final tab URL.",
+  "rca of the issue": "No bugs found — all Phase 3 endpoints and UI flows behave per spec."
+}

@@ -8,7 +8,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
-  Loader2, Briefcase, Sparkles, Plus, Trash2, Mail, FileText, Copy, Target, X,
+  Loader2, Briefcase, Sparkles, Plus, Trash2, Mail, FileText, Copy, Target, X, Send,
 } from "lucide-react";
 
 const STAGE_LABEL = {
@@ -84,6 +84,15 @@ export default function CRM() {
   const copyDraft = () => {
     const txt = draft.kind === "email" ? `${draft.assunto || ""}\n\n${draft.corpo || ""}` : `${draft.titulo || ""}\n\n${draft.corpo || ""}`;
     navigator.clipboard.writeText(txt).then(() => toast.success("Copiado!")).catch(() => {});
+  };
+  const sendSim = async (channel) => {
+    const message = `${draft.assunto || draft.titulo || ""}\n\n${draft.corpo || ""}`.trim();
+    try {
+      const { data } = await api.post(`/crm/leads/${draft.lead.id}/send-sim`, { channel, message, subject: draft.assunto || draft.titulo });
+      if (channel === "whatsapp" && data.wa_link) { window.open(data.wa_link, "_blank"); toast.success("WhatsApp aberto com a mensagem."); }
+      else if (data.ok) toast.success(`Enviado para o seu email (${data.sent_to}).`);
+      else toast.error("Não foi possível enviar.");
+    } catch { toast.error("Não foi possível enviar."); }
   };
 
   if (failed) return <div className="text-center py-40 text-muted-foreground" data-testid="crm-error">Não foi possível carregar. Atualiza a página.</div>;
@@ -217,7 +226,13 @@ export default function CRM() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setDraft(null)} className="rounded-full">Fechar</Button>
-            {!draftLoading && draft && <Button data-testid="draft-copy-btn" onClick={copyDraft} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]"><Copy className="w-4 h-4 mr-1.5" /> Copiar</Button>}
+            {!draftLoading && draft && (
+              <>
+                <Button data-testid="draft-copy-btn" onClick={copyDraft} variant="outline" className="rounded-full border-white/15"><Copy className="w-4 h-4 mr-1.5" /> Copiar</Button>
+                <Button data-testid="draft-wa-btn" onClick={() => sendSim("whatsapp")} variant="outline" className="rounded-full border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/10"><Send className="w-4 h-4 mr-1.5" /> WhatsApp</Button>
+                <Button data-testid="draft-email-self-btn" onClick={() => sendSim("email")} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]"><Mail className="w-4 h-4 mr-1.5" /> Para o meu email</Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
+from urllib.parse import quote
 from core import *
 
 router = APIRouter()
@@ -213,3 +214,40 @@ async def draft_lead(lead_id: str, inp: DraftIn, user: dict = Depends(premium_us
                   f"o que está incluído, investimento sugerido (usa {sym} e o valor potencial como referência) e próximos passos.")
     draft = await ai_json(system, prompt) or {}
     return {"draft": draft, "kind": inp.kind}
+
+
+class SendSimIn(BaseModel):
+    channel: str                            # "whatsapp" | "email"
+    message: str
+    subject: Optional[str] = None
+
+
+@router.post("/crm/leads/{lead_id}/send-sim")
+async def send_sim(lead_id: str, inp: SendSimIn, user: dict = Depends(premium_user)):
+    """Simulação de Envio: entrega a mensagem do lead no WhatsApp (link wa.me) ou no email do próprio
+    utilizador, para validar o motor de IA antes das integrações oficiais (Meta)."""
+    uid = user["id"]; cid = await active_company_id(uid)
+    lead = await db.crm_leads.find_one({"_id": ObjectId(lead_id), "user_id": uid, "company_id": cid})
+    if not lead:
+        raise HTTPException(404, "lead não encontrado")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    result = {}
+    if inp.channel == "whatsapp":
+        phone = "".join(ch for ch in (lead.get("contact") or "") if ch.isdigit())
+        result["wa_link"] = f"https://wa.me/{phone}?text={quote(inp.message)}" if phone else f"https://wa.me/?text={quote(inp.message)}"
+    else:
+        u = await db.users.find_one({"_id": ObjectId(uid)})
+        if not u or not u.get("email"):
+            return {"ok": False, "reason": "no_email"}
+        body = inp.message.replace("\n", "<br>")
+        html = (f"<div style='font-family:Arial,sans-serif;max-width:600px'>"
+                f"<h2 style='color:#3B82F6'>Simulação de Envio — CEO AI</h2>"
+                f"<p><b>Lead:</b> {lead.get('name')}<br><b>Contacto:</b> {lead.get('contact') or 'n/d'}<br>"
+                f"<b>Setor:</b> {lead.get('sector') or 'n/d'} · <b>Fase:</b> {lead.get('stage')} · <b>Score:</b> {lead.get('score')}</p>"
+                f"<hr><p><b>Mensagem sugerida:</b></p><div style='background:#f6f7f9;padding:16px;border-radius:12px'>{body}</div>"
+                f"<p style='color:#888;font-size:12px;margin-top:16px'>Reveja e envie ao cliente. Quando validar, ativamos o envio automático oficial.</p></div>")
+        await send_email_raw(u["email"], inp.subject or f"Lead: {lead.get('name')} — mensagem sugerida", html)
+        result["sent_to"] = u["email"]
+    await db.crm_outreach.insert_one({"user_id": uid, "company_id": cid, "lead_id": lead_id,
+                                      "channel": inp.channel, "message": inp.message, "created_at": now_iso})
+    return {"ok": True, **result}
