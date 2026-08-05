@@ -126,6 +126,12 @@ export default function Settings() {
     catch { toast.error("Erro ao guardar"); }
   };
 
+  const toggleGrantAlert = async (val) => {
+    update({ email_grant_alerts: val });
+    try { await api.put("/settings", { ...settings, email_grant_alerts: val }); toast.success(val ? "Avisos de prazos de apoios ativados" : "Avisos de prazos de apoios desativados"); }
+    catch { toast.error("Erro ao guardar"); }
+  };
+
   const sendNow = async () => {
     setSendingEmail(true);
     try { const { data } = await api.post("/briefing/email"); toast.success(`Briefing enviado para ${data.to}`); }
@@ -354,6 +360,16 @@ export default function Settings() {
           <button data-testid="email-value-alert-toggle" onClick={() => toggleValueAlert(!settings.email_value_alert)}
             className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${settings.email_value_alert ? "bg-[#3B82F6]" : "bg-border"}`}>
             <span className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all ${settings.email_value_alert ? "left-6" : "left-1"}`} />
+          </button>
+        </div>
+        <div className="flex items-center justify-between p-4 rounded-xl border border-border mb-4">
+          <div>
+            <div className="text-sm font-medium">Avisos de prazos de apoios e incentivos</div>
+            <div className="text-xs text-muted-foreground mt-0.5">Recebes um email quando faltarem poucos dias (14/7/3/1) para o prazo de uma candidatura que estás a acompanhar</div>
+          </div>
+          <button data-testid="email-grant-alert-toggle" onClick={() => toggleGrantAlert(settings.email_grant_alerts === false)}
+            className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${settings.email_grant_alerts !== false ? "bg-[#3B82F6]" : "bg-border"}`}>
+            <span className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all ${settings.email_grant_alerts !== false ? "left-6" : "left-1"}`} />
           </button>
         </div>
         <Button data-testid="send-email-now-btn" onClick={sendNow} disabled={sendingEmail} variant="outline" className="rounded-full">

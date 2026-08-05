@@ -50,6 +50,7 @@ class SettingsInput(BaseModel):
     monitored_widgets: Optional[List[str]] = None
     email_briefing: Optional[bool] = None
     email_value_alert: Optional[bool] = None
+    email_grant_alerts: Optional[bool] = None
     tour_completed: Optional[bool] = None
 
 class ChatInput(BaseModel):

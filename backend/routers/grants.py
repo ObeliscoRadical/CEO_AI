@@ -597,6 +597,8 @@ async def update_app(aid: str, user: dict = Depends(premium_user), body: GrantAp
     if "status" in upd and upd["status"] not in APP_STATUSES:
         raise HTTPException(400, "Estado inválido.")
     upd["updated_at"] = datetime.now(timezone.utc).isoformat()
+    if "deadline" in upd:
+        upd["emailed_deadline_days"] = []  # re-arma avisos de email para o novo prazo
     r = await db.grant_applications.update_one(
         {"_id": _oid(aid), "user_id": uid, "company_id": cid}, {"$set": upd})
     if r.matched_count == 0:
@@ -632,8 +634,41 @@ async def delete_app(aid: str, user: dict = Depends(premium_user)):
 
 
 # ---------------------------------------------------------------------------
-# Alertas de prazos de candidaturas (in-app + push)
+# Alertas de prazos de candidaturas (in-app + push + email)
 # ---------------------------------------------------------------------------
+DEADLINE_MILESTONES = [14, 7, 3, 1]
+
+
+def build_grant_deadline_html(name, app, days, deadline, app_url):
+    who = f", {name}" if name else ""
+    urgency = "#EF4444" if days <= 3 else "#F59E0B"
+    plural = "dia" if days == 1 else "dias"
+    return f"""<!DOCTYPE html><html><body style="margin:0;background:#0b0c10;font-family:Arial,Helvetica,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#0b0c10;padding:32px 0;">
+      <tr><td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:18px;overflow:hidden;">
+          <tr><td style="background:#0b0c10;padding:28px 32px;">
+            <div style="color:#3B82F6;font-size:22px;font-weight:700;letter-spacing:1px;">CEO&nbsp;AI</div>
+            <div style="color:#a1a1aa;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-top:2px;">Executivo Digital · Apoios &amp; Incentivos</div>
+          </td></tr>
+          <tr><td style="padding:32px;">
+            <div style="font-size:13px;color:#71717a;margin-bottom:6px;">Prazo a aproximar-se{who}</div>
+            <div style="font-size:23px;color:#18181b;font-weight:800;line-height:1.3;margin-bottom:10px;">{app.get('title','')}</div>
+            <div style="font-size:16px;color:{urgency};font-weight:700;margin-bottom:16px;">Faltam {days} {plural} — prazo {deadline}</div>
+            <div style="font-size:14px;color:#52525b;line-height:1.6;margin-bottom:8px;">Entidade: <strong>{app.get('entity','')}</strong></div>
+            <div style="font-size:14px;color:#52525b;line-height:1.6;margin-bottom:22px;">Não percas o prazo desta candidatura que estás a acompanhar. Confirma a documentação e submete a tempo no portal oficial.</div>
+            <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+              <a href="{app_url}" style="display:inline-block;background:#3B82F6;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:13px 28px;border-radius:999px;">Ver a minha candidatura</a>
+            </td></tr></table>
+          </td></tr>
+          <tr><td style="padding:20px 32px;background:#faf9f6;border-top:1px solid #eee;">
+            <div style="font-size:11px;color:#a1a1aa;">Recebes este aviso porque estás a acompanhar candidaturas a apoios no CEO AI. Podes desativar em Personalização. A elegibilidade é uma estimativa; confirma sempre requisitos e prazos na fonte oficial.</div>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table></body></html>"""
+
+
 async def evaluate_grant_alerts(only_user: Optional[str] = None):
     created = 0
     q = {"deadline": {"$ne": None}, "status": {"$in": ["a_preparar", "submetida", "em_analise"]}}
@@ -650,25 +685,42 @@ async def evaluate_grant_alerts(only_user: Optional[str] = None):
         if days < 0 or days > 30:
             continue
         uid = app["user_id"]; cid = app.get("company_id")
+        # ---- notificação in-app + push (dedup 20h) ----
         recent = await db.notifications.find_one({
             "user_id": uid, "type": "apoio_prazo", "data.app_id": str(app["_id"]),
             "status": {"$in": ["unread", "read"]}, "created_at": {"$gt": cutoff20}})
-        if recent:
-            continue
-        title = "Prazo de apoio a aproximar-se"
-        body = f"A candidatura '{app['title']}' fecha em {days} dia(s) ({app['deadline']}). Prepara a submissão."
-        data = {"app_id": str(app["_id"]), "grant_id": app.get("grant_id"), "days": days, "route": "/apoios"}
-        doc = {"user_id": uid, "company_id": cid, "type": "apoio_prazo", "title": title, "body": body,
-               "data": data, "status": "unread", "snooze_until": None, "created_at": now.isoformat()}
-        res = await db.notifications.insert_one(doc)
+        if not recent:
+            title = "Prazo de apoio a aproximar-se"
+            body = f"A candidatura '{app['title']}' fecha em {days} dia(s) ({app['deadline']}). Prepara a submissão."
+            data = {"app_id": str(app["_id"]), "grant_id": app.get("grant_id"), "days": days, "route": "/apoios"}
+            doc = {"user_id": uid, "company_id": cid, "type": "apoio_prazo", "title": title, "body": body,
+                   "data": data, "status": "unread", "snooze_until": None, "created_at": now.isoformat()}
+            res = await db.notifications.insert_one(doc)
+            try:
+                await send_push_to_user(uid, title, body, url="/apoios",
+                                        actions=[{"action": "approve", "title": "Ver candidatura"},
+                                                 {"action": "snooze", "title": "Lembrar depois"}],
+                                        extra={"notif_id": str(res.inserted_id)})
+            except Exception as e:
+                logger.error(f"push apoio prazo: {e}")
+            created += 1
+        # ---- email por marcos (14/7/3/1 dias), uma vez cada ----
         try:
-            await send_push_to_user(uid, title, body, url="/apoios",
-                                    actions=[{"action": "approve", "title": "Ver candidatura"},
-                                             {"action": "snooze", "title": "Lembrar depois"}],
-                                    extra={"notif_id": str(res.inserted_id)})
+            bucket = min((m for m in DEADLINE_MILESTONES if days <= m), default=None)
+            emailed = app.get("emailed_deadline_days") or []
+            if bucket is not None and bucket not in emailed:
+                s = await db.settings.find_one({"user_id": uid}) or {}
+                if s.get("email_grant_alerts", True) is not False:
+                    u = await db.users.find_one({"_id": ObjectId(uid)})
+                    if u and u.get("email"):
+                        html = build_grant_deadline_html(u.get("name", ""), app, days, app["deadline"],
+                                                         os.environ.get("FRONTEND_URL", ""))
+                        ok = await send_email_raw(u["email"], f"Prazo de apoio: {app['title']} (faltam {days} dia(s))", html)
+                        if ok:
+                            await db.grant_applications.update_one(
+                                {"_id": app["_id"]}, {"$addToSet": {"emailed_deadline_days": bucket}})
         except Exception as e:
-            logger.error(f"push apoio prazo: {e}")
-        created += 1
+            logger.error(f"email apoio prazo: {e}")
     return created
 
 
