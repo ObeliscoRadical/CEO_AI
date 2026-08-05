@@ -545,6 +545,13 @@ def _serialize_app(doc):
     return doc
 
 
+def _oid(aid):
+    try:
+        return ObjectId(aid)
+    except Exception:
+        raise HTTPException(404, "Candidatura não encontrada.")
+
+
 @router.get("/grants/applications")
 async def list_apps(user: dict = Depends(premium_user)):
     uid = user["id"]; cid = await active_company_id(uid)
@@ -591,10 +598,10 @@ async def update_app(aid: str, user: dict = Depends(premium_user), body: GrantAp
         raise HTTPException(400, "Estado inválido.")
     upd["updated_at"] = datetime.now(timezone.utc).isoformat()
     r = await db.grant_applications.update_one(
-        {"_id": ObjectId(aid), "user_id": uid, "company_id": cid}, {"$set": upd})
+        {"_id": _oid(aid), "user_id": uid, "company_id": cid}, {"$set": upd})
     if r.matched_count == 0:
         raise HTTPException(404, "Candidatura não encontrada.")
-    doc = await db.grant_applications.find_one({"_id": ObjectId(aid)})
+    doc = await db.grant_applications.find_one({"_id": _oid(aid)})
     return {"ok": True, "application": _serialize_app(doc)}
 
 
@@ -604,7 +611,7 @@ async def toggle_item(aid: str, user: dict = Depends(premium_user),
     uid = user["id"]; cid = await active_company_id(uid)
     if kind not in ("checklist", "steps"):
         raise HTTPException(400, "kind inválido.")
-    doc = await db.grant_applications.find_one({"_id": ObjectId(aid), "user_id": uid, "company_id": cid})
+    doc = await db.grant_applications.find_one({"_id": _oid(aid), "user_id": uid, "company_id": cid})
     if not doc:
         raise HTTPException(404, "Candidatura não encontrada.")
     items = doc.get(kind) or []
@@ -620,7 +627,7 @@ async def toggle_item(aid: str, user: dict = Depends(premium_user),
 @router.delete("/grants/applications/{aid}")
 async def delete_app(aid: str, user: dict = Depends(premium_user)):
     uid = user["id"]; cid = await active_company_id(uid)
-    await db.grant_applications.delete_one({"_id": ObjectId(aid), "user_id": uid, "company_id": cid})
+    await db.grant_applications.delete_one({"_id": _oid(aid), "user_id": uid, "company_id": cid})
     return {"ok": True}
 
 

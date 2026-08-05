@@ -1,5 +1,20 @@
 # CEO AI — O Executivo Digital
 
+## CEO AI V2 — Apoios & Incentivos (Diretor de Apoios) (2026-06, FASE 1 concluída)
+- ✅ `backend/routers/grants.py`: módulo de **apoios públicos, incentivos fiscais, fundos e financiamento** (PT + BR) com base curada + motor de match DETERMINÍSTICO + análise por IA.
+  - **Catálogo curado** `CATALOG` (10 PT: Compete 2030 Inovação Produtiva, Vale Digital IAPMEI, SIFIDE II, IEFP contratação, BP Fomento garantia mútua, Turismo de Portugal, Compete Internacionalização, PRR, IAPMEI Crescer, Startup Portugal; 8 BR: Pronampe, BNDES crédito/Finame, Lei do Bem, FINEP, Sebrae, Cartão BNDES, FAMPE, Simples Nacional). Cada apoio: entidade, região, setores/dimensão elegíveis, despesas elegíveis, montante/taxa, prazo, **URL oficial**, documentos exigidos e **data de verificação** (`CATALOG_VERIFIED_AT`).
+  - **Perfil de elegibilidade** `_eligibility_profile` reutiliza empresa+perfil+snapshot (setor/CAE, dimensão UE por nº trabalhadores+faturação, objetivos) + campos extra (`db.grants_profiles`: focus_country, investment_amount, project_type, interests). Devolve `missing[]`.
+  - **Motor determinístico** `_match_all/_match_one`: score por regra explicável (setor, dimensão, prazo, interesses, investimento) + `match_reasons[]`/`warnings[]` + eligibility (elegivel≥62 / possivel≥40 / confirmar). A IA NÃO inventa requisitos.
+  - **Diretor de Apoios (IA)** `POST /api/grants/analyze` (cache diária, só sob pedido): resumo, prioridade, lacunas, passos/documentos/onde-tratar por oportunidade, citando fontes; aviso de estimativa.
+  - **Gestão de candidaturas** (`db.grant_applications`): `POST /grants/applications` (idempotente, gera checklist de documentos + steps), `GET`, `PATCH` (status/deadline/notes; 404 id inválido/inexistente, 400 status inválido), `POST .../{id}/toggle` (checklist|steps), `DELETE`.
+  - **Alertas de prazo** `evaluate_grant_alerts` (APScheduler diário 09:00 UTC): candidaturas com deadline ≤30 dias → notificação `db.notifications` type `apoio_prazo` + push (dedup 20h). `POST /grants/run-alert-eval` para teste.
+  - Endpoints `GET/POST /grants/profile`, `GET /grants/opportunities?country=PT|BR` (todos `premium_user`).
+- ✅ Frontend `pages/Apoios.jsx` (rota `/apoios`, menu `nav-apoios`, Premium): seletor de país (`apoios-country` PT/BR), tabs Oportunidades/Candidaturas, card de perfil editável (`apoios-invest`/`apoios-project`/`apoios-interest-*`/`apoios-profile-save`), botão IA (`apoios-analyze-btn`→`apoios-analysis`), cards de oportunidade (`apoios-opp-{id}`, badge elegibilidade, docs/passos, link oficial, `apoios-track-{id}`), gestão de candidaturas (estado/prazo/checklist/notas/apagar + barra de progresso). Transparência: ✅ verificado vs 💡 estimativa + disclaimer (não é consultoria legal/fiscal, elegibilidade ≠ garantia).
+- ✅ **Integração no Conselho Executivo**: novo 4º **Diretor de Apoios** em `council.py` (`DIRECTORS['apoios']`), contexto inclui top-4 apoios elegíveis; frontend `Conselho.jsx` mostra o 4º cartão (`director-apoios`).
+- ✅ Testado por testing_agent (iteration_33): backend 13/13 grants + 5/5 council (regressão), frontend 100% dos fluxos, zero bugs. Fix pós-teste: `_oid` devolve 404 em id inválido. Dados de teste limpos da conta admin.
+- ⚠️ Base curada verificada a 2026-06; prazos de avisos concorrenciais devem ser confirmados na fonte oficial (marcados "consultar_aviso"). Produção exige novo deploy.
+
+
 ## CEO AI V2 — Notificações Proativas do CRM (2026-06, FASE 1 concluída)
 - ✅ `backend/routers/notifications.py`: motor de regras + centro de notificações. Coleção `db.notifications` ({type,title,body,data,status,snooze_until}). Gatilhos: **novos_sem_contacto** (prospects não contactados por campanha ≥ `min_new`, default 10) e **followup** (leads em estágios ativos criados há > `followup_days`, default 5). Dedup por tipo+campanha nas últimas 20h.
   - Endpoints: `GET /api/crm/notifications` (lista+unread, exclui snoozed/dismissed/acted), `POST .../{id}/read|snooze|dismiss|act`, `POST /api/crm/notifications/run-eval` (teste manual, só o próprio user), `GET/POST /api/crm/alert-settings` (min_new, followup_days).
