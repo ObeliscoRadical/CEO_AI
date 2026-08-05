@@ -1,0 +1,29 @@
+{
+  "summary": "Iteration 33 — Tested new 'Apoios & Incentivos' module (backend + frontend + council regression). All 13 grant backend tests passed (profile GET/POST, opportunities PT=10/BR=8, applications CRUD idempotent, toggle, patch validation 400/404, alert eval creating apoio_prazo notification, AI analyze). Frontend end-to-end via Playwright passed: page loads with data-testid apoios-page, country selector switches PT↔BR (10↔8 cards), profile card + interests + save works, track → application card appears in tab Candidaturas with progress toggles + delete, AI Diretor de Apoios analysis rendered. Regression: /conselho-executivo now returns 4 diretores (financeiro, comercial, marketing, apoios) — updated test_council.py assertions accordingly; all 5 council tests pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_grants.py",
+    "/app/backend/tests/test_council.py",
+    "/app/test_reports/pytest/iter33_grants.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "grants.py _serialize_app pops '_id' correctly (no ObjectId leakage).",
+    "GrantApplicationInput not viewed but PATCH accepts arbitrary keys via model_dump(exclude_unset=True); ensure Pydantic model restricts to {status, deadline, notes} to avoid client-side field injection.",
+    "toggle_item and update_app use ObjectId(aid) without try/except — an invalid aid string will raise 500 (bson.errors.InvalidId) instead of 400/404. Consider wrapping ObjectId(aid) in a helper that returns 404 on invalid IDs.",
+    "grants.py uses `from core import *` — acceptable within the repo pattern but hides dependencies; not blocking.",
+    "Frontend Apoios.jsx: deleteApp reads grant_id lookup from current apps state before setting — logic works but relies on stale closure; low priority."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_grants.py (new)",
+    "/app/backend/tests/test_council.py (updated director set to include 'apoios')"
+  ],
+  "success_rate": {"backend": "100% (13/13 grants + 5/5 council)", "frontend": "100% of tested flows"},
+  "test_credentials": "adminceoai@gmail.com / 12345",
+  "seed_data_creation": "Cleaned up admin account test data post-test: grants_profiles (1), grant_applications (0), notifications type apoio_prazo (1), ai_cache kind grants_* (1). No residual test data remains in admin account.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests file at /app/backend/tests/test_grants.py covers all grants endpoints. Council test updated to expect 4 directors including 'apoios'. Admin account cleanup script pattern used at end (see finish thought).",
+  "rca of the issue": "No issues found."
+}

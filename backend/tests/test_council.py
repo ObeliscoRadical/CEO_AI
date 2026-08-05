@@ -53,7 +53,7 @@ def test_generate_meeting_and_cache(session):
     assert m0.get("generated") is True
     meeting = m0["meeting"]
     directors = meeting.get("directors") or {}
-    assert set(directors.keys()) == {"financeiro", "comercial", "marketing"}
+    assert set(directors.keys()) == {"financeiro", "comercial", "marketing", "apoios"}
     for k, d in directors.items():
         for f in ("situacao", "indicadores", "prioridades", "acoes", "execucao"):
             assert f in d, f"director {k} missing {f}: {d}"
@@ -89,7 +89,7 @@ def test_approve_and_tasks(session):
     assert len(tasks) == n
     if tasks:
         directors = {t["director"] for t in tasks}
-        assert directors.issubset({"financeiro", "comercial", "marketing"})
+        assert directors.issubset({"financeiro", "comercial", "marketing", "apoios"})
         for t in tasks:
             assert "task" in t and "status" in t
 

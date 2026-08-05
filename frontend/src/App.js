@@ -15,6 +15,7 @@ import Conselho from "@/pages/Conselho";
 import CRM from "@/pages/CRM";
 import Marketing from "@/pages/Marketing";
 import Prospeccao from "@/pages/Prospeccao";
+import Apoios from "@/pages/Apoios";
 import MetaShare from "@/pages/MetaShare";
 import MetaReport from "@/pages/MetaReport";
 import Relatorios from "@/pages/Relatorios";
@@ -94,6 +95,7 @@ function App() {
                 <Route path="/crm" element={<PremiumRoute><CRM /></PremiumRoute>} />
                 <Route path="/captacao" element={<PremiumRoute><Prospeccao /></PremiumRoute>} />
                 <Route path="/marketing" element={<PremiumRoute><Marketing /></PremiumRoute>} />
+                <Route path="/apoios" element={<PremiumRoute><Apoios /></PremiumRoute>} />
                 <Route path="/relatorios" element={<PremiumRoute><Relatorios /></PremiumRoute>} />
                 <Route path="/ceo" element={<PremiumRoute><Chat /></PremiumRoute>} />
                 <Route path="/financas" element={<Finances />} />

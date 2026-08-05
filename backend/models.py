@@ -113,6 +113,17 @@ class FinancialProfileInput(BaseModel):
     assets: List[CostItem] = []
     liabilities: List[CostItem] = []
 
+class GrantProfileInput(BaseModel):
+    focus_country: Optional[str] = None          # "PT" | "BR"
+    investment_amount: Optional[float] = None
+    project_type: Optional[str] = None
+    interests: Optional[List[str]] = None         # ["fundo","fiscal","financiamento",...]
+
+class GrantApplicationInput(BaseModel):
+    status: Optional[str] = None
+    deadline: Optional[str] = None                # ISO date "YYYY-MM-DD"
+    notes: Optional[str] = None
+
 class GoalInput(BaseModel):
     target_value: Optional[float] = None
     target_revenue: Optional[float] = None

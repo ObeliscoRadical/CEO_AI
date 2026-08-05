@@ -18,6 +18,16 @@ async def build_council_context(uid: str, cid):
     val = snap.get("valuation", {}) or {}
     goal = await db.goals.find_one({"user_id": uid, "company_id": cid}) or {}
     sym = snap.get("currency_symbol", "€")
+    # Top oportunidades de apoios (motor determinístico) para o Diretor de Apoios
+    grants_top = []
+    try:
+        from routers.grants import _eligibility_profile, _match_all
+        gp = await _eligibility_profile(uid, cid)
+        for o in _match_all(gp, gp.get("country") or "PT")[:4]:
+            grants_top.append({"titulo": o["title"], "entidade": o["entity"], "tipo": o["type_label"],
+                               "elegibilidade": o["eligibility_label"], "prazo": o["deadline"]})
+    except Exception:
+        grants_top = []
     return {
         "currency_symbol": sym,
         "company_name": company.get("name") or snap.get("company_name") or "A empresa",
@@ -39,12 +49,18 @@ async def build_council_context(uid: str, cid):
         "net_worth": snap.get("net_worth"),
         "total_liabilities": snap.get("total_liabilities"),
         "goal_value": goal.get("target_value"),
+        "grants_top": grants_top,
     }
 
 
 def _ctx_text(c):
     s = c["currency_symbol"]
     n = lambda v: f"{s}{int(round(v))}" if isinstance(v, (int, float)) else "n/d"
+    grants = c.get("grants_top") or []
+    grants_line = ""
+    if grants:
+        gl = "; ".join(f"{g['titulo']} ({g['entidade']}, {g['tipo']}, {g['elegibilidade']})" for g in grants)
+        grants_line = f"Apoios/incentivos potencialmente elegíveis: {gl}\n"
     return (
         f"Empresa: {c['company_name']} · Setor: {c['sector']} · Região: {c['region']}\n"
         f"Funcionários: {c['employees']} · Clientes: {c['clients']}\n"
@@ -54,6 +70,7 @@ def _ctx_text(c):
         f"Faturação anual: {n(c['annual_revenue'])} · Lucro anual: {n(c['annual_profit'])}\n"
         f"Valor da empresa: {n(c['company_value'])} · Património: {n(c['net_worth'])} · Passivos: {n(c['total_liabilities'])}\n"
         f"Meta de valor: {n(c['goal_value'])}\n"
+        f"{grants_line}"
     )
 
 
@@ -81,6 +98,11 @@ DIRECTORS = {
         "label": "Diretor de Marketing",
         "system": "És o Diretor de Marketing (CMO) de um conselho executivo digital para PMEs. Analisas a identidade da marca e crias conteúdos, posts, Stories, Reels, anúncios e calendário editorial consistentes. Criativo mas orientado a resultados. Português europeu.",
         "focus": "Analisa a identidade/posicionamento da marca e propõe uma linha de conteúdos e campanhas coerentes com o setor e o cliente ideal. 'execucao' = o que farias ao aprovar (ex.: calendário editorial semanal, 3 posts, 1 Reel, 1 campanha de anúncios) — indica onde publicarias (Instagram/Facebook/Google Business) mesmo que a ligação seja feita depois.",
+    },
+    "apoios": {
+        "label": "Diretor de Apoios",
+        "system": "És o Diretor de Apoios e Incentivos (Grants) de um conselho executivo digital para PMEs. Identificas apoios públicos, incentivos fiscais, fundos e financiamento aplicáveis e defines a estratégia de candidatura. Rigoroso e prático. NUNCA inventes apoios, prazos ou montantes que não estejam no contexto; NUNCA garantas aprovação (fala em elegibilidade estimada). Português europeu.",
+        "focus": "Com base nos apoios/incentivos listados no contexto (usa APENAS esses; se não houver, di-lo), indica quais atacar primeiro, porquê encaixam no perfil e o que falta preparar. 'execucao' = o que farias ao aprovar (ex.: iniciar candidatura X, reunir documentos, confirmar prazo no portal oficial da entidade).",
     },
 }
 
@@ -114,7 +136,7 @@ async def _run_brain(ctx_text: str, directors: dict, sym: str):
         '"kpis":[{"label":str,"meta":str}],"risco":str}. '
         '"resumo": 2-3 frases sobre a situação global e o que fazer hoje. '
         '"foco_principal": a prioridade número 1. '
-        '"estrategia": 3-5 passos ordenados; "responsavel" ∈ {Financeiro, Comercial, Marketing}; "porque" liga aos números. '
+        '"estrategia": 3-5 passos ordenados; "responsavel" ∈ {Financeiro, Comercial, Marketing, Apoios}; "porque" liga aos números. '
         '"kpis": 2-4 indicadores a acompanhar. "risco": 1 frase sobre o maior risco.'
     )
     return await ai_json(system, prompt) or {}

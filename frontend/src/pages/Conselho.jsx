@@ -5,15 +5,16 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   Loader2, Landmark, Wallet, Briefcase, Megaphone, Sparkles, CheckCircle2,
-  RefreshCw, ChevronDown, Target, ShieldAlert, Instagram, Facebook, MapPin, Play,
+  RefreshCw, ChevronDown, Target, ShieldAlert, Instagram, Facebook, MapPin, Play, HandCoins,
 } from "lucide-react";
 
 const DIRECTORS = [
   { key: "financeiro", label: "Diretor Financeiro", icon: Wallet, color: "#10B981" },
   { key: "comercial", label: "Diretor Comercial", icon: Briefcase, color: "#3B82F6" },
   { key: "marketing", label: "Diretor de Marketing", icon: Megaphone, color: "#A78BFA" },
+  { key: "apoios", label: "Diretor de Apoios", icon: HandCoins, color: "#F59E0B" },
 ];
-const RESP_COLOR = { Financeiro: "#10B981", Comercial: "#3B82F6", Marketing: "#A78BFA" };
+const RESP_COLOR = { Financeiro: "#10B981", Comercial: "#3B82F6", Marketing: "#A78BFA", Apoios: "#F59E0B" };
 const INTEG_ICON = { instagram: Instagram, facebook: Facebook, google_business: MapPin };
 
 function DirectorCard({ d, data, sym }) {
