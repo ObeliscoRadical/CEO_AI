@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { api, formatApiError } from "@/lib/api";
+import { useEffect, useRef, useState } from "react";
+import { api, API, formatApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   Loader2, Landmark, Sparkles, ExternalLink, ShieldCheck, ShieldAlert, CheckCircle2,
-  AlertTriangle, FileText, Building2, Target, ListChecks, Trash2, Info, ClipboardList, Clock,
+  AlertTriangle, FileText, Building2, Target, ListChecks, Trash2, Info, ClipboardList, Clock, Paperclip, Download, Upload,
 } from "lucide-react";
 
 const INTERESTS = [
@@ -136,11 +136,30 @@ function OpportunityCard({ o, analysis, onTrack, tracking }) {
   );
 }
 
-function ApplicationCard({ a, statuses, onUpdate, onToggle, onDelete }) {
+function fmtBytes(n) {
+  if (!n) return "";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function ApplicationCard({ a, statuses, onUpdate, onToggle, onDelete, onUpload, onDeleteFile }) {
   const [notes, setNotes] = useState(a.notes || "");
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const fileRef = useRef(null);
   const done = (arr) => (arr || []).filter((x) => x.done).length;
   const total = (a.checklist?.length || 0) + (a.steps?.length || 0);
   const completed = done(a.checklist) + done(a.steps);
+  const files = a.files || [];
+  const pick = () => fileRef.current?.click();
+  const onFile = async (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    setUploadBusy(true);
+    await onUpload(a.id, f);
+    setUploadBusy(false);
+  };
   return (
     <div className="surface rounded-3xl p-6" data-testid={`apoios-app-${a.id}`}>
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -213,6 +232,38 @@ function ApplicationCard({ a, statuses, onUpdate, onToggle, onDelete }) {
         <Textarea data-testid={`apoios-app-notes-${a.id}`} value={notes} onChange={(e) => setNotes(e.target.value)}
           onBlur={() => notes !== (a.notes || "") && onUpdate(a.id, { notes })}
           placeholder="Anotações, contactos, referências do aviso..." className="mt-1 bg-transparent min-h-[64px] text-sm" />
+      </div>
+
+      {/* Documentos anexados */}
+      <div className="mt-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"><Paperclip className="w-3.5 h-3.5" /> Documentos anexados{files.length ? ` (${files.length})` : ""}</div>
+          <input ref={fileRef} type="file" className="hidden" data-testid={`apoios-app-fileinput-${a.id}`}
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp,.csv,.txt" onChange={onFile} />
+          <Button size="sm" variant="outline" data-testid={`apoios-app-upload-${a.id}`} onClick={pick} disabled={uploadBusy}
+            className="rounded-full h-8 text-xs">
+            {uploadBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Upload className="w-3.5 h-3.5 mr-1.5" /> Anexar</>}
+          </Button>
+        </div>
+        {files.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Carrega aqui os documentos desta candidatura (PDF, imagem, folha de cálculo…). Máx. 10 MB.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {files.map((f) => (
+              <li key={f.id} className="flex items-center gap-2 rounded-xl bg-white/[0.03] border border-white/[0.06] px-3 py-2" data-testid={`apoios-app-file-${a.id}-${f.id}`}>
+                <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="text-sm truncate flex-1">{f.filename}</span>
+                <span className="text-[11px] text-slate-500 shrink-0">{fmtBytes(f.size)}</span>
+                <a href={`${API}/grants/applications/${a.id}/documents/${f.id}`} target="_blank" rel="noreferrer"
+                  data-testid={`apoios-app-file-dl-${a.id}-${f.id}`} className="text-slate-400 hover:text-blue-400 shrink-0" title="Abrir / transferir">
+                  <Download className="w-4 h-4" />
+                </a>
+                <button onClick={() => onDeleteFile(a.id, f.id)} data-testid={`apoios-app-file-del-${a.id}-${f.id}`}
+                  className="text-slate-500 hover:text-red-400 shrink-0" title="Remover"><Trash2 className="w-4 h-4" /></button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="mt-3 pt-3 border-t border-white/[0.06]">
@@ -323,6 +374,25 @@ export default function Apoios() {
     try { await api.delete(`/grants/applications/${id}`); setApps((prev) => prev.filter((a) => a.id !== id));
       setOpps((prev) => prev.map((o) => { const gid = apps.find((a) => a.id === id)?.grant_id; return o.id === gid ? { ...o, tracked: false } : o; }));
       toast.success("Candidatura removida.");
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+  };
+
+  const uploadFile = async (id, file) => {
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const { data } = await api.post(`/grants/applications/${id}/documents`, fd, {
+        headers: { "Content-Type": "multipart/form-data" }, timeout: 120000,
+      });
+      setApps((prev) => prev.map((a) => a.id === id ? data.application : a));
+      toast.success("Documento anexado.");
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+  };
+  const deleteFile = async (id, fid) => {
+    try {
+      const { data } = await api.delete(`/grants/applications/${id}/documents/${fid}`);
+      setApps((prev) => prev.map((a) => a.id === id ? (data.application || a) : a));
+      toast.success("Documento removido.");
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
   };
 
@@ -454,7 +524,7 @@ export default function Apoios() {
               <p className="text-muted-foreground">Ainda não estás a acompanhar nenhuma candidatura. Vai a <b>Oportunidades</b> e clica em "Acompanhar candidatura".</p>
             </div>
           ) : apps.map((a) => (
-            <ApplicationCard key={a.id} a={a} statuses={statuses} onUpdate={updateApp} onToggle={toggleItem} onDelete={deleteApp} />
+            <ApplicationCard key={a.id} a={a} statuses={statuses} onUpdate={updateApp} onToggle={toggleItem} onDelete={deleteApp} onUpload={uploadFile} onDeleteFile={deleteFile} />
           ))}
         </div>
       )}

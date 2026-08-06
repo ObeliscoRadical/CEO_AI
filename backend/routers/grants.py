@@ -9,7 +9,8 @@ Princípios de honestidade:
 - A IA analisa apenas os factos fornecidos (catálogo curado) e não inventa requisitos/prazos.
 - Não é consultoria legal nem fiscal.
 """
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, UploadFile, File
+from fastapi.responses import StreamingResponse
 from typing import Optional
 from core import *
 from models import GrantProfileInput, GrantApplicationInput
@@ -581,7 +582,7 @@ async def start_app(user: dict = Depends(premium_user), grant_id: str = Body(...
         "title": grant["title"], "entity": grant["entity"], "url": grant["url"],
         "type_label": TYPE_LABEL.get(grant["type"], grant["type"]),
         "status": "a_preparar", "deadline": None, "notes": "",
-        "checklist": checklist, "steps": steps,
+        "checklist": checklist, "steps": steps, "files": [],
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -630,7 +631,68 @@ async def toggle_item(aid: str, user: dict = Depends(premium_user),
 async def delete_app(aid: str, user: dict = Depends(premium_user)):
     uid = user["id"]; cid = await active_company_id(uid)
     await db.grant_applications.delete_one({"_id": _oid(aid), "user_id": uid, "company_id": cid})
+    await db.grant_files.delete_many({"user_id": uid, "app_id": aid})
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Documentos anexados a uma candidatura (guardados no Mongo, servidos com auth)
+# ---------------------------------------------------------------------------
+MAX_GRANT_FILE = 10 * 1024 * 1024  # 10 MB
+
+
+async def _get_app(uid, cid, aid):
+    doc = await db.grant_applications.find_one({"_id": _oid(aid), "user_id": uid, "company_id": cid})
+    if not doc:
+        raise HTTPException(404, "Candidatura não encontrada.")
+    return doc
+
+
+@router.post("/grants/applications/{aid}/documents")
+async def upload_app_document(aid: str, file: UploadFile = File(...), user: dict = Depends(premium_user)):
+    uid = user["id"]; cid = await active_company_id(uid)
+    await _get_app(uid, cid, aid)
+    data = await file.read()
+    if not data:
+        raise HTTPException(400, "Ficheiro vazio.")
+    if len(data) > MAX_GRANT_FILE:
+        raise HTTPException(400, "Ficheiro demasiado grande (máx. 10 MB).")
+    fid = str(uuid.uuid4())
+    ct = file.content_type or "application/octet-stream"
+    await db.grant_files.insert_one({
+        "_id": fid, "user_id": uid, "company_id": cid, "app_id": aid,
+        "filename": file.filename or "documento", "content_type": ct, "size": len(data),
+        "data": base64.b64encode(data).decode(), "created_at": datetime.now(timezone.utc).isoformat()})
+    meta = {"id": fid, "filename": file.filename or "documento", "content_type": ct,
+            "size": len(data), "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.grant_applications.update_one(
+        {"_id": _oid(aid)}, {"$push": {"files": meta}, "$set": {"updated_at": meta["created_at"]}})
+    doc = await db.grant_applications.find_one({"_id": _oid(aid)})
+    return {"ok": True, "application": _serialize_app(doc)}
+
+
+@router.get("/grants/applications/{aid}/documents/{fid}")
+async def download_app_document(aid: str, fid: str, user: dict = Depends(premium_user)):
+    uid = user["id"]
+    f = await db.grant_files.find_one({"_id": fid, "user_id": uid, "app_id": aid})
+    if not f:
+        raise HTTPException(404, "Documento não encontrado.")
+    raw = base64.b64decode(f["data"])
+    from urllib.parse import quote
+    fn = quote(f.get("filename", "documento"))
+    return StreamingResponse(iter([raw]), media_type=f.get("content_type", "application/octet-stream"),
+                             headers={"Content-Disposition": f"inline; filename*=UTF-8''{fn}"})
+
+
+@router.delete("/grants/applications/{aid}/documents/{fid}")
+async def delete_app_document(aid: str, fid: str, user: dict = Depends(premium_user)):
+    uid = user["id"]; cid = await active_company_id(uid)
+    await db.grant_files.delete_one({"_id": fid, "user_id": uid, "app_id": aid})
+    await db.grant_applications.update_one(
+        {"_id": _oid(aid), "user_id": uid, "company_id": cid},
+        {"$pull": {"files": {"id": fid}}, "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}})
+    doc = await db.grant_applications.find_one({"_id": _oid(aid)})
+    return {"ok": True, "application": _serialize_app(doc) if doc else None}
 
 
 # ---------------------------------------------------------------------------
