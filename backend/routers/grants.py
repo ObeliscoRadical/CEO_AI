@@ -561,6 +561,24 @@ async def list_apps(user: dict = Depends(premium_user)):
             [{"code": s, "label": STATUS_LABEL[s]} for s in APP_STATUSES]}
 
 
+@router.get("/grants/applications/{aid}")
+async def get_app(aid: str, user: dict = Depends(premium_user)):
+    uid = user["id"]; cid = await active_company_id(uid)
+    doc = await db.grant_applications.find_one({"_id": _oid(aid), "user_id": uid, "company_id": cid})
+    if not doc:
+        raise HTTPException(404, "Candidatura não encontrada.")
+    app = _serialize_app(doc)
+    g = CATALOG_BY_ID.get(doc.get("grant_id")) or {}
+    grant = None
+    if g:
+        grant = {"amount": g.get("amount"), "expenses": g.get("expenses"), "summary": g.get("summary"),
+                 "deadline": g.get("deadline"), "region": g.get("region"),
+                 "size_labels": [SIZE_LABEL.get(s, s) for s in g.get("sizes", [])],
+                 "verified_at": CATALOG_VERIFIED_AT}
+    company = await resolve_company(uid) or {}
+    return {"application": app, "grant": grant, "company_name": company.get("name") or "A empresa"}
+
+
 @router.post("/grants/applications")
 async def start_app(user: dict = Depends(premium_user), grant_id: str = Body(..., embed=True)):
     uid = user["id"]; cid = await active_company_id(uid)

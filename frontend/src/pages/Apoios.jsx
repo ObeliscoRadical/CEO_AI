@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   Loader2, Landmark, Sparkles, ExternalLink, ShieldCheck, ShieldAlert, CheckCircle2,
-  AlertTriangle, FileText, Building2, Target, ListChecks, Trash2, Info, ClipboardList, Clock, Paperclip, Download, Upload,
+  AlertTriangle, FileText, Building2, Target, ListChecks, Trash2, Info, ClipboardList, Clock, Paperclip, Download, Upload, Printer,
 } from "lucide-react";
 
 const INTERESTS = [
@@ -266,9 +266,11 @@ function ApplicationCard({ a, statuses, onUpdate, onToggle, onDelete, onUpload, 
         )}
       </div>
 
-      <div className="mt-3 pt-3 border-t border-white/[0.06]">
+      <div className="mt-3 pt-3 border-t border-white/[0.06] flex items-center gap-4 flex-wrap">
         <a href={a.url} target="_blank" rel="noreferrer"
           className="text-xs inline-flex items-center gap-1.5 text-blue-400 hover:text-blue-300"><ExternalLink className="w-3.5 h-3.5" /> Abrir portal oficial</a>
+        <a href={`/relatorio-apoio/${a.id}`} target="_blank" rel="noreferrer" data-testid={`apoios-app-export-${a.id}`}
+          className="text-xs inline-flex items-center gap-1.5 text-slate-300 hover:text-white"><Printer className="w-3.5 h-3.5" /> Exportar PDF (para o contabilista)</a>
       </div>
     </div>
   );
