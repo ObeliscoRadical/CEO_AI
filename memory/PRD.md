@@ -34,6 +34,29 @@
   - `testing_agent` iteration_34 → frontend 100% dos fluxos testados + isolamento por empresa verificado + regressão sem bugs.
   - Smoke visual do preview em `/integracoes` após login.
 
+### Expansão Universal do Adaptador ERP (2026-08-08, iteração seguinte)
+- ✅ A integração deixou de estar mentalmente associada ao caso “Obelisco” e passou a funcionar como **adaptador universal para quase qualquer SaaS/ERP**.
+- ✅ Novo endpoint de contrato: `GET /api/erp-integration/contract` devolve **campos canónicos**, **aliases aceites**, **modos de autenticação** e **exemplos flat/nested** para acelerar integrações externas sem customização por cliente.
+- ✅ Modos de autenticação suportados por empresa:
+  - `header` → cabeçalho customizado (ex.: `X-ERP-Token`)
+  - `bearer` → `Authorization: Bearer <token>`
+  - `query` → `?token=` ou nome configurável (`auth_query_name`)
+- ✅ Parser inbound reforçado:
+  - payload **flat** e **nested** (até 3 níveis em blocos usuais como `data`, `snapshot`, `financial`, `context`, `balances`)
+  - arrays **ou** objetos chave/valor para custos fixos / ativos / passivos
+  - aliases em inglês e português para maximizar compatibilidade
+  - **payloads parciais**: o novo envio atualiza só os campos presentes e preserva o contexto financeiro anterior
+  - deduplicação por `event_id` (ou hash do payload quando não existe id)
+- ✅ UI `ERPIntegracoes.jsx` atualizada com:
+  - seletor de modo de autenticação
+  - campos dinâmicos por modo (header / bearer / query)
+  - bloco “**Contrato universal**” visível ao utilizador
+  - exemplos JSON flat + nested e nota de payload parcial
+- ✅ Testado depois desta generalização:
+  - `pytest /app/backend/tests/test_erp_integrations.py` → **8/8 PASS** localmente após refactor
+  - `testing_agent` iteration_35 → **9/9 backend PASS** + frontend E2E 100% (header, bearer, query, nested parsing, partial merge, disconnect, sidebar)
+  - ficheiro de referência: `/app/test_reports/iteration_35.json`
+
 
 ## CEO AI V2 — Notificações Proativas do CRM (2026-06, FASE 1 concluída)
 - ✅ `backend/routers/notifications.py`: motor de regras + centro de notificações. Coleção `db.notifications` ({type,title,body,data,status,snooze_until}). Gatilhos: **novos_sem_contacto** (prospects não contactados por campanha ≥ `min_new`, default 10) e **followup** (leads em estágios ativos criados há > `followup_days`, default 5). Dedup por tipo+campanha nas últimas 20h.
@@ -264,7 +287,7 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 
 
 ## Next Tasks
-- Recolher feedback do utilizador sobre a nova integração ERP e, se necessário, adaptar o mapping ao payload real do sistema de gestão dele.
+- Recolher feedback do utilizador sobre a nova integração ERP universal; se surgirem ERPs específicos no terreno, apenas alargar aliases/mapeamentos sem quebrar o contrato genérico.
 - Priorizar a próxima funcionalidade do módulo Apoios: apoios regionais, resumo semanal por email ou link só de leitura para contabilista.
 
 ## Implemented — Fase 7: Transformação "Diretor Executivo Digital" (2026-07-23)
