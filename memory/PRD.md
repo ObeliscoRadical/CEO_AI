@@ -17,6 +17,23 @@
 - ✅ Testado por testing_agent (iteration_33): backend 13/13 grants + 5/5 council (regressão), frontend 100% dos fluxos, zero bugs. Fix pós-teste: `_oid` devolve 404 em id inválido. Dados de teste limpos da conta admin.
 - ⚠️ Base curada verificada a 2026-06; prazos de avisos concorrenciais devem ser confirmados na fonte oficial (marcados "consultar_aviso"). Produção exige novo deploy.
 
+## CEO AI V2 — Integração ERP / Sistema de Gestão por empresa (2026-08-08)
+- ✅ Nova secção **Integrações** na sidebar (`AppLayout.jsx`) com item **ERP / Sistema de Gestão** (`nav-integracoes-erp` / `nav-integracoes-erp-m`) e nova rota `/integracoes` (`ERPIntegracoes.jsx`).
+- ✅ UI dedicada para ligação por **empresa ativa**: modal de configuração automática quando não existe ligação, campos para nome do sistema, URL base, webhook de origem, cabeçalho do token e notas; permite **guardar token manual** ou **gerar token seguro** uma vez, copiar webhook, ver máscara do token, histórico de envios e desligar a integração.
+- ✅ Backend `backend/routers/erp_integrations.py`:
+  - `GET /api/erp-integration/status`
+  - `POST /api/erp-integration/connect`
+  - `DELETE /api/erp-integration`
+  - `POST /api/erp-integration/inbound/{endpoint_id}`
+  - Coleções/indexes dedicadas: `erp_integrations`, `erp_events`, `erp_financial_contexts` (isolamento por `user_id + company_id`, `endpoint_id` único, dedupe por `endpoint_id + event_key`).
+- ✅ Segurança: token guardado apenas por **hash SHA-256** (sem plaintext persistido), comparação com `secrets.compare_digest`, endpoint público protegido por `endpoint_id` aleatório + cabeçalho configurável (default `X-ERP-Token`).
+- ✅ Payload JSON estruturado normalizado com aliases comuns (`cash_balance/current_balance/balance/saldo_atual`, `total_debt/debt/divida_total`, etc.) e suporte para `fixed_costs`, `assets`, `liabilities`, `monthly_revenue` e `credit_restructuring`.
+- ✅ Consumo real pelo CEO AI: `core.py` passou a usar `get_erp_financial_context` + `merge_financial_profile`, fazendo com que o **snapshot financeiro**, o **chat do CEO**, os **conselhos executivos** e `GET /api/finance/profile[/analysis]` usem o contexto ERP da **empresa ativa** sem misturar dados com outras empresas.
+- ✅ Testado:
+  - `pytest /app/backend/tests/test_erp_integrations.py` → **6/6 PASS** (ligar, status, webhook válido, token inválido, payload inválido, disconnect/merge).
+  - `testing_agent` iteration_34 → frontend 100% dos fluxos testados + isolamento por empresa verificado + regressão sem bugs.
+  - Smoke visual do preview em `/integracoes` após login.
+
 
 ## CEO AI V2 — Notificações Proativas do CRM (2026-06, FASE 1 concluída)
 - ✅ `backend/routers/notifications.py`: motor de regras + centro de notificações. Coleção `db.notifications` ({type,title,body,data,status,snooze_until}). Gatilhos: **novos_sem_contacto** (prospects não contactados por campanha ≥ `min_new`, default 10) e **followup** (leads em estágios ativos criados há > `followup_days`, default 5). Dedup por tipo+campanha nas últimas 20h.
@@ -247,7 +264,8 @@ App web (dashboard desktop) que funciona como um executivo digital 24/7 para PME
 
 
 ## Next Tasks
-- Recolher feedback do utilizador sobre o MVP e priorizar histórico de chat + multi-empresa.
+- Recolher feedback do utilizador sobre a nova integração ERP e, se necessário, adaptar o mapping ao payload real do sistema de gestão dele.
+- Priorizar a próxima funcionalidade do módulo Apoios: apoios regionais, resumo semanal por email ou link só de leitura para contabilista.
 
 ## Implemented — Fase 7: Transformação "Diretor Executivo Digital" (2026-07-23)
 - ✅ Nova experiência decision-first. Menu premium (9 itens, sem vocabulário ERP): Painel do CEO, Conselhos, Saúde Empresarial, Valor da Empresa, Futuro (premium), Conversar com o CEO, Finanças, Relatórios, Empresa.

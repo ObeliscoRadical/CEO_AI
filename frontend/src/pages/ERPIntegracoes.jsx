@@ -201,6 +201,7 @@ export default function ERPIntegracoes() {
               <Button data-testid="erp-copy-example-btn" size="sm" variant="outline" className="rounded-full" onClick={() => copy(JSON.stringify(examplePayload, null, 2), "Exemplo copiado") }><Copy className="w-4 h-4 mr-2" />Copiar</Button>
             </div>
             <pre className="rounded-2xl border border-white/[0.08] bg-[#03050a] p-4 text-[11px] overflow-x-auto text-slate-300" data-testid="erp-json-example">{JSON.stringify(examplePayload, null, 2)}</pre>
+            <p className="text-xs text-muted-foreground mt-3" data-testid="erp-json-alias-note">Também aceito aliases comuns como <span className="text-slate-200">balance</span>, <span className="text-slate-200">current_balance</span>, <span className="text-slate-200">saldo_atual</span>, <span className="text-slate-200">debt</span> e <span className="text-slate-200">divida_total</span>.</p>
           </div>
 
           <div className="surface rounded-3xl p-7" data-testid="erp-events-card">

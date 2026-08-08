@@ -223,7 +223,7 @@ async def erp_integration_inbound(endpoint_id: str, request: Request):
     if not provided_token:
         raise HTTPException(status_code=401, detail=f"Falta o cabeçalho {header_name}")
     token_hash = hashlib.sha256(provided_token.strip().encode("utf-8")).hexdigest()
-    if token_hash != conn.get("token_hash"):
+    if not secrets.compare_digest(token_hash, conn.get("token_hash") or ""):
         raise HTTPException(status_code=401, detail="Token de integração inválido")
     normalized = _normalize_financial_payload(payload if isinstance(payload, dict) else {})
     if not normalized["meaningful"]:
