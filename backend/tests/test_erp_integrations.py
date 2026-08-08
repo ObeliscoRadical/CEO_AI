@@ -83,6 +83,75 @@ def test_disconnect(session):
     assert st.json()["connected"] is False
 
 
+def test_nested_payload_and_partial_merge(session):
+    unique = uuid.uuid4().hex[:8]
+    r = session.post(f"{BASE}/api/erp-integration/connect", json={"system_name": f"Nested ERP {unique}", "generate_token": True}, timeout=30)
+    assert r.status_code == 200, r.text
+    webhook_url = r.json()["connection"]["webhook_url"]
+    token = r.json()["generated_token"]
+    nested_payload = {
+        "event_id": f"nested-{unique}",
+        "type": "finance.snapshot",
+        "data": {
+            "snapshot": {
+                "balance": 61000,
+                "divida_total": 14000,
+                "custos_fixos": {"Renda": 3500, "Salários": 15000},
+            }
+        }
+    }
+    r1 = requests.post(webhook_url, json=nested_payload, headers={"X-ERP-Token": token}, timeout=30)
+    assert r1.status_code == 200, r1.text
+    partial_payload = {"event_id": f"partial-{unique}", "debt": 11000}
+    r2 = requests.post(webhook_url, json=partial_payload, headers={"X-ERP-Token": token}, timeout=30)
+    assert r2.status_code == 200, r2.text
+    profile = session.get(f"{BASE}/api/finance/profile", timeout=30).json()
+    assert profile["cash_balance"] == 61000
+    assert profile["total_debt"] == 11000
+    assert profile["total_fixed"] == 18500
+    session.delete(f"{BASE}/api/erp-integration", timeout=30)
+
+
+def test_bearer_auth_mode(session):
+    unique = uuid.uuid4().hex[:8]
+    r = session.post(f"{BASE}/api/erp-integration/connect", json={"system_name": f"Bearer ERP {unique}", "auth_mode": "bearer", "generate_token": True}, timeout=30)
+    assert r.status_code == 200, r.text
+    webhook_url = r.json()["connection"]["webhook_url"]
+    token = r.json()["generated_token"]
+    payload = {"event_id": f"bearer-{unique}", "cash_balance": 9999}
+    ok = requests.post(webhook_url, json=payload, headers={"Authorization": f"Bearer {token}"}, timeout=30)
+    assert ok.status_code == 200, ok.text
+    bad = requests.post(webhook_url, json=payload, headers={"Authorization": "Bearer wrong"}, timeout=30)
+    assert bad.status_code == 401
+    session.delete(f"{BASE}/api/erp-integration", timeout=30)
+
+
+def test_query_param_auth_mode(session):
+    """Webhook should accept token via query param when auth_mode=query."""
+    unique = uuid.uuid4().hex[:8]
+    r = session.post(f"{BASE}/api/erp-integration/connect", json={
+        "system_name": f"Query ERP {unique}",
+        "auth_mode": "query",
+        "auth_query_name": "api_token",
+        "generate_token": True
+    }, timeout=30)
+    assert r.status_code == 200, r.text
+    webhook_url = r.json()["connection"]["webhook_url"]
+    token = r.json()["generated_token"]
+    payload = {"event_id": f"query-{unique}", "cash_balance": 7777, "total_debt": 3333}
+    # Test with correct token in query param
+    ok = requests.post(f"{webhook_url}?api_token={token}", json=payload, timeout=30)
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["accepted"] is True
+    # Test with wrong token in query param
+    bad = requests.post(f"{webhook_url}?api_token=wrong-token", json=payload, timeout=30)
+    assert bad.status_code == 401
+    # Test with missing query param
+    missing = requests.post(webhook_url, json=payload, timeout=30)
+    assert missing.status_code == 401
+    session.delete(f"{BASE}/api/erp-integration", timeout=30)
+
+
 def test_inbound_rejects_invalid_token(session):
     """Webhook should reject requests with wrong/missing token."""
     # First connect to get a webhook URL

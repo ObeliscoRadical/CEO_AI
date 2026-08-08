@@ -138,10 +138,13 @@ class GoalInput(BaseModel):
 
 
 class ERPIntegrationInput(BaseModel):
-    system_name: str = "Sistema de Gestão"
+    system_name: str = "ERP / Sistema de Gestão"
     erp_base_url: Optional[str] = None
     external_webhook_url: Optional[str] = None
     api_token: Optional[str] = None
+    auth_mode: Optional[str] = "header"
     auth_header_name: Optional[str] = "X-ERP-Token"
+    auth_prefix: Optional[str] = None
+    auth_query_name: Optional[str] = "token"
     notes: Optional[str] = None
     generate_token: Optional[bool] = False

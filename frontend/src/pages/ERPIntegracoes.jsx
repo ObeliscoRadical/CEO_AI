@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Loader2, PlugZap, Copy, ShieldCheck, Unplug, RefreshCw, Database, ArrowUpRight } from "lucide-react";
@@ -20,6 +21,19 @@ const examplePayload = {
   credit_restructuring: { lender: "Banco XPTO", status: "em negociação", monthly_payment: 650 },
 };
 
+const nestedExamplePayload = {
+  type: "finance.snapshot",
+  data: {
+    company: { name: "Cliente X" },
+    snapshot: {
+      balance: 45200,
+      divida_total: 18000,
+      custos_fixos: { Renda: 3200, Salários: 9800 },
+      debt_restructuring: { status: "em curso", monthly_payment: 650 },
+    },
+  },
+};
+
 export default function ERPIntegracoes() {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -27,19 +41,24 @@ export default function ERPIntegracoes() {
   const [saving, setSaving] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [generatedToken, setGeneratedToken] = useState("");
-  const [form, setForm] = useState({ system_name: "Obelisco Manager", erp_base_url: "", external_webhook_url: "", api_token: "", auth_header_name: "X-ERP-Token", notes: "" });
+  const [contract, setContract] = useState(null);
+  const [form, setForm] = useState({ system_name: "ERP / Sistema de Gestão", erp_base_url: "", external_webhook_url: "", api_token: "", auth_mode: "header", auth_header_name: "X-ERP-Token", auth_prefix: "", auth_query_name: "token", notes: "" });
 
   const load = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get("/erp-integration/status");
+      const [{ data }, { data: contractData }] = await Promise.all([api.get("/erp-integration/status"), api.get("/erp-integration/contract")]);
       setStatus(data);
+      setContract(contractData);
       setForm((prev) => ({
         ...prev,
         system_name: data?.connection?.system_name || prev.system_name,
         erp_base_url: data?.connection?.erp_base_url || "",
         external_webhook_url: data?.connection?.external_webhook_url || "",
+        auth_mode: data?.connection?.auth_mode || "header",
         auth_header_name: data?.connection?.auth_header_name || "X-ERP-Token",
+        auth_prefix: data?.connection?.auth_prefix || "",
+        auth_query_name: data?.connection?.auth_query_name || "token",
         notes: data?.connection?.notes || "",
         api_token: "",
       }));
@@ -131,7 +150,7 @@ export default function ERPIntegracoes() {
                 <div className="grid md:grid-cols-2 gap-4 text-sm">
                   <InfoRow testid="erp-erp-url" label="URL do sistema" value={status?.connection?.erp_base_url || "—"} />
                   <InfoRow testid="erp-token-mask" label="Token guardado" value={status?.connection?.token_mask || "—"} />
-                  <InfoRow testid="erp-auth-header" label="Cabeçalho esperado" value={status?.connection?.auth_header_name || "X-ERP-Token"} />
+                  <InfoRow testid="erp-auth-header" label="Autenticação" value={status?.connection?.auth_mode === "bearer" ? `Authorization (${status?.connection?.auth_prefix || 'Bearer'})` : status?.connection?.auth_mode === "query" ? `Query param: ${status?.connection?.auth_query_name || 'token'}` : (status?.connection?.auth_header_name || "X-ERP-Token")} />
                   <InfoRow testid="erp-last-payload-at" label="Última receção" value={status?.connection?.last_payload_at || "Ainda sem payload"} />
                 </div>
 
@@ -184,6 +203,7 @@ export default function ERPIntegracoes() {
                   <DataList title="Reestruturação de crédito" items={Object.entries(status.context.credit_restructuring || {}).map(([name, amount]) => ({ name, amount }))} testid="erp-credit-restructuring-list" />
                 </div>
                 <p className="text-xs text-muted-foreground" data-testid="erp-context-note">Este contexto passa a alimentar o snapshot financeiro do CEO AI, os conselhos executivos e o chat desta empresa ativa.</p>
+                {!!status?.context?.last_present_fields?.length && <p className="text-xs text-muted-foreground" data-testid="erp-last-fields-note">Último payload atualizou: {status.context.last_present_fields.join(", ")}.</p>}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground" data-testid="erp-context-empty">Ainda não recebemos JSON financeiro. Assim que o teu software enviar o primeiro payload, o CEO AI passa a usar esses números nas análises desta empresa.</p>
@@ -202,6 +222,20 @@ export default function ERPIntegracoes() {
             </div>
             <pre className="rounded-2xl border border-white/[0.08] bg-[#03050a] p-4 text-[11px] overflow-x-auto text-slate-300" data-testid="erp-json-example">{JSON.stringify(examplePayload, null, 2)}</pre>
             <p className="text-xs text-muted-foreground mt-3" data-testid="erp-json-alias-note">Também aceito aliases comuns como <span className="text-slate-200">balance</span>, <span className="text-slate-200">current_balance</span>, <span className="text-slate-200">saldo_atual</span>, <span className="text-slate-200">debt</span> e <span className="text-slate-200">divida_total</span>.</p>
+            <pre className="rounded-2xl border border-white/[0.08] bg-[#03050a] p-4 text-[11px] overflow-x-auto text-slate-300 mt-4" data-testid="erp-json-nested-example">{JSON.stringify(nestedExamplePayload, null, 2)}</pre>
+            <p className="text-xs text-muted-foreground mt-3" data-testid="erp-json-partial-note">Payloads parciais também funcionam: se o ERP enviar só <span className="text-slate-200">total_debt</span>, o CEO AI preserva o resto do contexto anterior.</p>
+          </div>
+
+          <div className="surface rounded-3xl p-7" data-testid="erp-contract-card">
+            <h2 className="font-serif-lux text-2xl mb-3">Contrato universal</h2>
+            <div className="grid gap-3 text-sm">
+              {(contract?.auth_modes || []).map((mode) => (
+                <div key={mode.code} className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4" data-testid={`erp-auth-mode-${mode.code}`}>
+                  <div className="font-medium">{mode.label}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{JSON.stringify(mode.example)}</div>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="surface rounded-3xl p-7" data-testid="erp-events-card">
@@ -232,9 +266,9 @@ export default function ERPIntegracoes() {
           <div className="surface rounded-3xl p-7" data-testid="erp-next-steps-card">
             <h2 className="font-serif-lux text-2xl mb-3">Como ativar no teu software</h2>
             <ol className="space-y-3 text-sm text-slate-300 list-decimal pl-5">
-              <li data-testid="erp-step-1">Guarda a ligação com o nome do teu sistema e o cabeçalho do token.</li>
+              <li data-testid="erp-step-1">Guarda a ligação com o nome do teu sistema e escolhe o modo de autenticação mais compatível com o SaaS do cliente.</li>
               <li data-testid="erp-step-2">Copia o webhook do CEO AI e cola-o na configuração do ERP.</li>
-              <li data-testid="erp-step-3">Configura o ERP para enviar um JSON estruturado com saldo, dívidas e custos fixos.</li>
+              <li data-testid="erp-step-3">Configura o ERP para enviar JSON flat ou nested; o CEO AI aceita aliases comuns e payloads parciais.</li>
               <li data-testid="erp-step-4">Depois do primeiro envio, o CEO AI passa a usar esse contexto nas análises desta empresa.</li>
             </ol>
           </div>
@@ -249,9 +283,22 @@ export default function ERPIntegracoes() {
           </DialogHeader>
           <div className="grid md:grid-cols-2 gap-4">
             <Field label="Nome do sistema" testid="erp-system-name-input" value={form.system_name} onChange={(value) => setForm((s) => ({ ...s, system_name: value }))} placeholder="Ex: Obelisco Manager" />
-            <Field label="Cabeçalho do token" testid="erp-token-header-input" value={form.auth_header_name} onChange={(value) => setForm((s) => ({ ...s, auth_header_name: value }))} placeholder="Ex: X-ERP-Token" />
+            <div>
+              <Label className="text-xs text-muted-foreground">Modo de autenticação</Label>
+              <Select value={form.auth_mode} onValueChange={(value) => setForm((s) => ({ ...s, auth_mode: value, auth_prefix: value === "bearer" ? (s.auth_prefix || "Bearer") : s.auth_prefix }))}>
+                <SelectTrigger data-testid="erp-auth-mode-select" className="mt-1 bg-transparent"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="header">Cabeçalho customizado</SelectItem>
+                  <SelectItem value="bearer">Authorization Bearer</SelectItem>
+                  <SelectItem value="query">Query param</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Field label="URL base do sistema (opcional)" testid="erp-base-url-input" value={form.erp_base_url} onChange={(value) => setForm((s) => ({ ...s, erp_base_url: value }))} placeholder="https://erp.empresa.pt" />
             <Field label="Webhook do teu software (opcional)" testid="erp-source-webhook-input" value={form.external_webhook_url} onChange={(value) => setForm((s) => ({ ...s, external_webhook_url: value }))} placeholder="https://erp.empresa.pt/webhooks/financeiro" />
+            {form.auth_mode === "header" && <Field label="Cabeçalho do token" testid="erp-token-header-input" value={form.auth_header_name} onChange={(value) => setForm((s) => ({ ...s, auth_header_name: value }))} placeholder="Ex: X-ERP-Token" />}
+            {form.auth_mode === "query" && <Field label="Nome do query param" testid="erp-token-query-input" value={form.auth_query_name} onChange={(value) => setForm((s) => ({ ...s, auth_query_name: value }))} placeholder="Ex: token" />}
+            {form.auth_mode === "bearer" && <Field label="Prefixo Authorization" testid="erp-token-prefix-input" value={form.auth_prefix} onChange={(value) => setForm((s) => ({ ...s, auth_prefix: value }))} placeholder="Bearer" />}
             <div className="md:col-span-2">
               <Label className="text-xs text-muted-foreground">Token/API secret</Label>
               <Input data-testid="erp-token-input" type="password" value={form.api_token} onChange={(e) => setForm((s) => ({ ...s, api_token: e.target.value }))} className="mt-1 bg-transparent" placeholder="Se deixares vazio, posso gerar um token seguro para ti" />

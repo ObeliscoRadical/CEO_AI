@@ -1,0 +1,27 @@
+{
+  "summary": "Iteration 35 — E2E testing of universal ERP/Sistema de Gestão integration with 3 auth modes (header, bearer, query param), nested payload parsing, and partial merge. All 9 backend tests passed (including new query param test). Frontend E2E via Playwright passed: /integracoes page loads correctly, config dialog shows auth mode selector with all 3 options, universal contract card displays auth modes, JSON examples (flat and nested) visible, save with header mode works, Bearer mode auth works correctly (correct token accepted, wrong token rejected, missing header rejected), nested payload parsing works (extracts balance from data.snapshot.balance, divida_total, custos_fixos as key-value object), partial merge preserves existing context values, disconnect clears context, sidebar navigation functional.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_erp_integrations.py",
+    "/app/test_reports/pytest/iter35_erp_universal.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "erp_integrations.py: _normalize_financial_payload handles nested payloads up to 3 levels deep with NESTED_BLOCK_KEYS — good flexibility for various ERP formats.",
+    "erp_integrations.py: _extract_inbound_token correctly handles all 3 auth modes (header, bearer, query) with proper error messages.",
+    "erp_integrations.py: Partial merge implemented via existing_ctx merge in inbound endpoint — preserves previous values when new payload only updates some fields.",
+    "ERPIntegracoes.jsx: Auth mode select dynamically shows/hides relevant inputs (header name for header mode, prefix for bearer mode, query name for query mode).",
+    "ERPIntegracoes.jsx: Universal contract card displays all 3 auth modes with examples from /api/erp-integration/contract endpoint."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_erp_integrations.py (added test_query_param_auth_mode)"
+  ],
+  "success_rate": {"backend": "100% (9/9 ERP tests)", "frontend": "100% of tested flows"},
+  "test_credentials": "adminceoai@gmail.com / 12345",
+  "seed_data_creation": "Created and cleaned up ERP integration for admin account during testing.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "ERP integration tests at /app/backend/tests/test_erp_integrations.py cover: connect, status, inbound webhook with valid/invalid tokens, invalid payloads, disconnect, nested payload parsing, partial merge, bearer auth mode, query param auth mode, and finance profile merge. Frontend data-testids: erp-integration-page, erp-config-dialog, erp-connected-badge, erp-disconnected-badge, erp-webhook-url, erp-generated-token-panel, erp-disconnect-btn, erp-auth-mode-select, erp-token-header-input, erp-token-prefix-input, erp-token-query-input, erp-context-cash, erp-context-debt, erp-context-revenue, erp-context-fixed, erp-contract-card, erp-json-example, erp-json-nested-example, nav-integracoes-erp.",
+  "rca of the issue": "No issues found. All features working as specified."
+}

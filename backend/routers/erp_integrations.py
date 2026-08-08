@@ -17,6 +17,29 @@ from models import ERPIntegrationInput
 
 router = APIRouter()
 
+AUTH_MODES = {"header", "bearer", "query"}
+SCALAR_ALIASES = {
+    "cash_balance": ["cash_balance", "current_balance", "balance", "saldo_atual", "saldo", "cashBalance", "available_balance"],
+    "total_debt": ["total_debt", "debt", "debts_total", "divida_total", "loan_balance", "financing_balance", "totalDebt"],
+    "monthly_revenue": ["monthly_revenue", "revenue_monthly", "faturacao_mensal", "monthlyRevenue", "mrr", "receita_mensal"],
+    "variable_costs_pct": ["variable_costs_pct", "variable_cost_percent", "custos_variaveis_pct", "variableCostsPct", "variable_cost_rate"],
+}
+LIST_ALIASES = {
+    "fixed_costs": ["fixed_costs", "custos_fixos", "fixedCosts", "monthly_costs_fixed"],
+    "assets": ["assets", "ativos", "balance_assets"],
+    "liabilities": ["liabilities", "passivos", "balance_liabilities"],
+}
+OBJECT_ALIASES = {
+    "credit_restructuring": ["credit_restructuring", "reestruturacao_credito", "creditRestructuring", "debt_restructuring"],
+}
+EVENT_KEY_ALIASES = ["event_id", "id", "reference", "event_reference", "message_id"]
+EVENT_TYPE_ALIASES = ["event_type", "type", "topic", "kind"]
+OCCURRED_AT_ALIASES = ["occurred_at", "timestamp", "sent_at", "created_at", "event_time"]
+NESTED_BLOCK_KEYS = [
+    "data", "payload", "body", "snapshot", "financial", "finance", "context",
+    "metrics", "company", "company_data", "summary", "balances", "erp", "erp_data",
+]
+
 
 def _mask_secret(value: str) -> str:
     raw = (value or "").strip()
@@ -59,16 +82,45 @@ def _pick(payload: dict, *keys):
     return None
 
 
+def _iter_candidate_dicts(payload: dict):
+    out = [("root", payload)]
+    seen = {id(payload)}
+    queue = [("root", payload, 0)]
+    while queue:
+        path, node, depth = queue.pop(0)
+        if depth >= 3:
+            continue
+        for key, value in (node or {}).items():
+            if isinstance(value, dict) and id(value) not in seen:
+                child_path = f"{path}.{key}"
+                seen.add(id(value))
+                out.append((child_path, value))
+                if depth == 0 or key in NESTED_BLOCK_KEYS:
+                    queue.append((child_path, value, depth + 1))
+    return out
+
+
+def _first_match(dicts, aliases):
+    for path, node in dicts:
+        for key in aliases:
+            if key in node:
+                return True, node.get(key), path, key
+    return False, None, None, None
+
+
 def _normalize_items(value, fallback_name: str):
     out = []
     if isinstance(value, dict):
-        value = [{"name": k, "amount": v} for k, v in value.items()]
+        if isinstance(value.get("items"), list):
+            value = value.get("items")
+        else:
+            value = [{"name": k, "amount": v} for k, v in value.items()]
     if not isinstance(value, list):
         return out
     for idx, item in enumerate(value):
         if isinstance(item, dict):
-            amount = _to_number(item.get("amount") if "amount" in item else item.get("value"))
-            name = str(item.get("name") or item.get("label") or f"{fallback_name} {idx + 1}").strip()
+            amount = _to_number(item.get("amount") if "amount" in item else item.get("value") if "value" in item else item.get("total"))
+            name = str(item.get("name") or item.get("label") or item.get("description") or f"{fallback_name} {idx + 1}").strip()
         else:
             amount = _to_number(item)
             name = f"{fallback_name} {idx + 1}"
@@ -79,41 +131,118 @@ def _normalize_items(value, fallback_name: str):
 
 
 def _normalize_financial_payload(payload: dict):
-    cash_balance = _to_number(_pick(payload, "cash_balance", "current_balance", "balance", "saldo_atual"))
-    total_debt = _to_number(_pick(payload, "total_debt", "debt", "debts_total", "divida_total"))
-    monthly_revenue = _to_number(_pick(payload, "monthly_revenue", "revenue_monthly", "faturacao_mensal"))
-    variable_costs_pct = _to_number(_pick(payload, "variable_costs_pct", "variable_cost_percent", "custos_variaveis_pct"))
-    fixed_costs = _normalize_items(_pick(payload, "fixed_costs", "custos_fixos"), "Custo fixo")
-    assets = _normalize_items(_pick(payload, "assets", "ativos"), "Ativo")
-    liabilities = _normalize_items(_pick(payload, "liabilities", "passivos"), "Passivo")
-    credit_restructuring = _pick(payload, "credit_restructuring", "reestruturacao_credito") or {}
-    meaningful = any([
-        cash_balance is not None,
-        total_debt is not None,
-        monthly_revenue is not None,
-        variable_costs_pct is not None,
-        fixed_costs,
-        assets,
-        liabilities,
-        credit_restructuring,
-    ])
-    event_key = str(_pick(payload, "event_id", "id", "reference", "event_reference") or hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")).hexdigest()[:24])
-    event_type = str(_pick(payload, "event_type", "type", "topic") or "financial_update")
-    occurred_at = str(_pick(payload, "occurred_at", "timestamp", "sent_at", "created_at") or datetime.now(timezone.utc).isoformat())
+    dicts = _iter_candidate_dicts(payload)
+    updates = {}
+    detected = {}
+    present_fields = []
+    for field, aliases in SCALAR_ALIASES.items():
+        present, raw, path, key = _first_match(dicts, aliases)
+        if present:
+            updates[field] = _to_number(raw)
+            detected[field] = {"path": path, "alias": key}
+            present_fields.append(field)
+    for field, aliases in LIST_ALIASES.items():
+        present, raw, path, key = _first_match(dicts, aliases)
+        if present:
+            label = "Custo fixo" if field == "fixed_costs" else "Ativo" if field == "assets" else "Passivo"
+            updates[field] = _normalize_items(raw, label)
+            detected[field] = {"path": path, "alias": key}
+            present_fields.append(field)
+    for field, aliases in OBJECT_ALIASES.items():
+        present, raw, path, key = _first_match(dicts, aliases)
+        if present:
+            updates[field] = raw if isinstance(raw, dict) else {"value": raw}
+            detected[field] = {"path": path, "alias": key}
+            present_fields.append(field)
+    _, event_value, _, _ = _first_match(dicts, EVENT_KEY_ALIASES)
+    _, event_type_value, _, _ = _first_match(dicts, EVENT_TYPE_ALIASES)
+    _, occurred_at_value, _, _ = _first_match(dicts, OCCURRED_AT_ALIASES)
+    meaningful = bool(present_fields)
+    event_key = str(event_value or hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")).hexdigest()[:24])
+    event_type = str(event_type_value or "financial_update")
+    occurred_at = str(occurred_at_value or datetime.now(timezone.utc).isoformat())
     return {
         "meaningful": meaningful,
+        "present_fields": present_fields,
+        "detected": detected,
         "event_key": event_key,
         "event_type": event_type,
         "occurred_at": occurred_at,
-        "context": {
-            "cash_balance": cash_balance,
-            "total_debt": total_debt,
-            "monthly_revenue": monthly_revenue,
-            "variable_costs_pct": variable_costs_pct,
-            "fixed_costs": fixed_costs,
-            "assets": assets,
-            "liabilities": liabilities,
-            "credit_restructuring": credit_restructuring,
+        "context": updates,
+    }
+
+
+def _extract_inbound_token(conn: dict, request: Request):
+    auth_mode = (conn.get("auth_mode") or "header").strip().lower()
+    header_name = conn.get("auth_header_name") or "X-ERP-Token"
+    query_name = conn.get("auth_query_name") or "token"
+    auth_prefix = (conn.get("auth_prefix") or "Bearer").strip()
+    if auth_mode == "query":
+        token = request.query_params.get(query_name)
+        if not token:
+            raise HTTPException(status_code=401, detail=f"Falta o parâmetro de query {query_name}")
+        return token
+    if auth_mode == "bearer":
+        auth = request.headers.get("Authorization", "")
+        if auth_prefix:
+            prefix = f"{auth_prefix} "
+            if not auth.startswith(prefix):
+                raise HTTPException(status_code=401, detail="Falta o Authorization Bearer")
+            return auth[len(prefix):].strip()
+        if not auth:
+            raise HTTPException(status_code=401, detail="Falta o cabeçalho Authorization")
+        return auth.strip()
+    token = request.headers.get(header_name) or request.query_params.get(query_name)
+    if not token:
+        raise HTTPException(status_code=401, detail=f"Falta o cabeçalho {header_name}")
+    return token
+
+
+@router.get("/erp-integration/contract")
+async def erp_integration_contract():
+    return {
+        "auth_modes": [
+            {"code": "header", "label": "Cabeçalho customizado", "example": {"X-ERP-Token": "<token>"}},
+            {"code": "bearer", "label": "Authorization Bearer", "example": {"Authorization": "Bearer <token>"}},
+            {"code": "query", "label": "Query param", "example": {"url": "...?token=<token>"}},
+        ],
+        "canonical_fields": {
+            "cash_balance": "saldo atual",
+            "total_debt": "dívida total",
+            "monthly_revenue": "faturação mensal",
+            "variable_costs_pct": "custos variáveis em percentagem",
+            "fixed_costs": [{"name": "Renda", "amount": 3200}],
+            "assets": [{"name": "Stock", "amount": 15000}],
+            "liabilities": [{"name": "Fornecedores", "amount": 9000}],
+            "credit_restructuring": {"status": "em negociação", "monthly_payment": 650},
+        },
+        "accepted_aliases": {**SCALAR_ALIASES, **LIST_ALIASES, **OBJECT_ALIASES},
+        "supports": {
+            "partial_updates": True,
+            "nested_payloads": True,
+            "flat_payloads": True,
+            "arrays_or_key_value_objects": True,
+            "idempotency_by_event_id": True,
+        },
+        "examples": {
+            "flat": {
+                "event_id": "fin-2026-0001",
+                "cash_balance": 45200,
+                "total_debt": 18000,
+                "monthly_revenue": 37000,
+                "fixed_costs": [{"name": "Renda", "amount": 3200}],
+            },
+            "nested": {
+                "type": "finance.snapshot",
+                "data": {
+                    "company": {"name": "Cliente X"},
+                    "snapshot": {
+                        "balance": 45200,
+                        "divida_total": 18000,
+                        "custos_fixos": {"Renda": 3200, "Salários": 9800},
+                    },
+                },
+            },
         },
     }
 
@@ -156,7 +285,13 @@ async def erp_integration_connect(inp: ERPIntegrationInput, request: Request, us
         generated = True
     if not raw_token and not existing.get("token_hash"):
         raise HTTPException(status_code=400, detail="Indica um token seguro ou pede ao CEO AI para gerar um.")
+    auth_mode = (inp.auth_mode or existing.get("auth_mode") or "header").strip().lower()
+    if auth_mode not in AUTH_MODES:
+        raise HTTPException(status_code=400, detail="Modo de autenticação inválido")
     auth_header_name = (inp.auth_header_name or existing.get("auth_header_name") or "X-ERP-Token").strip() or "X-ERP-Token"
+    auth_query_name = (inp.auth_query_name or existing.get("auth_query_name") or "token").strip() or "token"
+    auth_prefix = inp.auth_prefix if inp.auth_prefix is not None else existing.get("auth_prefix")
+    auth_prefix = (auth_prefix or ("Bearer" if auth_mode == "bearer" else "")).strip()
     token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest() if raw_token else existing.get("token_hash")
     token_mask = _mask_secret(raw_token) if raw_token else existing.get("token_mask", "")
     now = datetime.now(timezone.utc).isoformat()
@@ -166,7 +301,10 @@ async def erp_integration_connect(inp: ERPIntegrationInput, request: Request, us
         "system_name": (inp.system_name or existing.get("system_name") or "Sistema de Gestão").strip() or "Sistema de Gestão",
         "erp_base_url": (inp.erp_base_url or existing.get("erp_base_url") or "").strip(),
         "external_webhook_url": (inp.external_webhook_url or existing.get("external_webhook_url") or "").strip(),
+        "auth_mode": auth_mode,
         "auth_header_name": auth_header_name,
+        "auth_query_name": auth_query_name,
+        "auth_prefix": auth_prefix,
         "token_hash": token_hash,
         "token_mask": token_mask,
         "notes": (inp.notes or existing.get("notes") or "").strip(),
@@ -186,7 +324,10 @@ async def erp_integration_connect(inp: ERPIntegrationInput, request: Request, us
             "system_name": doc["system_name"],
             "erp_base_url": doc["erp_base_url"],
             "external_webhook_url": doc["external_webhook_url"],
+            "auth_mode": doc["auth_mode"],
             "auth_header_name": doc["auth_header_name"],
+            "auth_query_name": doc["auth_query_name"],
+            "auth_prefix": doc["auth_prefix"],
             "token_mask": doc["token_mask"],
             "webhook_url": f"{_public_api_base(request)}/api/erp-integration/inbound/{endpoint_id}",
             "updated_at": now,
@@ -218,10 +359,7 @@ async def erp_integration_inbound(endpoint_id: str, request: Request):
         payload = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="Payload JSON inválido")
-    header_name = conn.get("auth_header_name") or "X-ERP-Token"
-    provided_token = request.headers.get(header_name) or request.query_params.get("token")
-    if not provided_token:
-        raise HTTPException(status_code=401, detail=f"Falta o cabeçalho {header_name}")
+    provided_token = _extract_inbound_token(conn, request)
     token_hash = hashlib.sha256(provided_token.strip().encode("utf-8")).hexdigest()
     if not secrets.compare_digest(token_hash, conn.get("token_hash") or ""):
         raise HTTPException(status_code=401, detail="Token de integração inválido")
@@ -253,7 +391,9 @@ async def erp_integration_inbound(endpoint_id: str, request: Request):
             return {"accepted": True, "duplicate": True, "event_key": normalized["event_key"]}
         raise
     source_label = f"Sistema de gestão · {conn.get('system_name') or 'ERP'}"
-    ctx = normalized["context"]
+    existing_ctx = await db.erp_financial_contexts.find_one({"user_id": conn["user_id"], "company_id": conn["company_id"]}, {"_id": 0}) or {}
+    existing_ctx.pop("created_at", None)
+    ctx = {**existing_ctx, **normalized["context"]}
     await db.erp_financial_contexts.update_one(
         {"user_id": conn["user_id"], "company_id": conn["company_id"]},
         {"$set": {
@@ -264,6 +404,8 @@ async def erp_integration_inbound(endpoint_id: str, request: Request):
             "source_label": source_label,
             "last_event_key": normalized["event_key"],
             "last_event_type": normalized["event_type"],
+            "last_detected_aliases": normalized.get("detected") or {},
+            "last_present_fields": normalized.get("present_fields") or [],
             "last_payload_at": now,
             "updated_at": now,
             **ctx,
