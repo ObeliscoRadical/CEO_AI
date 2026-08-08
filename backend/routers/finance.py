@@ -229,12 +229,19 @@ async def _profile_target(uid):
 @router.get("/finance/profile")
 async def get_finance_profile(user: dict = Depends(get_current_user)):
     cid = await active_company_id(user["id"])
-    p = await db.financial_profiles.find_one({"user_id": user["id"], "company_id": cid}) or {}
+    raw = await db.financial_profiles.find_one({"user_id": user["id"], "company_id": cid}) or {}
+    erp_ctx = await get_erp_financial_context(user["id"], cid)
+    p, source_label = merge_financial_profile(raw, erp_ctx)
     company = await resolve_company(user["id"]) or {}
     target = await _profile_target(user["id"])
     metrics = compute_profile_metrics(p, target)
-    return {"exists": bool(p.get("monthly_revenue") or p.get("fixed_costs")),
-            "currency": company.get("currency", "EUR"), **metrics}
+    exists = bool(any([
+        p.get("monthly_revenue"), p.get("cash_balance"), p.get("total_debt"),
+        p.get("fixed_costs"), p.get("assets"), p.get("liabilities")
+    ]))
+    return {"exists": exists, "currency": company.get("currency", "EUR"),
+            "source_label": source_label or "os teus dados (Perfil Financeiro)",
+            "has_external_context": bool(erp_ctx), **metrics}
 
 @router.post("/finance/profile")
 async def save_finance_profile(inp: FinancialProfileInput, user: dict = Depends(get_current_user)):
@@ -263,8 +270,13 @@ async def save_finance_profile(inp: FinancialProfileInput, user: dict = Depends(
 @router.get("/finance/profile/analysis")
 async def finance_profile_analysis(user: dict = Depends(get_current_user)):
     cid = await active_company_id(user["id"])
-    p = await db.financial_profiles.find_one({"user_id": user["id"], "company_id": cid})
-    if not p or not (p.get("monthly_revenue") or p.get("fixed_costs")):
+    raw = await db.financial_profiles.find_one({"user_id": user["id"], "company_id": cid}) or {}
+    erp_ctx = await get_erp_financial_context(user["id"], cid)
+    p, source_label = merge_financial_profile(raw, erp_ctx)
+    if not p or not any([
+        p.get("monthly_revenue"), p.get("cash_balance"), p.get("total_debt"),
+        p.get("fixed_costs"), p.get("assets"), p.get("liabilities")
+    ]):
         return {"empty": True, "premium_locked": False, "analysis": None}
     target = await _profile_target(user["id"])
     m = compute_profile_metrics(p, target)
@@ -286,6 +298,7 @@ async def finance_profile_analysis(user: dict = Depends(get_current_user)):
         f"Ativos totais: {m['total_assets']} (caixa + {json.dumps(m['assets'], ensure_ascii=False)})\n"
         f"Passivos totais: {m['total_liabilities']} (divida + {json.dumps(m['liabilities'], ensure_ascii=False)})\n"
         f"Patrimonio liquido (ativos menos passivos): {m['net_worth']}\n"
+        f"Fonte ativa destes dados: {source_label or 'os teus dados (Perfil Financeiro)'}\n"
         f"Meta de faturamento mensal: {m['target_revenue_month']} | Progresso: {m['target_progress_pct']}%\n\n"
         "Devolve JSON: {\"diagnostico\": string (2-3 frases, direto), "
         "\"riscos\": [ate 3 strings], \"prioridades\": [ate 3 strings], "
@@ -293,4 +306,5 @@ async def finance_profile_analysis(user: dict = Depends(get_current_user)):
     )
     payload = await cached_ai("profile_analysis", user["id"], cid, system, prompt)
     return {"empty": False, "premium_locked": False, "metrics": m, "analysis": payload}
+
 

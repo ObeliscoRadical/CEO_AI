@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/context/AuthContext";
 import { useAppData } from "@/context/AppDataContext";
-import { Home, Lightbulb, HeartPulse, Coins, MessageSquare, Wallet, TrendingUp, FileText, Settings as SettingsIcon, LogOut, Building2, Plus, Crown, Check, Menu, Compass, Lock, Shield, X, ChevronDown, Target, LineChart, Landmark, Briefcase, Megaphone, HandCoins } from "lucide-react";
+import { Home, Lightbulb, HeartPulse, Coins, MessageSquare, Wallet, TrendingUp, FileText, Settings as SettingsIcon, LogOut, Building2, Plus, Crown, Check, Menu, Compass, Lock, Shield, X, ChevronDown, Target, LineChart, Landmark, Briefcase, Megaphone, HandCoins, PlugZap } from "lucide-react";
 import { motion } from "framer-motion";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -31,6 +31,10 @@ const NAV = [
   { to: "/financas", label: "Finanças", short: "Finanças", icon: Wallet, testid: "nav-financas" },
   { to: "/relatorios", label: "Relatórios", short: "Relatórios", icon: FileText, testid: "nav-relatorios", gated: true },
   { to: "/definicoes", label: "Empresa", short: "Definições", icon: SettingsIcon, testid: "nav-empresa" },
+];
+
+const INTEGRATION_NAV = [
+  { to: "/integracoes", label: "ERP / Sistema de Gestão", short: "ERP", icon: PlugZap, testid: "nav-integracoes-erp" },
 ];
 
 const Logo = ({ size = 40 }) => (
@@ -133,6 +137,8 @@ export function AppLayout() {
       <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto no-scrollbar">
         <div className="px-4 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Menu</div>
         {NAV.map((n) => <SidebarItem key={n.to} n={n} />)}
+        <div className="px-4 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Integrações</div>
+        {INTEGRATION_NAV.map((n) => <SidebarItem key={n.to} n={n} />)}
         {isAdmin && <SidebarItem n={{ to: "/admin", label: "Administração", icon: Shield, testid: "nav-admin" }} />}
         <div className="px-4 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Conta</div>
         <button data-testid="restart-tour-btn" onClick={() => window.dispatchEvent(new Event("start-ceo-tour"))} className="group w-full flex items-center gap-3 pl-4 pr-3 py-2.5 rounded-xl text-[13.5px] font-medium text-slate-400 hover:text-white hover:bg-white/[0.045] transition-all"><Compass className="w-[18px] h-[18px] text-slate-500 group-hover:text-blue-400" /> Tour guiado</button>
@@ -187,6 +193,13 @@ export function AppLayout() {
             </button>
           );
         })}
+        <div className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Integrações</div>
+        {INTEGRATION_NAV.map((n) => (
+          <button key={n.to} data-testid={`${n.testid}-m`} onClick={() => go(n.to)}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors ${isActive(n) ? "bg-blue-500/10 text-blue-400" : "text-slate-400 hover:text-white hover:bg-white/[0.04]"}`}>
+            <n.icon className="w-[18px] h-[18px]" />{n.label}
+          </button>
+        ))}
         {isAdmin && <button data-testid="nav-admin-m" onClick={() => go("/admin")} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/[0.04]"><Shield className="w-[18px] h-[18px]" /> Administração</button>}
         {!isPremium && !isAdmin && <button data-testid="nav-planos-m" onClick={() => go("/planos")} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm mt-1 border border-blue-500/30 text-blue-400"><Crown className="w-[18px] h-[18px]" /> Passar a Premium</button>}
       </nav>

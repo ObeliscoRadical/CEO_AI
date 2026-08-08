@@ -12,11 +12,11 @@ from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime, timezone
 
 from core import db, client, hash_password, verify_password, init_storage, send_daily_briefings, send_monthly_value_alerts, send_goal_alerts, logger
-from routers import auth, companies, finance, ceo, documents, billing, misc, voice, founders, goals, council, crm, marketing, social, prospecting, notifications, grants
+from routers import auth, companies, finance, ceo, documents, billing, misc, voice, founders, goals, council, crm, marketing, social, prospecting, notifications, grants, erp_integrations
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
-for _m in (auth, companies, finance, ceo, documents, billing, misc, voice, founders, goals, council, crm, marketing, social, prospecting, notifications, grants):
+for _m in (auth, companies, finance, ceo, documents, billing, misc, voice, founders, goals, council, crm, marketing, social, prospecting, notifications, grants, erp_integrations):
     api_router.include_router(_m.router)
 app.include_router(api_router)
 
@@ -44,6 +44,11 @@ async def startup():
     await db.users.create_index("stripe_subscription_id")
     await db.users.create_index("stripe_customer_id")
     await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
+    await db.erp_integrations.create_index([("user_id", 1), ("company_id", 1)], unique=True)
+    await db.erp_integrations.create_index("endpoint_id", unique=True)
+    await db.erp_events.create_index([("endpoint_id", 1), ("event_key", 1)], unique=True)
+    await db.erp_events.create_index([("user_id", 1), ("company_id", 1), ("received_at", -1)])
+    await db.erp_financial_contexts.create_index([("user_id", 1), ("company_id", 1)], unique=True)
     await db.counters.update_one({"_id": "founder"}, {"$setOnInsert": {"seq": 0}}, upsert=True)
     await db.app_config.update_one({"_id": "founder_campaign"},
                                    {"$setOnInsert": {"active": True, "milestones_sent": []}}, upsert=True)

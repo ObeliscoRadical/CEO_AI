@@ -1,0 +1,27 @@
+{
+  "summary": "Iteration 34 — Tested new ERP / Sistema de Gestão integration module (backend + frontend). All 6 backend tests passed (connect, status, inbound webhook, disconnect, invalid token rejection, invalid payload rejection, finance profile merge). Frontend E2E via Playwright passed: sidebar shows 'Integrações' section with 'ERP / Sistema de Gestão' item (nav-integracoes-erp), /integracoes page loads correctly, config modal opens automatically when no connection, form saves with generated token, connected state shows webhook URL and token mask, disconnect works, company isolation verified (new company starts without connection/context). Regression: login, main navigation, and /integracoes route load without errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_erp_integrations.py",
+    "/app/test_reports/pytest/iter34_erp.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "erp_integrations.py: _normalize_financial_payload handles multiple field name aliases (cash_balance/current_balance/balance/saldo_atual) — good for flexibility but document supported aliases.",
+    "erp_integrations.py: Token hash comparison uses constant-time comparison via == on hashes (SHA256) — acceptable but consider secrets.compare_digest for extra safety.",
+    "ERPIntegracoes.jsx: Generated token panel shows token in plain text with 'Copiar token' button — correct UX, warns user it won't be shown again.",
+    "core.py: merge_financial_profile correctly merges ERP context over manual profile, preserving source_label for UI display.",
+    "finance.py: GET /api/finance/profile and /api/finance/profile/analysis now use get_erp_financial_context and merge_financial_profile — ERP data flows into financial analysis."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_erp_integrations.py (expanded with 3 new tests)"
+  ],
+  "success_rate": {"backend": "100% (6/6 ERP tests)", "frontend": "100% of tested flows"},
+  "test_credentials": "adminceoai@gmail.com / 12345",
+  "seed_data_creation": "Created and deleted 'Test Company Isolation' company during testing. Cleaned up ERP integration for admin account.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "ERP integration tests at /app/backend/tests/test_erp_integrations.py cover: connect, status, inbound webhook with valid/invalid tokens, invalid payloads, disconnect, and finance profile merge. Frontend data-testids: erp-integration-page, erp-config-dialog, erp-connected-badge, erp-disconnected-badge, erp-webhook-url, erp-generated-token-panel, erp-disconnect-btn, nav-integracoes-erp.",
+  "rca of the issue": "No issues found. All features working as specified."
+}

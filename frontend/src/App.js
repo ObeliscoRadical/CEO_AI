@@ -27,6 +27,7 @@ import Score from "@/pages/Score";
 import Future from "@/pages/Future";
 import InvestmentGrade from "@/pages/InvestmentGrade";
 import Settings from "@/pages/Settings";
+import ERPIntegracoes from "@/pages/ERPIntegracoes";
 import Pricing from "@/pages/Pricing";
 import Admin from "@/pages/Admin";
 import Subscription from "@/pages/Subscription";
@@ -103,6 +104,7 @@ function App() {
                 <Route path="/financas" element={<Finances />} />
                 <Route path="/futuro" element={<PremiumRoute><Future /></PremiumRoute>} />
                 <Route path="/definicoes" element={<Settings />} />
+                <Route path="/integracoes" element={<ERPIntegracoes />} />
                 <Route path="/planos" element={<Pricing />} />
                 <Route path="/subscricao" element={<Subscription />} />
                 <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />

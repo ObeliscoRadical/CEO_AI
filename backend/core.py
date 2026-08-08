@@ -520,6 +520,34 @@ async def latest_official_financials(user_id: str, cid):
             "annual_revenue": revenue, "annual_profit": profit, "ebitda": ebitda,
             "reconciled": r.get("reconciled")}
 
+
+async def get_erp_financial_context(user_id: str, cid: Optional[str]):
+    if not cid:
+        return None
+    ctx = await db.erp_financial_contexts.find_one(
+        {"user_id": user_id, "company_id": cid, "active": True},
+        {"_id": 0},
+    )
+    return ctx or None
+
+
+def merge_financial_profile(profile: Optional[dict], erp_ctx: Optional[dict]):
+    merged = dict(profile or {})
+    if not erp_ctx or not erp_ctx.get("active"):
+        return merged, None
+    for key in ("monthly_revenue", "cash_balance", "variable_costs_pct", "total_debt"):
+        value = erp_ctx.get(key)
+        if isinstance(value, (int, float)):
+            merged[key] = float(value)
+    for key in ("fixed_costs", "assets", "liabilities"):
+        value = erp_ctx.get(key)
+        if isinstance(value, list) and value:
+            merged[key] = value
+    label = erp_ctx.get("source_label") or f"Sistema de gestão · {erp_ctx.get('system_name') or 'ERP'}"
+    merged["_context_source_label"] = label
+    merged["_context_updated_at"] = erp_ctx.get("updated_at")
+    return merged, label
+
 def compute_valuation_annual(fin: dict, cash: float = 0.0):
     """Valuation com base em figuras ANUAIS reais de documentos oficiais: base patrimonial + goodwill de rendimento."""
     net_worth = fin.get("net_worth") or 0.0
@@ -647,7 +675,9 @@ async def build_snapshot(user_id: str):
     m_expense = sum(e["amount"] for e in entries if e["type"] == "expense" and str(e.get("date", "")).startswith(month_key))
     net = income - expense
     m_net = m_income - m_expense
-    profile = await db.financial_profiles.find_one({"user_id": user_id, "company_id": cid}) if cid else None
+    base_profile = await db.financial_profiles.find_one({"user_id": user_id, "company_id": cid}) if cid else None
+    erp_ctx = await get_erp_financial_context(user_id, cid)
+    profile, active_profile_label = merge_financial_profile(base_profile, erp_ctx)
     bal = compute_balance(company, profile, net)
     bank = bal["cash"]
     monthly_burn = m_expense if m_expense > 0 else (expense / 12 if expense else 1)
@@ -687,11 +717,12 @@ async def build_snapshot(user_id: str):
         man_nw = bal["net_worth"] if has_manual else None
         man_profit = val["annual_profit"] if has_manual else None
         man_rev = (float(profile.get("monthly_revenue", 0) or 0) * 12) if has_manual else None
+        manual_label = active_profile_label or "os teus dados (Perfil Financeiro)"
         def _pick(dv, mv):
             if has_doc and isinstance(dv, (int, float)):
                 return dv, doc_label
             if isinstance(mv, (int, float)):
-                return mv, "os teus dados (Perfil Financeiro)"
+                return mv, manual_label
             return None, None
         nw, s_nw = _pick(fin.get("net_worth") if fin else None, man_nw)
         profit, s_profit = _pick(fin.get("annual_profit") if fin else None, man_profit)
@@ -735,6 +766,7 @@ async def build_snapshot(user_id: str):
         "has_balance": has_balance_final, "equity_progress": equity_progress,
         "financials_source": financials_source, "has_official": has_official,
         "value_sources": value_sources,
+        "financial_context_source": active_profile_label,
     }
 
 async def record_equity(user_id: str, cid, snap: dict):
@@ -797,6 +829,7 @@ async def build_system_prompt(user_id: str, user_name: str):
     memories = await db.memories.find({"user_id": user_id}).to_list(100)
     snap = await build_snapshot(user_id)
     company = await resolve_company(user_id)
+    cid = str(company["_id"]) if company and company.get("_id") else None
     prof = (company or {}).get("profile", {}) or {}
     sector = (company or {}).get("sector") or prof.get("activity") or ""
     cae = prof.get("cae")
@@ -815,6 +848,21 @@ async def build_system_prompt(user_id: str, user_name: str):
             if isinstance(_v, (int, float)) and _v and _k not in _figs:
                 _figs[_k] = _v
     docs_block = ("\n".join(_dlines) + (("\nNúmeros extraídos dos documentos: " + _json.dumps(_figs, ensure_ascii=False)) if _figs else "")) if _dlines else "(o empresário ainda não carregou relatórios ou documentos)"
+    erp_ctx = await get_erp_financial_context(user_id, cid)
+    if erp_ctx:
+        erp_fixed = ", ".join(f"{c.get('name')}: {c.get('amount')}" for c in (erp_ctx.get("fixed_costs") or [])[:6]) or "sem custos fixos detalhados"
+        erp_block = (
+            f"Sistema: {erp_ctx.get('system_name') or 'ERP'}\n"
+            f"Fonte ativa: {erp_ctx.get('source_label') or 'Sistema de gestão'}\n"
+            f"Atualizado em: {erp_ctx.get('updated_at') or 'n/d'}\n"
+            f"Saldo atual: {erp_ctx.get('cash_balance', 'n/d')}\n"
+            f"Dívida total: {erp_ctx.get('total_debt', 'n/d')}\n"
+            f"Faturação mensal: {erp_ctx.get('monthly_revenue', 'n/d')}\n"
+            f"Custos fixos: {erp_fixed}\n"
+            f"Reestruturação de crédito: {_json.dumps(erp_ctx.get('credit_restructuring') or {}, ensure_ascii=False)}"
+        )
+    else:
+        erp_block = "(sem integração ativa com sistema de gestão)"
     return (
         f"És o CEO AI — o Diretor Executivo Digital de {user_name}. NÃO és um chatbot nem um assistente técnico: "
         f"és um CEO experiente que já geriu centenas de empresas e que agora toma decisões LADO A LADO com este empresário. "
@@ -842,6 +890,7 @@ async def build_system_prompt(user_id: str, user_name: str):
         f"Visão a 5 anos: {dna.get('five_year_vision', 'n/d')}\n\n"
         f"### MEMÓRIA (lembra-te disto sempre)\n{mem_txt}\n\n"
         f"### PERFIL DA EMPRESA (informação dada pelo empresário — usa-a sempre na tua análise)\n{prof_txt}\n\n"
+        f"### DADOS ATIVOS DO SISTEMA DE GESTÃO (usar como contexto financeiro atual desta empresa)\n{erp_block}\n\n"
         f"### RELATÓRIOS E DOCUMENTOS CARREGADOS PELO EMPRESÁRIO (lê e usa estes dados reais; cita-os quando relevante)\n{docs_block}\n\n"
         f"### ESTADO ATUAL DA EMPRESA ({snap['company_name']})\n"
         f"Saúde: {snap['health']}/100\nCaixa: {snap['currency_symbol']}{snap['cash_balance']}\n"

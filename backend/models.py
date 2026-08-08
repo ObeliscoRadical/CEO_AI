@@ -135,3 +135,13 @@ class GoalInput(BaseModel):
     ytd_as_of: Optional[str] = None           # data a que se refere a faturação YTD
     valuation_method: Optional[str] = None    # "auto" | "revenue" | "ebitda"
     value_multiple_custom: Optional[float] = None  # múltiplo ajustado manualmente pelo utilizador
+
+
+class ERPIntegrationInput(BaseModel):
+    system_name: str = "Sistema de Gestão"
+    erp_base_url: Optional[str] = None
+    external_webhook_url: Optional[str] = None
+    api_token: Optional[str] = None
+    auth_header_name: Optional[str] = "X-ERP-Token"
+    notes: Optional[str] = None
+    generate_token: Optional[bool] = False
