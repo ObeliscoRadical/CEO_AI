@@ -145,7 +145,7 @@ class TestBillingPortal:
     def test_admin_portal_returns_url(self, admin_session):
         r = admin_session.post(
             f"{API}/payments/portal",
-            json={"origin_url": "https://apoios-matching.preview.emergentagent.com"},
+            json={"origin_url": "https://conexao-simples.preview.emergentagent.com"},
             timeout=30,
         )
         assert r.status_code == 200, r.text
@@ -158,7 +158,7 @@ class TestBillingPortal:
     def test_free_user_portal_400(self, free_user_session):
         r = free_user_session.post(
             f"{API}/payments/portal",
-            json={"origin_url": "https://apoios-matching.preview.emergentagent.com"},
+            json={"origin_url": "https://conexao-simples.preview.emergentagent.com"},
             timeout=30,
         )
         assert r.status_code == 400, f"Expected 400 without stripe_customer_id, got {r.status_code}: {r.text}"
