@@ -1,5 +1,22 @@
 # CEO AI — O Executivo Digital
 
+## CEO AI V2 — Diretor de Marketing Executor (2026-08-11, FASE 1 + FASE 2 concluídas)
+- ✅ `backend/routers/marketing.py`: o gerador do Diretor de Marketing passou a usar **contexto real da empresa ativa** — perfil da empresa + **CRM** (`crm_icp`, top leads e fases), **memórias** (`db.memories`) e **ERP/Sistema de Gestão** (`erp_financial_contexts`) — antes de chamar a IA. O prompt passou a devolver: identidade de marca expandida, **Brand Brain**, **biblioteca de conteúdos**, 10-12 posts e **calendário editorial de 30 dias**.
+- ✅ **Brand Brain expandido**: novo bloco `content.brand_brain` com fontes usadas (memórias/leads/ERP ativo), prioridades editoriais dinâmicas (dor do ICP, concentração de cliente, saúde financeira, pipeline comercial), ângulos principais e guardrail financeiro.
+- ✅ **Workflow editorial**: cada post tem `id`, `status` (`draft|approved|scheduled`), `approved_at`, `scheduled_at`, `published_at`; novo endpoint `POST /api/marketing/posts/{post_id}/status` sincroniza o estado do post e do calendário e recalcula `workflow_summary`.
+- ✅ `backend/routers/social.py`: correção estrutural multi-tenant. `social_connections`, `social_jobs` e `social_posts` passaram a ser isolados por **`user_id + company_id`**. O estado OAuth também guarda `company_id`, o agendamento guarda a empresa ativa e o worker publica sempre com base na empresa do job.
+- ✅ **Sincronização Marketing ↔ Social**: agendar um post marca-o como `scheduled`; cancelar o job devolve o post a `approved`; publicação imediata regista `published_at`. Isto fecha o circuito editorial sem misturar empresas.
+- ✅ Frontend `pages/Marketing.jsx`: página renovada com **workflow summary**, identidade de marca, **Brand Brain**, **biblioteca de conteúdos**, cards de aprovação por post, calendário de 30 dias e social card adaptado ao novo fluxo (aprovar → publicar/agendar). Todos os novos elementos críticos têm `data-testid`.
+- ✅ Testado e validado nesta iteração:
+  - `pytest /app/backend/tests/test_phase3_marketing.py` → **15/15 PASS** (conteúdo, workflow, isolamento social por empresa, CRM send-sim e regressões).
+  - `testing_agent` iteration_36 → backend **100% (15/15)** + frontend **100% dos fluxos testados**, sem bugs.
+  - Smoke visual no preview `/marketing` após login confirmado.
+- ⚠️ **Meta Graph API continua bloqueada por credenciais ausentes do utilizador** (`META_APP_ID` / `META_APP_SECRET`). O estado "não configurado" foi mantido e testado, mas publicação real OAuth continua pendente dessa informação.
+- 📌 Próximos passos do Diretor de Marketing:
+  - **P0**: ligar credenciais Meta reais e validar publicação/agendamento de ponta a ponta numa conta de teste do utilizador.
+  - **P1**: fila visual de execução/publicação com histórico e re-agendamento por post.
+  - **P2**: analytics de performance (alcance, engagement, cliques) + loop de aprendizagem e briefing autónomo diário.
+
 ## CEO AI V2 — Apoios & Incentivos (Diretor de Apoios) (2026-06, FASE 1 concluída)
 - ✅ `backend/routers/grants.py`: módulo de **apoios públicos, incentivos fiscais, fundos e financiamento** (PT + BR) com base curada + motor de match DETERMINÍSTICO + análise por IA.
   - **Catálogo curado** `CATALOG` (10 PT: Compete 2030 Inovação Produtiva, Vale Digital IAPMEI, SIFIDE II, IEFP contratação, BP Fomento garantia mútua, Turismo de Portugal, Compete Internacionalização, PRR, IAPMEI Crescer, Startup Portugal; 8 BR: Pronampe, BNDES crédito/Finame, Lei do Bem, FINEP, Sebrae, Cartão BNDES, FAMPE, Simples Nacional). Cada apoio: entidade, região, setores/dimensão elegíveis, despesas elegíveis, montante/taxa, prazo, **URL oficial**, documentos exigidos e **data de verificação** (`CATALOG_VERIFIED_AT`).

@@ -1,0 +1,27 @@
+{
+  "summary": "Iteration 36 — E2E testing of Marketing Phase 1+2 features: multi-tenant isolation, CRM/memories/ERP context injection, Brand Brain, content library, editorial workflow states, and 30-day calendar. All 15 backend tests passed (test_phase3_marketing.py). Frontend E2E via Playwright passed: /marketing page loads correctly with all sections (workflow summary, brand identity, Brand Brain, content library, posts, 30-day calendar), approval workflow (draft→approved→draft) works with counter updates, Meta not-configured state handled correctly (connect button disabled, informative message shown), copy text button works, image generation button visible, export/regenerate buttons functional.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_phase3_marketing.py",
+    "/app/test_reports/pytest/iter36_marketing.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "marketing.py: _ctx() correctly injects CRM leads, ICP, memories, and ERP financial context into marketing generation prompt.",
+    "marketing.py: _brand_brain() generates editorial priorities based on ICP dor, biggest_client_pct, health score, and lead pipeline stages.",
+    "marketing.py: apply_post_status() correctly syncs workflow status between posts and calendario entries.",
+    "social.py: _find_connection() and social_jobs endpoint correctly filter by company_id for multi-tenant isolation.",
+    "Marketing.jsx: Workflow summary cards (draft/approved/scheduled) update correctly after status changes.",
+    "Marketing.jsx: Publish/Schedule buttons only appear when social is connected AND post is approved.",
+    "Marketing.jsx: Connect button correctly disabled when Meta not configured (META_APP_ID/SECRET empty)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (15/15 tests)", "frontend": "100% of tested flows"},
+  "test_credentials": "adminceoai@gmail.com / 12345",
+  "seed_data_creation": "Backend tests create/cleanup TEST Social A/B companies for isolation testing.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Marketing tests at /app/backend/tests/test_phase3_marketing.py cover: content generation, workflow status changes, social company isolation, CRM send-sim, and regression endpoints. Frontend data-testids: marketing-page, mkt-social, mkt-social-notconfigured, mkt-connect-btn, mkt-logo-card, mkt-workflow-summary, mkt-workflow-draft, mkt-workflow-approved, mkt-workflow-scheduled, mkt-brand, mkt-brand-brain, mkt-library, mkt-posts, mkt-post-{n}, mkt-post-status-{n}, mkt-approve-{n}, mkt-reset-{n}, mkt-copy-{n}, mkt-genimg-{n}, mkt-calendar, mkt-calendar-item-{n}, mkt-export-btn, mkt-regen-btn. Meta credentials intentionally absent - test not-configured UX.",
+  "rca of the issue": "No issues found. All features working as specified."
+}

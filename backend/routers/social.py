@@ -1,14 +1,23 @@
 """Fase 4 — Publicação automática nas redes (Instagram + Facebook via Meta Graph API).
-Ligação OAuth da conta do utilizador, publicação imediata e agendamento a partir dos conteúdos de Marketing.
-Em modo de desenvolvimento a Meta só permite publicar em contas com papel na app (admin/developer/tester)."""
-import os, base64, uuid, hmac, hashlib
+Agora com isolamento por empresa e sincronização com o workflow editorial do Marketing."""
+import os, base64, uuid, hmac, hashlib, secrets
+from datetime import datetime, timezone
 from urllib.parse import urlencode, quote
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, File
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 import httpx
-from core import *
+from core import (
+    active_company_id,
+    composite_logo,
+    db,
+    generate_marketing_image,
+    logger,
+    prepare_logo,
+    premium_user,
+)
+from routers.marketing import apply_post_status
 
 router = APIRouter()
 
@@ -51,10 +60,50 @@ async def _graph_req(method: str, url: str, params: dict, token: str) -> dict:
     return data
 
 
+async def _find_connection(uid: str, cid: Optional[str]):
+    if cid:
+        conn = await db.social_connections.find_one({"user_id": uid, "company_id": cid})
+        if conn:
+            return conn
+    legacy = await db.social_connections.find_one({"user_id": uid, "company_id": {"$exists": False}})
+    if legacy and cid:
+        await db.social_connections.update_one(
+            {"_id": legacy["_id"]},
+            {"$set": {"company_id": cid, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        )
+        legacy["company_id"] = cid
+    return legacy
+
+
+async def _migrate_legacy_jobs(uid: str, cid: Optional[str]):
+    if not cid:
+        return
+    await db.social_jobs.update_many(
+        {"user_id": uid, "company_id": {"$exists": False}},
+        {"$set": {"company_id": cid}},
+    )
+
+
+async def _sync_marketing_post(uid: str, cid: Optional[str], post_id: Optional[str], status: str,
+                               scheduled_at: Optional[str] = None, published_at: Optional[str] = None):
+    if not (uid and cid and post_id):
+        return
+    doc = await db.marketing_content.find_one({"user_id": uid, "company_id": cid})
+    if not doc or not doc.get("content"):
+        return
+    content = doc.get("content") or {}
+    if not apply_post_status(content, post_id, status, scheduled_at=scheduled_at, published_at=published_at):
+        return
+    await db.marketing_content.update_one(
+        {"user_id": uid, "company_id": cid},
+        {"$set": {"content": content, "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+
+
 # ---------------------------------------------------------------- media pública (para o Instagram buscar a imagem)
-async def _store_public_image(uid: str, data: bytes, ct: str = "image/png") -> str:
+async def _store_public_image(uid: str, cid: Optional[str], data: bytes, ct: str = "image/png") -> str:
     mid = str(uuid.uuid4())
-    await db.social_media.insert_one({"_id": mid, "user_id": uid,
+    await db.social_media.insert_one({"_id": mid, "user_id": uid, "company_id": cid,
                                       "data": base64.b64encode(data).decode(), "content_type": ct,
                                       "created_at": datetime.now(timezone.utc).isoformat()})
     return f"{_base()}/api/public/media/{mid}"
@@ -72,7 +121,8 @@ async def public_media(mid: str):
 @router.get("/social/status")
 async def social_status(user: dict = Depends(premium_user)):
     aid, sec = _cfg()
-    conn = await db.social_connections.find_one({"user_id": user["id"]})
+    cid = await active_company_id(user["id"])
+    conn = await _find_connection(user["id"], cid)
     return {
         "configured": bool(aid and sec),
         "redirect_uri": _redirect_uri(),
@@ -88,8 +138,9 @@ async def social_connect(user: dict = Depends(premium_user)):
     aid, sec = _cfg()
     if not (aid and sec):
         raise HTTPException(400, "Integração Meta ainda não configurada (falta App ID/App Secret).")
+    cid = await active_company_id(user["id"])
     state = secrets.token_urlsafe(24)
-    await db.social_oauth_states.insert_one({"_id": state, "user_id": user["id"],
+    await db.social_oauth_states.insert_one({"_id": state, "user_id": user["id"], "company_id": cid,
                                              "created_at": datetime.now(timezone.utc).isoformat()})
     q = urlencode({"client_id": aid, "redirect_uri": _redirect_uri(), "state": state,
                    "scope": ",".join(SCOPES), "response_type": "code"})
@@ -106,6 +157,7 @@ async def social_callback(code: Optional[str] = None, state: Optional[str] = Non
     if not st or not code:
         return RedirectResponse(f"{base}/marketing?social_error=estado_invalido")
     uid = st["user_id"]
+    cid = st.get("company_id") or await active_company_id(uid)
     aid, sec = _cfg()
     try:
         async with httpx.AsyncClient(timeout=90) as client:
@@ -131,8 +183,8 @@ async def social_callback(code: Optional[str] = None, state: Optional[str] = Non
         if ig_id:
             igd = await _graph_req("GET", _graph(ig_id), {"fields": "username"}, chosen["access_token"])
             ig_username = igd.get("username")
-        await db.social_connections.update_one({"user_id": uid}, {"$set": {
-            "user_id": uid, "page_id": chosen["id"], "page_name": chosen.get("name"),
+        await db.social_connections.update_one({"user_id": uid, "company_id": cid}, {"$set": {
+            "user_id": uid, "company_id": cid, "page_id": chosen["id"], "page_name": chosen.get("name"),
             "ig_user_id": ig_id, "ig_username": ig_username,
             "page_token": chosen["access_token"], "user_token": user_token,
             "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
@@ -144,7 +196,8 @@ async def social_callback(code: Optional[str] = None, state: Optional[str] = Non
 
 @router.post("/social/disconnect")
 async def social_disconnect(user: dict = Depends(premium_user)):
-    await db.social_connections.delete_one({"user_id": user["id"]})
+    cid = await active_company_id(user["id"])
+    await db.social_connections.delete_one({"user_id": user["id"], "company_id": cid})
     return {"ok": True}
 
 
@@ -154,6 +207,7 @@ class PublishIn(BaseModel):
     image_prompt: Optional[str] = None
     generate_image: bool = True
     image_url: Optional[str] = None
+    post_id: Optional[str] = None
     instagram: bool = True
     facebook: bool = True
 
@@ -162,8 +216,8 @@ class ScheduleIn(PublishIn):
     run_at: str                             # ISO 8601 UTC
 
 
-async def _publish_core(uid: str, payload: dict) -> dict:
-    conn = await db.social_connections.find_one({"user_id": uid})
+async def _publish_core(uid: str, cid: Optional[str], payload: dict) -> dict:
+    conn = await _find_connection(uid, cid)
     if not conn:
         raise HTTPException(400, "As redes ainda não estão ligadas.")
     caption = payload.get("caption") or ""
@@ -171,17 +225,17 @@ async def _publish_core(uid: str, payload: dict) -> dict:
     want_img = payload.get("generate_image", True)
     do_ig = payload.get("instagram", True)
     do_fb = payload.get("facebook", True)
+    post_id = payload.get("post_id")
     if not image_url and want_img and (do_ig or do_fb):
         prompt = payload.get("image_prompt") or caption[:220] or "Conteúdo de marketing profissional"
         img = await generate_marketing_image(prompt)
-        cid = await active_company_id(uid)
         logo = await db.brand_assets.find_one({"user_id": uid, "company_id": cid})
         if logo and logo.get("logo_data"):
             try:
                 img = composite_logo(img, base64.b64decode(logo["logo_data"]))
             except Exception as e:
                 logger.error(f"logo composite falhou: {e}")
-        image_url = await _store_public_image(uid, img)
+        image_url = await _store_public_image(uid, cid, img)
     results = {}
     if do_ig:
         ig = conn.get("ig_user_id")
@@ -201,40 +255,63 @@ async def _publish_core(uid: str, payload: dict) -> dict:
         else:
             fb = await _graph_req("POST", _graph(f"{pid}/feed"), {"message": caption}, token)
         results["facebook"] = {"ok": True, "id": fb.get("id") or fb.get("post_id")}
-    await db.social_posts.insert_one({"user_id": uid, "caption": caption, "image_url": image_url,
-                                      "results": results, "created_at": datetime.now(timezone.utc).isoformat()})
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.social_posts.insert_one({
+        "user_id": uid,
+        "company_id": cid,
+        "post_id": post_id,
+        "caption": caption,
+        "image_url": image_url,
+        "results": results,
+        "created_at": now_iso,
+    })
+    if post_id:
+        await _sync_marketing_post(uid, cid, post_id, "approved", published_at=now_iso)
     return results
 
 
 @router.post("/social/publish")
 async def social_publish(inp: PublishIn, user: dict = Depends(premium_user)):
-    res = await _publish_core(user["id"], inp.model_dump())
+    cid = await active_company_id(user["id"])
+    res = await _publish_core(user["id"], cid, inp.model_dump())
     return {"ok": True, "results": res}
 
 
 @router.post("/social/schedule")
 async def social_schedule(inp: ScheduleIn, user: dict = Depends(premium_user)):
-    conn = await db.social_connections.find_one({"user_id": user["id"]})
+    cid = await active_company_id(user["id"])
+    conn = await _find_connection(user["id"], cid)
     if not conn:
         raise HTTPException(400, "As redes ainda não estão ligadas.")
     d = inp.model_dump(); run_at = d.pop("run_at")
-    job = {"_id": str(uuid.uuid4()), "user_id": user["id"], "payload": d, "run_at": run_at,
+    job = {"_id": str(uuid.uuid4()), "user_id": user["id"], "company_id": cid, "payload": d, "run_at": run_at,
            "status": "queued", "created_at": datetime.now(timezone.utc).isoformat()}
     await db.social_jobs.insert_one(job)
+    if d.get("post_id"):
+        await _sync_marketing_post(user["id"], cid, d.get("post_id"), "scheduled", scheduled_at=run_at)
     return {"ok": True, "id": job["_id"]}
 
 
 @router.get("/social/jobs")
 async def social_jobs(user: dict = Depends(premium_user)):
-    jobs = await db.social_jobs.find({"user_id": user["id"]}).sort("run_at", 1).to_list(100)
+    cid = await active_company_id(user["id"])
+    await _migrate_legacy_jobs(user["id"], cid)
+    jobs = await db.social_jobs.find({"user_id": user["id"], "company_id": cid}).sort("run_at", 1).to_list(100)
     out = [{"id": j["_id"], "run_at": j.get("run_at"), "status": j.get("status"),
-            "caption": ((j.get("payload") or {}).get("caption") or "")[:80], "error": j.get("error")} for j in jobs]
+            "caption": ((j.get("payload") or {}).get("caption") or "")[:80],
+            "post_id": (j.get("payload") or {}).get("post_id"),
+            "error": j.get("error")} for j in jobs]
     return {"jobs": out}
 
 
 @router.delete("/social/jobs/{jid}")
 async def del_job(jid: str, user: dict = Depends(premium_user)):
-    await db.social_jobs.delete_one({"_id": jid, "user_id": user["id"]})
+    cid = await active_company_id(user["id"])
+    job = await db.social_jobs.find_one({"_id": jid, "user_id": user["id"], "company_id": cid})
+    await db.social_jobs.delete_one({"_id": jid, "user_id": user["id"], "company_id": cid})
+    post_id = ((job or {}).get("payload") or {}).get("post_id")
+    if post_id:
+        await _sync_marketing_post(user["id"], cid, post_id, "approved")
     return {"ok": True}
 
 
@@ -289,9 +366,14 @@ async def run_due_social_jobs():
                 {"_id": job["_id"], "status": "queued"}, {"$set": {"status": "processing"}})
             if not claimed:
                 continue
-            res = await _publish_core(job["user_id"], job["payload"])
+            cid = job.get("company_id") or await active_company_id(job["user_id"])
+            res = await _publish_core(job["user_id"], cid, job["payload"])
+            published_at = datetime.now(timezone.utc).isoformat()
             await db.social_jobs.update_one({"_id": job["_id"]}, {"$set": {
-                "status": "published", "result": res, "published_at": datetime.now(timezone.utc).isoformat()}})
+                "status": "published", "result": res, "published_at": published_at}})
+            post_id = ((job or {}).get("payload") or {}).get("post_id")
+            if post_id:
+                await _sync_marketing_post(job["user_id"], cid, post_id, "scheduled", scheduled_at=job.get("run_at"), published_at=published_at)
         except Exception as e:
             await db.social_jobs.update_one({"_id": job["_id"]}, {"$set": {
                 "status": "failed", "error": str(getattr(e, "detail", e))[:500]}})

@@ -1,66 +1,67 @@
-<analysis>**original_problem_statement**: Create a new sidebar section to allow the integration of external management systems (ERPs/SaaS like Obelisco Manager). Needs multi-tenant security, secure token/webhook generation, and receiving financial data (cash balance, debts, fixed costs) to use as active context for CEO AI analysis.
-PRODUCT REQUIREMENTS: 
-- Universal/Generic webhook adapter to receive financial payloads.
-- Multi-tenant isolation (user + active company).
-- *Revised Requirement*: The generic webhook is too technical for end-users. Need to implement a simpler UX (File Upload for financials or a 1-click Simple URL) and eventually build Native Integrations (Moloni, Primavera, Omie, etc.).
+<analysis>**original_problem_statement**: The user requested a complete audit and a phased expansion plan for the Diretor de Marketing (Marketing Director) agent within the CEO AI application. The goal is to evolve it from a basic content generator into a fully autonomous, context-aware executor. The user strictly mandated an ETAPA ZERO (Zero Step) audit of existing functionality before any code could be modified to avoid duplicating existing features.
+PRODUCT REQUIREMENTS:
+- Evaluate the current Marketing module (generation, UI, DB, prompts).
+- Create a strategic phased plan to implement: multi-tenant isolation in social, CRM/Finance context awareness, 30-day editorial calendar, content approval workflows, analytics, and autonomous execution.
 
-**User's preferred language**: Portuguese (pt-PT). You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT the next agent to respond in the user's preferred language only. **(RESPOND IN PORTUGUESE)**
+**User's preferred language**: Portuguese (pt-PT). You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT next agent to respond in the user's preferred language only. **(RESPOND IN PORTUGUESE)**
 
-**what currently exists?**: A React + FastAPI + MongoDB SaaS CEO AI for SMEs. Features Finance, AI Executive Council, CRM, Marketing, Grants/Incentives, and a newly added universal ERP Webhook integration module (allowing inbound financial data via custom header, bearer, or query token).
+**what currently exists?**: A React + FastAPI + MongoDB SaaS CEO AI app. The Marketing Director currently exists in two layers: a standalone  page and a strategic advisor within the . It successfully generates posts, captions, hashtags, and images (using Emergent LLM Key), applying real company logos. However, it lacks deep CRM/ERP context, analytics, and a multi-tenant structure for social scheduling. The Meta Graph API integration exists in code but is inactive due to missing credentials.
 
-**Last working item**: 
-- Last item agent was working: Estimating the effort and discussing the roadmap for Level 3 native ERP integrations (Moloni, Primavera, PHC, etc.) because the generic webhook approach proved too technical for common users. The agent suggested implementing a simpler UX (File Upload or Simple URL) before jumping into heavy native integrations.
+**Last working item**:
+- Last item agent was working: Presenting a 5-phase expansion plan (Plano de Expansão — Diretor de Marketing Executor) based on the completed system audit. The agent asked the user to choose between Option A (Implement Phase 1), Option B (Implement Phase 1 + 2), or Option C (Detail the technical architecture before coding).
 - Status: USER VERIFICATION PENDING
-- Agent Testing Done: N/A (Consulting phase)
+- Agent Testing Done: N/A (Audit and consulting phase only; no code altered)
 - Which testing method agent to use?: NA
 - User Testing Done: N/A
 
-**All Pending/In progress Issue list**: 
-  - Issue 1: ERP Integration UX is too technical for common users.
-     - Attempted fixes: Built a universal webhook adapter, but the user noted that configuring HTTP POSTs, headers, and JSON is too complex for non-technical users.
-     - Next debug checklist: Awaiting user decision to implement a simpler UX (CSV/Excel upload for financials) or a 1-click URL.
-     - Why fix this issue and what will be achieved with the fix?: End-users need an accessible way to sync financial data without programming knowledge.
-     - Status: NOT STARTED (Pending user decision)
+**All Pending/In progress Issue list**:
+  - Issue 1: Multi-tenant missing in Social Module
+     - Attempted fixes: Identified during audit.
+     - Next debug checklist: Check , , and  schemas to add .
+     - Why fix this issue and what will be achieved with the fix?: Currently, social data is only isolated by , meaning multiple companies under one user would share the same social schedule.
+     - Status: NOT STARTED
      - Is recurring issue? N
-     - Should Test frontend/backend/both after fix?: Both
+     - Should Test frontend/backend/both after fix?: Backend
      - Blocked on other issue: NA
-  - Issue 2: Social Media (Meta) automatic publishing (From previous sessions)
-     - Attempted fixes: Awaiting user to provide App ID/Secret and configure Meta OAuth.
-     - Next debug checklist: Check user credentials.
-     - Why fix this issue and what will be achieved with the fix?: Core requirement for Marketing module Phase 4.
+  - Issue 2: Meta Social automatic publishing blocked
+     - Attempted fixes: Awaiting user to provide App ID/Secret.
+     - Next debug checklist: Check user credentials for Meta Graph API.
+     - Why fix this issue and what will be achieved with the fix?: Core execution requirement for the Marketing Director to auto-publish.
      - Status: BLOCKED
      - Is recurring issue? N
      - Should Test frontend/backend/both after fix?: Both
-  - Issue 3: Mobile Push Notifications (Web Push) (From previous sessions)
-     - Attempted fixes: Implemented, waiting for physical device verification by the user.
-     - Next debug checklist: User needs to test on a physical mobile device.
-     - Why fix this issue and what will be achieved with the fix?: Ensure CRM alerts reach users' phones.
-     - Status: USER VERIFICATION PENDING
+  - Issue 3: ERP Integration UX (Carried from previous fork)
+     - Attempted fixes: Discussed File Upload vs Simple URL, but user pivoted entirely to the Marketing Director audit.
+     - Next debug checklist: Revisit when user resumes ERP tasks.
+     - Why fix this issue and what will be achieved with the fix?: End-users need a simpler way to sync financial data without API payloads.
+     - Status: NOT STARTED (Paused)
      - Is recurring issue? N
-     - Should Test frontend/backend/both after fix?: Frontend
+     - Should Test frontend/backend/both after fix?: Both
 
-**In progress Task List**: 
+**In progress Task List**:
 *None currently in the coding phase.*
 
 **Upcoming and Future Tasks**:
-- Upcoming Task 1 (P0): **Simplificar Integração ERP (UX)**: Add a File Upload feature (CSV/Excel/Balancete) or a simplified 1-click URL so users don't have to deal with manual JSON payloads and API headers.
-- Future Task 1 (P1): **Integrações Nativas (Fase 1)**: Build native OAuth integrations for SaaS-friendly systems (Moloni, Omie, Conta Azul).
-- Future Task 2 (P2): **Integrações Nativas (Fase 2)**: Build integrations for enterprise systems (Primavera, PHC).
-- Future Task 3 (P2): **Mais Apoios Regionais**: Add regional grant lines to the catalog.
-- Future Task 4 (P2): **Resumo Semanal**: Create an automated weekly email summarizing ongoing tasks.
+- Upcoming Task 1 (P0): **Marketing Fase 1 - Arrumação Estrutural**: Add  to social tables, inject real CRM/Memories/ERP context into the Marketing generator, expand Brand Brain.
+- Upcoming Task 2 (P0): **Marketing Fase 2 - Operação Editorial**: Create content states (draft, approved, scheduled), a content library, and expand the calendar to 30 days.
+- Future Task 1 (P1): **Marketing Fase 3 - Execução Real**: Validate the Meta integration and implement the UI for the publishing queue.
+- Future Task 2 (P2): **Marketing Fase 4 & 5 - Analytics e Automação**: Gather social metrics, create an learning loop from results, and establish a daily autonomous briefing.
 
 **Completed work in this session**
-- Universal ERP Integration Backend:  (DONE)
-- Universal ERP Integration Frontend:  (DONE)
-- Sidebar Integration for ERP:  (DONE)
-- ERP Webhook Auth Modes (Header, Bearer, Query param) and partial JSON payload merging (DONE)
-- End-to-end testing for ERP integrations (DONE)
+- Complete backend and frontend audit of the Diretor de Marketing module (DONE)
+- Identification of real capabilities vs. mock/blocked features (DONE)
+- Delivery of the AUDITORIA DO DIRETOR DE MARKETING report (DONE)
+- Proposal of the 5-phase Plano de Expansão (DONE)
 
 **Earlier issues found/mentioned but not fixed**
-*None beyond the pending issues listed above.*
+- Issue 1: , , and  lack .
+  - Debug checklist: Review MongoDB schemas in .
+  - Why to solve this issue and what will be achieved with this?: Vital for correct multi-tenant data isolation before activating auto-posting.
+  - Should Test frontend/backend/both after fix: Backend
+  - Is recurring issue? N
 
 **Known issue recurrence from previous fork**
-  - Issue recurrence in previous fork: None observed.
+  - Issue recurrence in previous fork: None
   - Recurrence count: 0
   - Status: RESOLVED
 
@@ -68,24 +69,22 @@ PRODUCT REQUIREMENTS:
 
 
 **Key Technical Concepts**
-React SPA, FastAPI backend, MongoDB. Inbound webhook for generic ERP financial sync (supports , , and Query string ). Contextual AI prompt injection with ERP data.
+React SPA, FastAPI backend, MongoDB. AI content generation utilizing Emergent LLM Key ( for text,  for images). The application is strongly multi-tenant ( + ). Meta Graph API OAuth architecture exists but is dormant.
 
 **key DB schema**
-  - : {user_id, company_id, current_snapshot, recent_events[], updated_at}
-  - : {admin settings}
+  - : {user_id, company_id, content: {brand, posts...}}
+  -  /  / : {user_id...} *(Needs  added)*
 
 **changes in tech stack**
-  - None
+  - None in this session.
 
-**All files of reference** 
-  -  (Created: Handles webhook requests and token generation)
-  -  (Created: UI for the user to configure the generic webhook)
-  -  (Updated: Added fields for external webhook configuration)
-  -  (Updated: AI context functions now include financial data from the ERP context)
-  -  (Created: Pytest suite for the webhook logic)
+**All files of reference**
+  -  (Marketing content generation logic)
+  -  (Social media scheduling logic)
+  -  (Marketing UI)
 
-**Areas that need refactoring**: 
-None identified in this session.
+**Areas that need refactoring**:
+-  routing and DB queries need to be updated to enforce  isolation.
 
 **key api endpoints**
   - 
@@ -93,38 +92,38 @@ None identified in this session.
   - 
   - 
 
-**Critical Info for New Agent** 
-  - **PRODUCTION DEPLOYMENT:** The user has deployed the app to production (). You only have access to Preview. If issues arise, clarify if it's on preview or production.
-  - The universal ERP webhook is fully functional technically, but the user requested a much simpler UX because their target audience cannot send POST requests with JSON bodies. Your immediate next action should likely be implementing the simpler File Upload (CSV/Excel) or the Simple URL logic discussed in the final messages.
+**Critical Info for New Agent**
+- **CRITICAL**: The user specifically demanded that *no code be written or altered* during this session. The current state is purely conversational/planning.
+- **WAIT FOR USER DECISION**: The previous agent offered three options (A, B, or C) regarding which phases of the Marketing expansion to build first. *Do not start coding until the user provides their choice in the next message.*
+- **CONTEXT MERGE**: When Phase 1 begins, your priority will be injecting data from , , and  into the  LLM prompts so the marketing output is based on the company's real financial and commercial state.
 
-**documents and test reports created in this job** 
-  - 
-  - 
-  - 
+**documents and test reports created in this job**
+- None (Only chat-based Audit Reports).
 
-**Last 10 User Messages and any pending HUMAN messages** 
- - *User*: Requested the ERP integration feature in the sidebar. (Implemented)
- - *User*: Agreed to make the integration universal rather than specific to Obelisco. (Implemented)
- - *User*: Asked how to actually connect the Obelisco software to the newly created webhook system. (Answered)
- - *User*: Stated the technical webhook configuration is too complex for a common user. (Discussed)
- - *User*: Asked for an effort estimation for Level 3 Native Integrations (Moloni, Primavera, Omie, etc.). (Answered)
- - *Pending*: Agent provided the estimation and suggested doing a simpler UX first (File Upload / Simple URL). **Waiting for the user to confirm the immediate next step.**
+**Last 10 User Messages and any pending HUMAN messages**
+ - *User*: Requested confirmation of the plan.
+ - *User*: Sent a massive, strict prompt (ETAPA ZERO) demanding a full audit of the Marketing module before any code changes.
+ - *User*: (System) Reminder regarding testing subagent after bug fixes.
+ - *User*: (Tool results) File lists and codebase structures.
+ - *User*: (Tool results) MongoDB collection tests and backend logic.
+ - *User*: (Tool results) Screenshot attempt for .
+ - *User*: (Tool results) Chat internal routing code ().
+ - *User*: Replied sim eu quero (Yes I want the phased plan) after seeing the audit.
+ - *Pending*: Agent presented the 5-phase plan and asked the user to choose Option A, B, or C. **Waiting for the user to make a choice.**
 
 **Project Health Check:**
-- Broken: None
-- Mocked: Meta Social integrations (pending real user credentials).
+- Broken:  collections missing multi-tenant structure.
+- Mocked: Meta automatic publishing (blocked by missing App ID/Secret).
 
-**3rd Party Integrations** 
-  - OpenAI / Claude Models — uses Emergent LLM Key
-  - Google Places API — requires User API Key
-  - Stripe (Payments) — requires User API Key (Test key)
-  - Meta Graph API — requires User API Key (Pending)
-  - Resend (Email) — Platform-managed via EMERGENT_EMAIL_KEY
+**3rd Party Integrations**
+  - OpenAI (GPT-5.4 & GPT Image 1) — uses Emergent LLM Key
+  - Meta Graph API (Social Posting) — requires User API Key (Currently missing)
+  - Stripe (Payments) — requires User API Key (Test key present)
 
 **Testing status**
-  - Testing agent used after significant changes: YES
+  - Testing agent used after significant changes: NO (No changes made)
   - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: 
+  - Test files created: None
   - Known regressions: None
 
 **Credentials to test flow:**
@@ -132,4 +131,4 @@ None identified in this session.
   - Password: 
 
 **What agent forgot to execute**
-The technical implementation was completed successfully. However, the user realized mid-conversation that the UX is inappropriate for their target audience, so a pivot to a simpler UX (file uploads/simple URLs) is required next.</analysis>
+The agent executed exactly as the user demanded (Audit only, no code changes). No tasks were forgotten in this context.</analysis>
