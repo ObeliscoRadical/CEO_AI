@@ -98,6 +98,97 @@ class TestMarketing:
         data2 = r2.json()
         assert data2["post"]["status"] == "draft"
 
+    def test_execution_analytics_and_briefing(self, sess):
+        current = sess.get(f"{BASE}/api/marketing/content", timeout=30)
+        assert current.status_code == 200
+        content = ((current.json().get("content") or {}).get("content") or {})
+        posts = content.get("posts") or []
+        assert posts, "expected generated posts"
+        post = posts[0]
+
+        companies = sess.get(f"{BASE}/api/companies", timeout=30)
+        assert companies.status_code == 200, companies.text
+        cid = companies.json().get("active_company_id")
+        uid = str(MONGO.users.find_one({"email": ADMIN_EMAIL})["_id"])
+        stamp = int(time.time())
+        job_id = f"queue-{stamp}"
+        social_post_id = f"social-{stamp}"
+        run_at = "2031-01-12T09:00:00Z"
+        published_at = datetime.now(timezone.utc).isoformat()
+
+        MONGO.social_jobs.insert_one({
+            "_id": job_id,
+            "user_id": uid,
+            "company_id": cid,
+            "payload": {"post_id": post["id"], "caption": "Fila de teste", "post_meta": {"title": post["titulo"], "theme": post["tema"], "format": post["formato"]}},
+            "run_at": run_at,
+            "status": "queued",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        MONGO.social_posts.insert_one({
+            "_id": social_post_id,
+            "user_id": uid,
+            "company_id": cid,
+            "post_id": post["id"],
+            "post_title": post["titulo"],
+            "theme": post["tema"],
+            "format": post["formato"],
+            "caption": "Histórico de teste",
+            "results": {"instagram": {"ok": True, "id": "ig-test"}},
+            "created_at": published_at,
+        })
+        MONGO.marketing_post_metrics.insert_one({
+            "user_id": uid,
+            "company_id": cid,
+            "social_post_id": social_post_id,
+            "post_id": post["id"],
+            "post_title": post["titulo"],
+            "format": post["formato"],
+            "theme": post["tema"],
+            "channels": ["instagram"],
+            "metrics": {"impressions": 2200, "reach": 1600, "likes": 88, "comments": 12, "shares": 10, "saves": 24, "clicks": 39, "profile_visits": 41, "engagement_rate": 8.38, "top_signal": "gerou conversa"},
+            "mocked": True,
+            "published_at": published_at,
+            "created_at": published_at,
+        })
+        try:
+            execution = sess.get(f"{BASE}/api/marketing/execution", timeout=30)
+            assert execution.status_code == 200, execution.text
+            execution_data = execution.json()
+            assert any(item["id"] == job_id for item in execution_data["queued"])
+            assert any(item["id"] == social_post_id for item in execution_data["history"])
+
+            new_run = "2031-01-13T11:30:00Z"
+            res = sess.post(f"{BASE}/api/social/jobs/{job_id}/reschedule", json={"run_at": new_run}, timeout=30)
+            assert res.status_code == 200, res.text
+            updated_job = MONGO.social_jobs.find_one({"_id": job_id})
+            assert updated_job["run_at"] == new_run
+
+            refreshed = sess.get(f"{BASE}/api/marketing/content", timeout=30)
+            refreshed_posts = ((refreshed.json().get("content") or {}).get("content") or {}).get("posts") or []
+            refreshed_post = next(p for p in refreshed_posts if p["id"] == post["id"])
+            assert refreshed_post["status"] == "scheduled"
+            assert refreshed_post["scheduled_at"] == new_run
+
+            analytics = sess.get(f"{BASE}/api/marketing/analytics", timeout=30)
+            assert analytics.status_code == 200, analytics.text
+            analytics_data = analytics.json()
+            assert analytics_data["mocked"] is True
+            assert analytics_data["summary"]["published_posts"] >= 1
+            assert len(analytics_data["top_posts"]) >= 1
+
+            briefing = sess.post(f"{BASE}/api/marketing/briefing/generate", json={"force": True, "send_email": False}, timeout=90)
+            assert briefing.status_code == 200, briefing.text
+            briefing_data = briefing.json()
+            for key in ("headline", "summary", "wins", "risks", "actions", "experiments"):
+                assert key in briefing_data, f"missing {key}"
+            assert briefing_data["mocked_metrics"] is True
+        finally:
+            sess.post(f"{BASE}/api/marketing/posts/{post['id']}/status", json={"status": "draft"}, timeout=30)
+            MONGO.social_jobs.delete_many({"_id": job_id})
+            MONGO.social_posts.delete_many({"_id": social_post_id})
+            MONGO.marketing_post_metrics.delete_many({"social_post_id": social_post_id})
+
 
 class TestSocialCompanyIsolation:
     @pytest.fixture(scope="class")

@@ -1,6 +1,9 @@
 """Diretor de Marketing — planeamento contextual, workflow editorial e calendário operacional."""
 import base64
+import hashlib
+import os
 from datetime import datetime, timezone, timedelta
+from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
@@ -15,6 +18,7 @@ from core import (
     logger,
     premium_user,
     resolve_company,
+    send_email_raw,
     store_public_media,
 )
 
@@ -383,6 +387,319 @@ def _normalize_content(raw: dict, ctx: dict):
     return content
 
 
+def _stable_seed(*parts):
+    joined = "|".join(str(p or "") for p in parts)
+    return int(hashlib.sha256(joined.encode("utf-8")).hexdigest()[:8], 16)
+
+
+def _top_signal(metrics: dict):
+    mapping = {
+        "likes": "atraiu reacção rápida",
+        "comments": "gerou conversa",
+        "shares": "foi suficientemente útil para partilha",
+        "saves": "tem valor de referência",
+        "clicks": "levou tráfego para a próxima ação",
+        "profile_visits": "despertou curiosidade pela marca",
+    }
+    key = max(mapping.keys(), key=lambda item: metrics.get(item, 0))
+    return mapping[key]
+
+
+def build_mock_metrics(post: dict, published_at: str, channels: list[str]):
+    fmt = post.get("formato") or "Post"
+    title = post.get("titulo") or post.get("tema") or "Conteúdo"
+    seed = _stable_seed(post.get("id"), title, published_at, ",".join(channels))
+    base = {"Reel": 2400, "Post": 1600, "Story": 900}.get(fmt, 1400)
+    impressions = base + (seed % 1800) + (max(len(channels), 1) - 1) * 380
+    reach = int(impressions * 0.72)
+    likes = max(18, int(reach * {"Reel": 0.052, "Post": 0.036, "Story": 0.028}.get(fmt, 0.03)) + (seed % 37))
+    comments = max(3, int(likes * 0.16) + (seed % 9))
+    shares = max(2, int(likes * 0.19) + ((seed // 5) % 8))
+    saves = max(4, int(likes * 0.24) + ((seed // 7) % 11))
+    clicks = max(5, int(reach * 0.018) + ((seed // 9) % 13))
+    profile_visits = max(7, int(reach * 0.025) + ((seed // 11) % 17))
+    engagement = likes + comments + shares + saves
+    metrics = {
+        "impressions": impressions,
+        "reach": reach,
+        "likes": likes,
+        "comments": comments,
+        "shares": shares,
+        "saves": saves,
+        "clicks": clicks,
+        "profile_visits": profile_visits,
+        "engagement_rate": round((engagement / max(reach, 1)) * 100, 2),
+    }
+    metrics["top_signal"] = _top_signal(metrics)
+    return metrics
+
+
+async def record_marketing_metrics(uid: str, cid: str, social_post_doc: dict, post: Optional[dict] = None):
+    if not (uid and cid and social_post_doc):
+        return None
+    post = post or {}
+    channels = [channel for channel, result in (social_post_doc.get("results") or {}).items() if result.get("ok")]
+    published_at = social_post_doc.get("created_at") or datetime.now(timezone.utc).isoformat()
+    metrics = build_mock_metrics(post, published_at, channels)
+    doc = {
+        "user_id": uid,
+        "company_id": cid,
+        "social_post_id": social_post_doc.get("_id"),
+        "post_id": social_post_doc.get("post_id"),
+        "post_title": social_post_doc.get("post_title") or post.get("titulo") or post.get("tema") or "Conteúdo",
+        "format": social_post_doc.get("format") or post.get("formato") or "Post",
+        "theme": social_post_doc.get("theme") or post.get("tema") or "Marca",
+        "channels": channels,
+        "metrics": metrics,
+        "mocked": True,
+        "published_at": published_at,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.marketing_post_metrics.update_one(
+        {"user_id": uid, "company_id": cid, "social_post_id": social_post_doc.get("_id")},
+        {"$set": doc},
+        upsert=True,
+    )
+    return doc
+
+
+def _analytics_breakdown(rows: list[dict], key: str):
+    buckets = {}
+    for row in rows:
+        bucket = row.get(key) or "n/d"
+        current = buckets.setdefault(bucket, {"count": 0, "reach": 0, "clicks": 0, "engagement_rate_sum": 0.0})
+        current["count"] += 1
+        current["reach"] += row.get("metrics", {}).get("reach", 0)
+        current["clicks"] += row.get("metrics", {}).get("clicks", 0)
+        current["engagement_rate_sum"] += row.get("metrics", {}).get("engagement_rate", 0)
+    out = []
+    for bucket, data in buckets.items():
+        out.append({
+            "label": bucket,
+            "count": data["count"],
+            "reach": data["reach"],
+            "clicks": data["clicks"],
+            "avg_engagement_rate": round(data["engagement_rate_sum"] / max(data["count"], 1), 2),
+        })
+    return sorted(out, key=lambda item: (item["avg_engagement_rate"], item["reach"]), reverse=True)
+
+
+async def summarize_marketing_analytics(uid: str, cid: str):
+    rows = await db.marketing_post_metrics.find({"user_id": uid, "company_id": cid}).sort("published_at", -1).to_list(100)
+    if not rows:
+        return {
+            "mocked": True,
+            "summary": {"published_posts": 0, "reach": 0, "impressions": 0, "clicks": 0, "avg_engagement_rate": 0},
+            "top_posts": [],
+            "best_formats": [],
+            "best_weekdays": [],
+            "insights": ["Ainda não há publicações suficientes para aprender com dados reais ou simulados."],
+            "recommended_actions": ["Publique 3 a 5 conteúdos e volte aqui para ativar o loop de aprendizagem."],
+        }
+
+    totals = {"published_posts": len(rows), "reach": 0, "impressions": 0, "clicks": 0, "engagement_rate_sum": 0.0}
+    top_posts = []
+    weekday_rows = []
+    for row in rows:
+        metrics = row.get("metrics") or {}
+        totals["reach"] += metrics.get("reach", 0)
+        totals["impressions"] += metrics.get("impressions", 0)
+        totals["clicks"] += metrics.get("clicks", 0)
+        totals["engagement_rate_sum"] += metrics.get("engagement_rate", 0)
+        try:
+            weekday = WEEKDAYS_PT[datetime.fromisoformat((row.get("published_at") or "").replace("Z", "+00:00")).weekday()]
+        except Exception:
+            weekday = "n/d"
+        weekday_rows.append({**row, "weekday": weekday})
+        top_posts.append({
+            "post_id": row.get("post_id"),
+            "title": row.get("post_title"),
+            "format": row.get("format"),
+            "theme": row.get("theme"),
+            "channels": row.get("channels") or [],
+            "published_at": row.get("published_at"),
+            "mocked": row.get("mocked", True),
+            **metrics,
+        })
+
+    avg_engagement = round(totals["engagement_rate_sum"] / max(totals["published_posts"], 1), 2)
+    best_formats = _analytics_breakdown(rows, "format")
+    best_weekdays = _analytics_breakdown(weekday_rows, "weekday")
+    top_posts = sorted(top_posts, key=lambda item: (item.get("engagement_rate", 0), item.get("clicks", 0)), reverse=True)[:5]
+
+    insights = []
+    if top_posts:
+        winner = top_posts[0]
+        insights.append(f"'{winner['title']}' é o melhor conteúdo recente: {winner.get('engagement_rate', 0)}% de engagement e {winner.get('clicks', 0)} cliques.")
+    if best_formats:
+        insights.append(f"{best_formats[0]['label']} está a liderar com {best_formats[0]['avg_engagement_rate']}% de engagement médio.")
+    if best_weekdays:
+        insights.append(f"{best_weekdays[0]['label'].capitalize()} é o melhor dia recente para alcance/clicks desta empresa.")
+    if not insights:
+        insights.append("Ainda não há padrões fortes; mantenha consistência para alimentar o motor de aprendizagem.")
+
+    recommended_actions = []
+    if best_formats:
+        recommended_actions.append(f"Aumentar em 20-30% o volume de {best_formats[0]['label']} nos próximos 14 dias.")
+    if top_posts:
+        recommended_actions.append(f"Reciclar o ângulo '{top_posts[0]['theme']}' em novos conteúdos e CTA semelhantes.")
+    if best_weekdays:
+        recommended_actions.append(f"Reservar os slots de maior prioridade para {best_weekdays[0]['label']}." )
+    if not recommended_actions:
+        recommended_actions.append("Continuar a publicar para construir histórico suficiente para otimização.")
+
+    return {
+        "mocked": True,
+        "summary": {
+            "published_posts": totals["published_posts"],
+            "reach": totals["reach"],
+            "impressions": totals["impressions"],
+            "clicks": totals["clicks"],
+            "avg_engagement_rate": avg_engagement,
+        },
+        "top_posts": top_posts,
+        "best_formats": best_formats,
+        "best_weekdays": best_weekdays,
+        "insights": insights,
+        "recommended_actions": recommended_actions,
+    }
+
+
+def _fallback_marketing_briefing(user_name: str, company_name: str, analytics: dict, workflow: dict, queued: list[dict]):
+    return {
+        "headline": f"{company_name}: foco editorial para hoje",
+        "summary": f"Olá {user_name or 'equipa'}. Tens {workflow.get('approved', 0)} conteúdos aprovados e {len(queued)} peças em fila para publicação.",
+        "wins": analytics.get("insights", [])[:2],
+        "risks": [
+            "Evitar que conteúdos aprovados fiquem sem horário definido.",
+            "Sem Meta ligada, as métricas continuam simuladas e servem apenas para treino interno.",
+        ],
+        "actions": analytics.get("recommended_actions", [])[:3],
+        "experiments": [
+            "Testar o melhor formato da semana com um CTA mais direto.",
+            "Repetir o melhor tema com variação de prova social.",
+        ],
+        "email_subject": f"Briefing Marketing Diário — {company_name}",
+    }
+
+
+def build_marketing_briefing_html(name: str, company_name: str, data: dict, app_url: str):
+    def _list(items):
+        return "".join(
+            f"<li style='margin:0 0 10px 0;color:#374151;line-height:1.5'>{item}</li>" for item in items if item
+        ) or "<li style='color:#6b7280'>Sem itens para hoje.</li>"
+
+    return f"""<!DOCTYPE html><html><body style='margin:0;background:#0f172a;font-family:Arial,Helvetica,sans-serif;'>
+    <table width='100%' cellpadding='0' cellspacing='0' style='padding:28px 0;background:#0f172a;'><tr><td align='center'>
+      <table width='620' cellpadding='0' cellspacing='0' style='background:#ffffff;border-radius:22px;overflow:hidden;'>
+        <tr><td style='padding:28px 32px;background:linear-gradient(135deg,#0f172a,#1d4ed8);color:#fff;'>
+          <div style='font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#bfdbfe;'>CEO AI · Diretor de Marketing</div>
+          <div style='font-size:28px;font-weight:700;margin-top:8px;'>{data.get('headline','Briefing Marketing')}</div>
+          <div style='font-size:14px;line-height:1.6;color:#e2e8f0;margin-top:12px;'>{data.get('summary','')}</div>
+        </td></tr>
+        <tr><td style='padding:28px 32px;'>
+          <div style='font-size:14px;color:#6b7280;margin-bottom:20px;'>Empresa ativa: <strong style='color:#111827'>{company_name}</strong> · Destinatário: <strong style='color:#111827'>{name or 'equipa'}</strong></div>
+          <h3 style='margin:0 0 10px 0;color:#111827;'>O que está a resultar</h3>
+          <ul style='padding-left:18px;margin:0 0 18px 0'>{_list(data.get('wins', []))}</ul>
+          <h3 style='margin:0 0 10px 0;color:#111827;'>Riscos / atenção</h3>
+          <ul style='padding-left:18px;margin:0 0 18px 0'>{_list(data.get('risks', []))}</ul>
+          <h3 style='margin:0 0 10px 0;color:#111827;'>Ações para hoje</h3>
+          <ul style='padding-left:18px;margin:0 0 18px 0'>{_list(data.get('actions', []))}</ul>
+          <h3 style='margin:0 0 10px 0;color:#111827;'>Experiências sugeridas</h3>
+          <ul style='padding-left:18px;margin:0 0 24px 0'>{_list(data.get('experiments', []))}</ul>
+          <div style='padding:16px 18px;border-radius:16px;background:#eff6ff;color:#1e3a8a;font-size:13px;line-height:1.6;'>
+            As métricas deste módulo estão <strong>MOCKED</strong> até a Meta estar ligada. Servem para treino editorial interno e não substituem analytics reais.
+          </div>
+          <div style='text-align:center;margin-top:24px;'><a href='{app_url}/marketing' style='display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:13px 24px;border-radius:999px;font-weight:700;'>Abrir o Marketing</a></div>
+        </td></tr>
+      </table>
+    </td></tr></table></body></html>"""
+
+
+async def generate_marketing_briefing(uid: str, cid: str, user_name: str, user_email: Optional[str] = None,
+                                      send_email: bool = False, force: bool = False):
+    today = datetime.now(timezone.utc).date().isoformat()
+    if not force:
+        existing = await db.marketing_briefings.find_one({"user_id": uid, "company_id": cid, "date": today}, {"_id": 0})
+        if existing:
+            return existing
+
+    company = await resolve_company(uid, cid) or {}
+    workflow_doc = await db.marketing_content.find_one({"user_id": uid, "company_id": cid}, {"_id": 0, "content.workflow_summary": 1, "content.brand_brain": 1})
+    workflow = ((workflow_doc or {}).get("content") or {}).get("workflow_summary") or {"draft": 0, "approved": 0, "scheduled": 0, "total": 0}
+    queued = await db.social_jobs.find({"user_id": uid, "company_id": cid, "status": {"$in": ["queued", "processing"]}}).sort("run_at", 1).to_list(8)
+    leads = await db.crm_leads.find({"user_id": uid, "company_id": cid}, {"_id": 0, "name": 1, "stage": 1, "score": 1}).sort("score", -1).to_list(4)
+    analytics = await summarize_marketing_analytics(uid, cid)
+    system = (
+        "És um Diretor de Marketing executivo. Lês analytics, fila editorial e contexto comercial para orientar a equipa. "
+        "Português europeu, direto, humano e acionável."
+    )
+    prompt = (
+        f"Empresa: {company.get('name') or 'Empresa'}\n"
+        f"Workflow: {workflow}\n"
+        f"Fila agendada: {[{'run_at': j.get('run_at'), 'caption': ((j.get('payload') or {}).get('caption') or '')[:80]} for j in queued]}\n"
+        f"Leads prioritários: {leads}\n"
+        f"Analytics (MOCKED até ligar Meta): {analytics}\n\n"
+        "Devolve APENAS JSON válido com esta estrutura: "
+        '{"headline":str,"summary":str,"wins":[str],"risks":[str],"actions":[str],"experiments":[str],"email_subject":str}. '
+        "Quero 2-3 wins, 2-3 risks, 3 ações prioritárias e 2 experiências. Se as métricas forem simuladas, assume isso explicitamente nas recomendações."
+    )
+    data = await ai_json(system, prompt)
+    briefing = data if isinstance(data, dict) and data.get("headline") else _fallback_marketing_briefing(user_name, company.get("name") or "Empresa", analytics, workflow, queued)
+    doc = {
+        "user_id": uid,
+        "company_id": cid,
+        "date": today,
+        "company_name": company.get("name") or "Empresa",
+        "mocked_metrics": analytics.get("mocked", True),
+        "headline": briefing.get("headline"),
+        "summary": briefing.get("summary"),
+        "wins": _str_list(briefing.get("wins"), 4),
+        "risks": _str_list(briefing.get("risks"), 4),
+        "actions": _str_list(briefing.get("actions"), 4),
+        "experiments": _str_list(briefing.get("experiments"), 3),
+        "email_subject": _short(briefing.get("email_subject"), f"Briefing Marketing Diário — {company.get('name') or 'Empresa'}"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.marketing_briefings.update_one({"user_id": uid, "company_id": cid, "date": today}, {"$set": doc}, upsert=True)
+
+    if send_email and user_email:
+        app_url = os.environ.get("FRONTEND_URL", "").rstrip("/")
+        html = build_marketing_briefing_html(user_name, doc["company_name"], doc, app_url)
+        ok = await send_email_raw(user_email, doc["email_subject"], html)
+        if not ok:
+            raise HTTPException(502, "Não foi possível enviar o briefing de marketing por email")
+    return doc
+
+
+async def send_daily_marketing_briefings():
+    today = datetime.now(timezone.utc).date().isoformat()
+    cursor = db.settings.find({"email_marketing_briefing": True})
+    async for settings in cursor:
+        uid = settings.get("user_id")
+        if not uid:
+            continue
+        claim = await db.settings.update_one(
+            {"user_id": uid, "email_marketing_briefing": True, "last_marketing_briefing_email_date": {"$ne": today}},
+            {"$set": {"last_marketing_briefing_email_date": today}},
+        )
+        if claim.modified_count != 1:
+            continue
+        try:
+            user_doc = await db.users.find_one({"_id": ObjectId(uid)})
+            if not user_doc:
+                continue
+            cid = settings.get("active_company_id") or await active_company_id(uid)
+            if not cid:
+                company = await db.companies.find_one({"user_id": uid}, {"_id": 1})
+                cid = str(company.get("_id")) if company else None
+            if not cid:
+                continue
+            await generate_marketing_briefing(uid, cid, user_doc.get("name", ""), user_doc.get("email"), send_email=True, force=True)
+        except Exception as e:
+            logger.error(f"daily marketing briefing error for {uid}: {e}")
+
+
 class ImageIn(BaseModel):
     index: int
 
@@ -391,12 +708,107 @@ class PostStatusIn(BaseModel):
     status: str
 
 
+class MarketingBriefingIn(BaseModel):
+    send_email: bool = False
+    force: bool = False
+
+
 @router.get("/marketing/content")
 async def get_content(user: dict = Depends(premium_user)):
     uid = user["id"]
     cid = await active_company_id(uid)
     doc = await db.marketing_content.find_one({"user_id": uid, "company_id": cid})
     return {"content": _serialize(doc)}
+
+
+@router.get("/marketing/execution")
+async def get_execution(user: dict = Depends(premium_user)):
+    uid = user["id"]
+    cid = await active_company_id(uid)
+    content_doc = await db.marketing_content.find_one({"user_id": uid, "company_id": cid}, {"_id": 0, "content.posts": 1})
+    post_map = {
+        post.get("id"): {
+            "title": post.get("titulo"),
+            "theme": post.get("tema"),
+            "format": post.get("formato"),
+            "status": post.get("status"),
+        }
+        for post in (((content_doc or {}).get("content") or {}).get("posts") or []) if post.get("id")
+    }
+    jobs = await db.social_jobs.find({"user_id": uid, "company_id": cid}).sort("run_at", 1).to_list(100)
+    metrics = await db.marketing_post_metrics.find({"user_id": uid, "company_id": cid}).to_list(200)
+    metric_map = {row.get("social_post_id"): row for row in metrics}
+    queued, history = [], []
+    for job in jobs:
+        payload = job.get("payload") or {}
+        meta = payload.get("post_meta") or post_map.get(payload.get("post_id"), {})
+        item = {
+            "id": job.get("_id"),
+            "post_id": payload.get("post_id"),
+            "title": meta.get("title") or payload.get("caption", "")[:72] or "Conteúdo agendado",
+            "theme": meta.get("theme"),
+            "format": meta.get("format"),
+            "run_at": job.get("run_at"),
+            "status": job.get("status"),
+            "caption": payload.get("caption", "")[:120],
+            "error": job.get("error"),
+        }
+        if job.get("status") in {"queued", "processing"}:
+            queued.append(item)
+        elif job.get("status") == "failed":
+            history.append({**item, "kind": "failed", "sort_at": job.get("created_at") or job.get("run_at")})
+
+    posts = await db.social_posts.find({"user_id": uid, "company_id": cid}).sort("created_at", -1).to_list(40)
+    for post in posts:
+        metrics_doc = metric_map.get(post.get("_id")) or {}
+        history.append({
+            "id": post.get("_id"),
+            "kind": "published",
+            "post_id": post.get("post_id"),
+            "title": post.get("post_title") or (post_map.get(post.get("post_id"), {}) or {}).get("title") or "Conteúdo publicado",
+            "theme": post.get("theme") or (post_map.get(post.get("post_id"), {}) or {}).get("theme"),
+            "format": post.get("format") or (post_map.get(post.get("post_id"), {}) or {}).get("format"),
+            "published_at": post.get("created_at"),
+            "channels": [channel for channel, result in (post.get("results") or {}).items() if result.get("ok")],
+            "caption": post.get("caption", "")[:120],
+            "metrics": metrics_doc.get("metrics") or None,
+            "mocked_metrics": metrics_doc.get("mocked", True),
+            "sort_at": post.get("created_at"),
+        })
+
+    history = sorted(history, key=lambda item: item.get("sort_at") or "", reverse=True)[:30]
+    for item in history:
+        item.pop("sort_at", None)
+    return {
+        "summary": {
+            "queued": len(queued),
+            "published": len([item for item in history if item.get("kind") == "published"]),
+            "failed": len([item for item in history if item.get("kind") == "failed"]),
+        },
+        "queued": queued,
+        "history": history,
+    }
+
+
+@router.get("/marketing/analytics")
+async def get_marketing_analytics(user: dict = Depends(premium_user)):
+    uid = user["id"]
+    cid = await active_company_id(uid)
+    return await summarize_marketing_analytics(uid, cid)
+
+
+@router.get("/marketing/briefing")
+async def get_marketing_briefing(user: dict = Depends(premium_user)):
+    uid = user["id"]
+    cid = await active_company_id(uid)
+    return await generate_marketing_briefing(uid, cid, user.get("name", ""), user.get("email"), send_email=False, force=False)
+
+
+@router.post("/marketing/briefing/generate")
+async def refresh_marketing_briefing(inp: MarketingBriefingIn, user: dict = Depends(premium_user)):
+    uid = user["id"]
+    cid = await active_company_id(uid)
+    return await generate_marketing_briefing(uid, cid, user.get("name", ""), user.get("email"), send_email=inp.send_email, force=inp.force)
 
 
 @router.post("/marketing/generate")

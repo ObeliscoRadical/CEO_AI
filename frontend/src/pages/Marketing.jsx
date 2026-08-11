@@ -3,6 +3,9 @@ import { api, formatApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ExecutionQueueSection } from "@/components/marketing/ExecutionQueueSection";
+import { AnalyticsSection } from "@/components/marketing/AnalyticsSection";
+import { MarketingBriefingSection } from "@/components/marketing/MarketingBriefingSection";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
@@ -70,10 +73,10 @@ const PillList = ({ items = [], color = "#A78BFA", testIdPrefix }) => (
   </div>
 );
 
-const TargetToggle = ({ channel, Icon, label, enabled, onToggle }) => (
+const TargetToggle = ({ channel, Icon, label, enabled, onToggle, testId }) => (
   <button
     type="button"
-    data-testid={`mkt-target-${channel}`}
+    data-testid={testId || `mkt-target-${channel}`}
     onClick={onToggle}
     className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-colors ${enabled ? "border-[#A78BFA] text-[#A78BFA] bg-[#A78BFA]/10" : "border-white/15 text-muted-foreground"}`}
   >
@@ -88,15 +91,22 @@ function Marketing() {
   const [loaded, setLoaded] = useState(false);
   const [gen, setGen] = useState(false);
   const [social, setSocial] = useState(null);
-  const [jobs, setJobs] = useState([]);
+  const [execution, setExecution] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
+  const [briefing, setBriefing] = useState(null);
+  const [marketingEmailEnabled, setMarketingEmailEnabled] = useState(false);
   const [busy, setBusy] = useState(null);
   const [schedFor, setSchedFor] = useState(null);
   const [schedWhen, setSchedWhen] = useState("");
+  const [rescheduleFor, setRescheduleFor] = useState(null);
+  const [rescheduleWhen, setRescheduleWhen] = useState("");
   const [targets, setTargets] = useState({ instagram: true, facebook: true });
   const [logo, setLogo] = useState(null);
   const [logoBusy, setLogoBusy] = useState(false);
   const [imgBusy, setImgBusy] = useState(null);
   const [workflowBusy, setWorkflowBusy] = useState(null);
+  const [briefingBusy, setBriefingBusy] = useState(false);
+  const [briefingEmailBusy, setBriefingEmailBusy] = useState(false);
 
   const loadMarketing = async () => {
     try {
@@ -125,12 +135,42 @@ function Marketing() {
     }
   };
 
-  const loadJobs = async () => {
+  const loadExecution = async () => {
     try {
-      const { data } = await api.get("/social/jobs");
-      setJobs(data.jobs || []);
+      const { data } = await api.get("/marketing/execution");
+      setExecution(data);
     } catch {
-      setJobs([]);
+      setExecution(null);
+    }
+  };
+
+  const loadAnalytics = async () => {
+    try {
+      const { data } = await api.get("/marketing/analytics");
+      setAnalytics(data);
+    } catch {
+      setAnalytics(null);
+    }
+  };
+
+  const loadBriefing = async (force = false, sendEmail = false) => {
+    try {
+      const { data } = await api.post("/marketing/briefing/generate", { force, send_email: sendEmail });
+      setBriefing(data);
+      return data;
+    } catch (error) {
+      if (sendEmail) throw error;
+      setBriefing(null);
+      return null;
+    }
+  };
+
+  const loadMarketingSettings = async () => {
+    try {
+      const { data } = await api.get("/settings");
+      setMarketingEmailEnabled(!!data.email_marketing_briefing);
+    } catch {
+      setMarketingEmailEnabled(false);
     }
   };
 
@@ -146,7 +186,10 @@ function Marketing() {
   useEffect(() => {
     loadMarketing();
     loadSocial();
-    loadJobs();
+    loadExecution();
+    loadAnalytics();
+    loadBriefing();
+    loadMarketingSettings();
     loadLogo();
     const params = new URLSearchParams(window.location.search);
     if (params.get("connected")) {
@@ -185,6 +228,8 @@ function Marketing() {
       const { data } = await api.post("/marketing/generate");
       setContent(data.content.content);
       setUpdated(data.content.updated_at);
+      await loadExecution();
+      await loadBriefing(true, false);
       toast.success("Plano editorial gerado com contexto real do CRM, memórias e ERP.");
     } catch {
       toast.error("Não foi possível gerar agora.");
@@ -272,7 +317,9 @@ function Marketing() {
       if (errors.length) toast.warning(`Publicado com avisos — ${errors.join(" · ")}`);
       else toast.success("Publicado nas suas redes! 🎉");
       await loadMarketing();
-      await loadJobs();
+      await loadExecution();
+      await loadAnalytics();
+      await loadBriefing(true, false);
     } catch (error) {
       const detail = error.response?.data?.detail;
       toast.error(`Falha ao publicar: ${detail?.meta_error ? JSON.stringify(detail.meta_error).slice(0, 180) : formatApiError(detail)}`);
@@ -308,7 +355,8 @@ function Marketing() {
       toast.success("Publicação agendada!");
       setSchedFor(null);
       await loadMarketing();
-      await loadJobs();
+      await loadExecution();
+      await loadBriefing(true, false);
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
     }
@@ -318,10 +366,67 @@ function Marketing() {
     try {
       await api.delete(`/social/jobs/${id}`);
       toast.success("Agendamento cancelado.");
-      await loadJobs();
+      await loadExecution();
       await loadMarketing();
+      await loadBriefing(true, false);
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
+    }
+  };
+
+  const openReschedule = (job) => {
+    setRescheduleFor(job);
+    const dt = new Date(job.run_at || Date.now() + 60 * 60 * 1000);
+    dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+    setRescheduleWhen(dt.toISOString().slice(0, 16));
+  };
+
+  const confirmReschedule = async () => {
+    if (!rescheduleFor || !rescheduleWhen) return;
+    try {
+      await api.post(`/social/jobs/${rescheduleFor.id}/reschedule`, { run_at: new Date(rescheduleWhen).toISOString() });
+      toast.success("Agendamento atualizado.");
+      setRescheduleFor(null);
+      await loadExecution();
+      await loadMarketing();
+      await loadBriefing(true, false);
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    }
+  };
+
+  const toggleMarketingEmail = async (enabled) => {
+    setMarketingEmailEnabled(enabled);
+    try {
+      await api.put("/settings", { email_marketing_briefing: enabled });
+      toast.success(enabled ? "Briefing de marketing por email ativado." : "Briefing de marketing por email desativado.");
+    } catch (error) {
+      setMarketingEmailEnabled((current) => !current);
+      toast.error(formatApiError(error.response?.data?.detail));
+    }
+  };
+
+  const refreshBriefing = async () => {
+    setBriefingBusy(true);
+    try {
+      await loadBriefing(true, false);
+      toast.success("Briefing de marketing atualizado.");
+    } catch {
+      toast.error("Não foi possível atualizar o briefing agora.");
+    } finally {
+      setBriefingBusy(false);
+    }
+  };
+
+  const sendBriefingEmail = async () => {
+    setBriefingEmailBusy(true);
+    try {
+      await loadBriefing(true, true);
+      toast.success("Briefing de marketing enviado por email.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setBriefingEmailBusy(false);
     }
   };
 
@@ -474,8 +579,8 @@ function Marketing() {
         {social?.connected && (
           <div className="flex items-center gap-2 mt-4 pt-4 border-t border-white/[0.06] flex-wrap" data-testid="mkt-social-targets">
             <span className="text-xs text-muted-foreground mr-1">Publicar em:</span>
-            <TargetToggle channel="instagram" Icon={Instagram} label="Instagram" enabled={targets.instagram} onToggle={() => setTargets((current) => ({ ...current, instagram: !current.instagram }))} />
-            <TargetToggle channel="facebook" Icon={Facebook} label="Facebook" enabled={targets.facebook} onToggle={() => setTargets((current) => ({ ...current, facebook: !current.facebook }))} />
+            <TargetToggle channel="instagram" Icon={Instagram} label="Instagram" enabled={targets.instagram} testId="mkt-social-target-instagram" onToggle={() => setTargets((current) => ({ ...current, instagram: !current.instagram }))} />
+            <TargetToggle channel="facebook" Icon={Facebook} label="Facebook" enabled={targets.facebook} testId="mkt-social-target-facebook" onToggle={() => setTargets((current) => ({ ...current, facebook: !current.facebook }))} />
           </div>
         )}
       </div>
@@ -633,26 +738,17 @@ function Marketing() {
             </div>
           )}
 
-          {jobs.length > 0 && (
-            <div className="surface rounded-3xl p-6 mb-8" data-testid="mkt-jobs">
-              <h2 className="font-serif-lux text-lg mb-4 flex items-center gap-2"><Clock className="w-4 h-4 text-[#A78BFA]" /> Publicações agendadas</h2>
-              <div className="space-y-2">
-                {jobs.map((job) => (
-                  <div key={job.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] flex-wrap" data-testid={`mkt-job-${job.id}`}>
-                    {job.status === "published" ? <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0" /> : job.status === "failed" ? <XCircle className="w-4 h-4 text-red-400 shrink-0" /> : <Clock className="w-4 h-4 text-amber-400 shrink-0" />}
-                    <span className="text-xs text-muted-foreground w-44 shrink-0" data-testid={`mkt-job-date-${job.id}`}>{new Date(job.run_at).toLocaleString("pt-PT")}</span>
-                    <span className="text-sm flex-1 truncate" data-testid={`mkt-job-caption-${job.id}`}>{job.caption}</span>
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground" data-testid={`mkt-job-status-${job.id}`}>{job.status}</span>
-                    {job.status === "queued" && (
-                      <button onClick={() => cancelJob(job.id)} className="text-xs text-red-400 hover:underline" data-testid={`mkt-job-cancel-${job.id}`}>
-                        cancelar
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <ExecutionQueueSection execution={execution} onCancelJob={cancelJob} onRescheduleOpen={openReschedule} />
+          <AnalyticsSection analytics={analytics} />
+          <MarketingBriefingSection
+            briefing={briefing}
+            briefingBusy={briefingBusy}
+            emailSending={briefingEmailBusy}
+            autoEmailEnabled={marketingEmailEnabled}
+            onToggleAutoEmail={toggleMarketingEmail}
+            onRefresh={refreshBriefing}
+            onSendEmail={sendBriefingEmail}
+          />
 
           <div className="flex items-end justify-between flex-wrap gap-4 mb-4">
             <div>
@@ -826,13 +922,32 @@ function Marketing() {
             <label className="text-xs text-muted-foreground" data-testid="mkt-schedule-label">Data e hora</label>
             <Input type="datetime-local" data-testid="mkt-schedule-when" value={schedWhen} onChange={(event) => setSchedWhen(event.target.value)} className="mt-1" />
             <div className="flex gap-2 mt-4 flex-wrap" data-testid="mkt-schedule-targets">
-              <TargetToggle channel="instagram" Icon={Instagram} label="Instagram" enabled={targets.instagram} onToggle={() => setTargets((current) => ({ ...current, instagram: !current.instagram }))} />
-              <TargetToggle channel="facebook" Icon={Facebook} label="Facebook" enabled={targets.facebook} onToggle={() => setTargets((current) => ({ ...current, facebook: !current.facebook }))} />
+              <TargetToggle channel="instagram" Icon={Instagram} label="Instagram" enabled={targets.instagram} testId="mkt-schedule-target-instagram" onToggle={() => setTargets((current) => ({ ...current, instagram: !current.instagram }))} />
+              <TargetToggle channel="facebook" Icon={Facebook} label="Facebook" enabled={targets.facebook} testId="mkt-schedule-target-facebook" onToggle={() => setTargets((current) => ({ ...current, facebook: !current.facebook }))} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSchedFor(null)} className="rounded-full" data-testid="mkt-schedule-cancel">Cancelar</Button>
             <Button data-testid="mkt-schedule-confirm" onClick={confirmSchedule} className="rounded-full bg-[#A78BFA] text-white hover:bg-[#9333EA]">Agendar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!rescheduleFor} onOpenChange={(open) => !open && setRescheduleFor(null)}>
+        <DialogContent data-testid="mkt-reschedule-dialog">
+          <DialogHeader>
+            <DialogTitle>Reagendar publicação</DialogTitle>
+            <DialogDescription>
+              Ajuste a hora da peça em fila sem perder a ligação ao post e ao calendário.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <label className="text-xs text-muted-foreground" data-testid="mkt-reschedule-label">Nova data e hora</label>
+            <Input type="datetime-local" data-testid="mkt-reschedule-when" value={rescheduleWhen} onChange={(event) => setRescheduleWhen(event.target.value)} className="mt-1" />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRescheduleFor(null)} className="rounded-full" data-testid="mkt-reschedule-cancel">Cancelar</Button>
+            <Button data-testid="mkt-reschedule-confirm" onClick={confirmReschedule} className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]">Guardar nova hora</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

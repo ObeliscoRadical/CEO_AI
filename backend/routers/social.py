@@ -17,7 +17,7 @@ from core import (
     prepare_logo,
     premium_user,
 )
-from routers.marketing import apply_post_status
+from routers.marketing import apply_post_status, record_marketing_metrics
 
 router = APIRouter()
 
@@ -98,6 +98,22 @@ async def _sync_marketing_post(uid: str, cid: Optional[str], post_id: Optional[s
         {"user_id": uid, "company_id": cid},
         {"$set": {"content": content, "updated_at": datetime.now(timezone.utc).isoformat()}},
     )
+
+
+async def _marketing_post_meta(uid: str, cid: Optional[str], post_id: Optional[str]):
+    if not (uid and cid and post_id):
+        return {}
+    doc = await db.marketing_content.find_one({"user_id": uid, "company_id": cid}, {"_id": 0, "content.posts": 1})
+    for post in (((doc or {}).get("content") or {}).get("posts") or []):
+        if post.get("id") == post_id:
+            return {
+                "id": post.get("id"),
+                "titulo": post.get("titulo"),
+                "tema": post.get("tema"),
+                "formato": post.get("formato"),
+                "status": post.get("status"),
+            }
+    return {}
 
 
 # ---------------------------------------------------------------- media pública (para o Instagram buscar a imagem)
@@ -226,6 +242,7 @@ async def _publish_core(uid: str, cid: Optional[str], payload: dict) -> dict:
     do_ig = payload.get("instagram", True)
     do_fb = payload.get("facebook", True)
     post_id = payload.get("post_id")
+    post_meta = payload.get("post_meta") or await _marketing_post_meta(uid, cid, post_id)
     if not image_url and want_img and (do_ig or do_fb):
         prompt = payload.get("image_prompt") or caption[:220] or "Conteúdo de marketing profissional"
         img = await generate_marketing_image(prompt)
@@ -256,15 +273,21 @@ async def _publish_core(uid: str, cid: Optional[str], payload: dict) -> dict:
             fb = await _graph_req("POST", _graph(f"{pid}/feed"), {"message": caption}, token)
         results["facebook"] = {"ok": True, "id": fb.get("id") or fb.get("post_id")}
     now_iso = datetime.now(timezone.utc).isoformat()
-    await db.social_posts.insert_one({
+    social_post_doc = {
+        "_id": str(uuid.uuid4()),
         "user_id": uid,
         "company_id": cid,
         "post_id": post_id,
+        "post_title": post_meta.get("titulo"),
+        "theme": post_meta.get("tema"),
+        "format": post_meta.get("formato"),
         "caption": caption,
         "image_url": image_url,
         "results": results,
         "created_at": now_iso,
-    })
+    }
+    await db.social_posts.insert_one(social_post_doc)
+    await record_marketing_metrics(uid, cid, social_post_doc, post_meta)
     if post_id:
         await _sync_marketing_post(uid, cid, post_id, "approved", published_at=now_iso)
     return results
@@ -284,6 +307,8 @@ async def social_schedule(inp: ScheduleIn, user: dict = Depends(premium_user)):
     if not conn:
         raise HTTPException(400, "As redes ainda não estão ligadas.")
     d = inp.model_dump(); run_at = d.pop("run_at")
+    if d.get("post_id"):
+        d["post_meta"] = await _marketing_post_meta(user["id"], cid, d.get("post_id"))
     job = {"_id": str(uuid.uuid4()), "user_id": user["id"], "company_id": cid, "payload": d, "run_at": run_at,
            "status": "queued", "created_at": datetime.now(timezone.utc).isoformat()}
     await db.social_jobs.insert_one(job)
@@ -313,6 +338,28 @@ async def del_job(jid: str, user: dict = Depends(premium_user)):
     if post_id:
         await _sync_marketing_post(user["id"], cid, post_id, "approved")
     return {"ok": True}
+
+
+class RescheduleIn(BaseModel):
+    run_at: str
+
+
+@router.post("/social/jobs/{jid}/reschedule")
+async def reschedule_job(jid: str, inp: RescheduleIn, user: dict = Depends(premium_user)):
+    cid = await active_company_id(user["id"])
+    job = await db.social_jobs.find_one({"_id": jid, "user_id": user["id"], "company_id": cid})
+    if not job:
+        raise HTTPException(404, "Agendamento não encontrado.")
+    if job.get("status") not in {"queued", "processing"}:
+        raise HTTPException(400, "Só é possível reagendar itens ainda não publicados.")
+    await db.social_jobs.update_one(
+        {"_id": jid, "user_id": user["id"], "company_id": cid},
+        {"$set": {"run_at": inp.run_at, "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    post_id = ((job.get("payload") or {}).get("post_id"))
+    if post_id:
+        await _sync_marketing_post(user["id"], cid, post_id, "scheduled", scheduled_at=inp.run_at)
+    return {"ok": True, "id": jid, "run_at": inp.run_at}
 
 
 # ---------------------------------------------------------------- logo da empresa (sobreposto nas imagens)

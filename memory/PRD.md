@@ -7,15 +7,24 @@
 - ✅ `backend/routers/social.py`: correção estrutural multi-tenant. `social_connections`, `social_jobs` e `social_posts` passaram a ser isolados por **`user_id + company_id`**. O estado OAuth também guarda `company_id`, o agendamento guarda a empresa ativa e o worker publica sempre com base na empresa do job.
 - ✅ **Sincronização Marketing ↔ Social**: agendar um post marca-o como `scheduled`; cancelar o job devolve o post a `approved`; publicação imediata regista `published_at`. Isto fecha o circuito editorial sem misturar empresas.
 - ✅ Frontend `pages/Marketing.jsx`: página renovada com **workflow summary**, identidade de marca, **Brand Brain**, **biblioteca de conteúdos**, cards de aprovação por post, calendário de 30 dias e social card adaptado ao novo fluxo (aprovar → publicar/agendar). Todos os novos elementos críticos têm `data-testid`.
+- ✅ **P1 concluído — fila visual de execução/publicação**: novo endpoint `GET /api/marketing/execution` + `POST /api/social/jobs/{jid}/reschedule`; a UI mostra fila viva, histórico, cancelamento e **reagendamento por post** sem perder ligação ao calendário editorial.
+- ✅ **P2 concluído — analytics + loop de aprendizagem + briefing autónomo**:
+  - `marketing_post_metrics` guarda métricas por publicação; `GET /api/marketing/analytics` devolve totais, top posts, melhores formatos/dias, insights e ações recomendadas.
+  - `marketing_briefings` guarda o briefing diário por empresa; `GET /api/marketing/briefing` e `POST /api/marketing/briefing/generate` alimentam a experiência in-app e o envio manual por email.
+  - novo scheduler `send_daily_marketing_briefings` (07:15 UTC) + preferência persistente `email_marketing_briefing` em `settings`.
+- ⚠️ **Analytics sociais estão MOCKED** nesta fase: até a Meta estar ligada, as métricas são simuladas de forma consistente para treinar o motor editorial e o loop de aprendizagem. A UI e os emails deixam isso explícito.
 - ✅ Testado e validado nesta iteração:
   - `pytest /app/backend/tests/test_phase3_marketing.py` → **15/15 PASS** (conteúdo, workflow, isolamento social por empresa, CRM send-sim e regressões).
   - `testing_agent` iteration_36 → backend **100% (15/15)** + frontend **100% dos fluxos testados**, sem bugs.
   - Smoke visual no preview `/marketing` após login confirmado.
+- ✅ Revalidação após P1+P2 completos (queue + analytics + briefing):
+  - `pytest /app/backend/tests/test_phase3_marketing.py` → **16/16 PASS**.
+  - `testing_agent` iteration_37 → backend **100% (16/16)** + frontend **100% dos fluxos testados**.
 - ⚠️ **Meta Graph API continua bloqueada por credenciais ausentes do utilizador** (`META_APP_ID` / `META_APP_SECRET`). O estado "não configurado" foi mantido e testado, mas publicação real OAuth continua pendente dessa informação.
 - 📌 Próximos passos do Diretor de Marketing:
   - **P0**: ligar credenciais Meta reais e validar publicação/agendamento de ponta a ponta numa conta de teste do utilizador.
-  - **P1**: fila visual de execução/publicação com histórico e re-agendamento por post.
-  - **P2**: analytics de performance (alcance, engagement, cliques) + loop de aprendizagem e briefing autónomo diário.
+  - **P1**: substituir métricas MOCKED por ingestão real da Meta (alcance, engagement, cliques, saves, visitas ao perfil).
+  - **P2**: adicionar comparativos semanais/mensais e automações de otimização por objetivo (awareness, leads, reativação).
 
 ## CEO AI V2 — Apoios & Incentivos (Diretor de Apoios) (2026-06, FASE 1 concluída)
 - ✅ `backend/routers/grants.py`: módulo de **apoios públicos, incentivos fiscais, fundos e financiamento** (PT + BR) com base curada + motor de match DETERMINÍSTICO + análise por IA.
