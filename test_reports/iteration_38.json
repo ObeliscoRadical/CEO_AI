@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 38 — E2E testing of Marketing Phase expansion: Meta connection section (no-credentials scenario), multi-channel campaigns with objectives (awareness/leads/reativação), and regression of existing marketing flows. All 18 backend tests passed (test_phase3_marketing.py). Frontend E2E via Playwright verified: Meta connection section shows not-configured state correctly with disabled connect button, redirect URI, MOCKED badge, checklist, and diagnostics button works without crash. Campaign studio generates multi-channel campaigns with objective selection, channels, KPIs, launch plan, and next actions. Workflow approval/reset flow works correctly. All existing sections (brand, brand brain, library, posts, calendar, execution queue, analytics, briefing) load correctly.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_phase3_marketing.py",
+    "/app/test_reports/pytest/iter38_marketing.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "social.py: _requirements() correctly identifies missing META_APP_ID/META_APP_SECRET and returns them in missing_config.",
+    "social.py: social_connect() correctly returns 400 when credentials are absent, preventing OAuth flow from starting.",
+    "social.py: social_diagnostics() works without crash even when Meta is not configured - returns base checks.",
+    "social.py: _status_payload() correctly returns configured=false, pending_selection=false, connected=false when credentials absent.",
+    "marketing.py: _normalize_objective() correctly maps awareness/leads/reativacao variants to canonical values.",
+    "marketing.py: _campaign_defaults() generates appropriate channels, KPIs, experiments, and launch_plan per objective.",
+    "marketing.py: generate_marketing_campaign() correctly uses AI to enhance campaign with context from CRM/memories/ERP.",
+    "MetaConnectionSection.jsx: Connect button correctly disabled when !data.configured.",
+    "MetaConnectionSection.jsx: Missing config warning shows META_APP_ID, META_APP_SECRET when absent.",
+    "MetaConnectionSection.jsx: MOCKED badge prominently displayed for analytics.",
+    "CampaignStudioSection.jsx: Objective dropdown with awareness/leads/reativacao options works correctly.",
+    "CampaignStudioSection.jsx: Campaign card renders all sections (summary, audience, channels, KPIs, plan, experiments)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (18/18 tests)", "frontend": "100% of tested flows"},
+  "test_credentials": "adminceoai@gmail.com / 12345",
+  "seed_data_creation": "Backend tests create/cleanup TEST campaigns and social connections for isolation testing.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Marketing tests at /app/backend/tests/test_phase3_marketing.py cover: content generation, workflow status changes, execution queue/history, analytics (mocked), briefing generation, reschedule flow, social company isolation, CRM send-sim, pending page selection, and campaign generation. Frontend data-testids for new features: mkt-social (Meta section), mkt-social-notconfigured, mkt-connect-btn (disabled when not configured), mkt-meta-diagnostics-btn, mkt-meta-mocked-badge, mkt-meta-checks-card, mkt-meta-check-{n}, mkt-meta-status-card, mkt-meta-missing-config, mkt-campaign-studio, mkt-campaign-objective-trigger, mkt-campaign-objective-{value}, mkt-campaign-name-input, mkt-campaign-offer-input, mkt-campaign-audience-input, mkt-campaign-notes-input, mkt-campaign-generate-btn, mkt-campaign-card-{n}, mkt-campaign-name-{n}, mkt-campaign-objective-label-{n}, mkt-campaign-channel-{card}-{n}, mkt-campaign-kpis-{n}, mkt-campaign-plan-{n}, mkt-campaign-experiments-{n}. Meta credentials intentionally absent - test not-configured UX. Analytics metrics are MOCKED until Meta is connected.",
+  "mocked_apis": {
+    "has_mocked_apis": true,
+    "mocked_apis_list": [
+      "Meta analytics remain MOCKED until the user provides App ID/App Secret and the live insights pipeline is validated.",
+      "Meta real OAuth publish cannot be completed end-to-end yet because credentials are intentionally absent."
+    ]
+  },
+  "rca_of_the_issue": "No issues found. All new features (Meta no-credentials handling, multi-channel campaigns with objectives) working as specified."
+}

@@ -268,6 +268,95 @@ class TestSocialCompanyIsolation:
         MONGO.social_jobs.delete_many({"user_id": uid, "company_id": {"$in": [cid_a, cid_b]}})
 
 
+class TestMetaConnectionPreparation:
+    def test_social_pending_selection_and_finalize(self, sess):
+        companies = sess.get(f"{BASE}/api/companies", timeout=30)
+        assert companies.status_code == 200, companies.text
+        cid = companies.json().get("active_company_id")
+        uid = str(MONGO.users.find_one({"email": ADMIN_EMAIL})["_id"])
+        stamp = int(time.time())
+        pending = {
+            "user_id": uid,
+            "company_id": cid,
+            "status": "pending_selection",
+            "user_token": f"user-token-{stamp}",
+            "granted_scopes": ["instagram_basic", "instagram_content_publish", "pages_read_engagement"],
+            "candidate_pages": [
+                {
+                    "page_id": f"page-{stamp}-1",
+                    "page_name": "Página Teste 1",
+                    "page_token": "page-token-1",
+                    "tasks": ["CREATE_CONTENT"],
+                    "ig_user_id": f"ig-{stamp}-1",
+                    "ig_username": "empresa_teste_1",
+                },
+                {
+                    "page_id": f"page-{stamp}-2",
+                    "page_name": "Página Teste 2",
+                    "page_token": "page-token-2",
+                    "tasks": ["MANAGE"],
+                    "ig_user_id": None,
+                    "ig_username": None,
+                },
+            ],
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        MONGO.social_connections.delete_many({"user_id": uid, "company_id": cid})
+        MONGO.social_connections.insert_one(pending)
+        try:
+            status = sess.get(f"{BASE}/api/social/status", timeout=30)
+            assert status.status_code == 200, status.text
+            data = status.json()
+            assert data["pending_selection"] is True
+            assert data["connected"] is False
+            assert len(data["available_pages"]) == 2
+            assert data["available_pages"][0]["page_name"] == "Página Teste 1"
+
+            req = sess.get(f"{BASE}/api/social/requirements", timeout=30)
+            assert req.status_code == 200, req.text
+            assert "requirements" in req.json()
+
+            sel = sess.post(f"{BASE}/api/social/select-page", json={"page_id": f"page-{stamp}-1"}, timeout=30)
+            assert sel.status_code == 200, sel.text
+            payload = sel.json()["connection"]
+            assert payload["connected"] is True
+            assert payload["page_name"] == "Página Teste 1"
+            assert payload["ig_username"] == "empresa_teste_1"
+
+            saved = MONGO.social_connections.find_one({"user_id": uid, "company_id": cid})
+            assert saved["status"] == "connected"
+            assert saved["page_id"] == f"page-{stamp}-1"
+            assert saved["candidate_pages"] == []
+        finally:
+            MONGO.social_connections.delete_many({"user_id": uid, "company_id": cid})
+
+
+class TestMarketingCampaigns:
+    def test_generate_and_list_campaign(self, sess):
+        payload = {
+            "objective": "leads",
+            "name": "Campanha Teste Leads",
+            "offer": "diagnóstico comercial",
+            "audience": "gestores de PME",
+            "notes": "teste automático",
+        }
+        created = sess.post(f"{BASE}/api/marketing/campaigns/generate", json=payload, timeout=120)
+        assert created.status_code == 200, created.text
+        campaign = created.json()["campaign"]
+        assert campaign["objective"] == "leads"
+        assert campaign["name"] == "Campanha Teste Leads"
+        assert len(campaign["channels"]) == 4
+        assert len(campaign["launch_plan"]) == 4
+        assert len(campaign["kpis"]) >= 3
+
+        listing = sess.get(f"{BASE}/api/marketing/campaigns", timeout=30)
+        assert listing.status_code == 200, listing.text
+        ids = [item["id"] for item in listing.json()["campaigns"]]
+        assert campaign["id"] in ids
+
+        MONGO.marketing_campaigns.delete_many({"_id": campaign["id"]})
+
+
 # ---------------- CRM send-sim ----------------
 class TestSendSim:
     @pytest.fixture(scope="class")

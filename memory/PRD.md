@@ -1,5 +1,21 @@
 # CEO AI — O Executivo Digital
 
+## CEO AI V2 — Diretor de Marketing Executor (2026-08-11, Meta readiness + campanhas multicanal)
+- ✅ `backend/routers/social.py`: a ligação Meta ficou mais robusta mesmo sem credenciais reais. O módulo agora expõe `GET /api/social/requirements`, `POST /api/social/diagnostics` e `POST /api/social/select-page`, devolve **checklist de prontidão**, `missing_config`, estado `pending_selection|connected|degraded` e suporta **escolha explícita da Página Facebook** após OAuth (em vez de assumir a primeira página disponível).
+- ✅ OAuth endurecido: `social_connect` passou a preparar o fluxo com `META_CONFIG_ID` quando existir (fallback para scopes clássicos se ainda faltar), e `social_oauth_states` ganhou expiração automática por TTL em `expires_at`.
+- ✅ Frontend `components/marketing/MetaConnectionSection.jsx`: nova experiência de ligação Meta com estado honesto “não ligada”, badge **Analytics MOCKED**, URI de redirect visível, checklist operacional, botão de diagnóstico e painel de seleção de página quando o OAuth ficar pendente.
+- ✅ `backend/routers/marketing.py`: novo motor de **campanhas multicanal por objetivo** com `GET /api/marketing/campaigns` e `POST /api/marketing/campaigns/generate`. Objetivos suportados: **awareness**, **leads** e **reativação**; cada campanha nasce com canais, KPIs, plano de lançamento, experiências e próximos passos, usando contexto real de CRM + memórias + ERP.
+- ✅ Frontend `components/marketing/CampaignStudioSection.jsx`: novo estúdio de campanhas no `/marketing` para gerar campanhas por objetivo, com inputs dedicados (nome, oferta, audiência, notas) e cards persistidos com canais, KPIs, plano e experiências.
+- ✅ Testado e validado nesta iteração:
+  - `pytest /app/backend/tests/test_phase3_marketing.py` → **18/18 PASS**.
+  - `testing_agent` iteration_38 → backend **100%** + frontend **100% dos fluxos testados**.
+  - `auto_frontend_testing_agent` e `deep_testing_backend_v2` confirmaram o comportamento esperado sem crashes e sem regressões.
+- ⚠️ **Meta real continua BLOQUEADA por credenciais ausentes do utilizador** (`META_APP_ID` / `META_APP_SECRET`). A app agora está melhor preparada, mas publicação OAuth real e métricas reais continuam dependentes dessas credenciais.
+- 📌 Próximos passos do Diretor de Marketing:
+  - **P0**: receber App ID/App Secret da Meta e validar OAuth real com Facebook + Instagram da empresa do utilizador.
+  - **P1**: substituir definitivamente as métricas **MOCKED** por ingestão real da Meta após a validação das credenciais.
+  - **P2**: ligar campanhas multicanal aos resultados reais para otimização automática por objetivo.
+
 ## CEO AI V2 — Diretor de Marketing Executor (2026-08-11, FASE 1 + FASE 2 concluídas)
 - ✅ `backend/routers/marketing.py`: o gerador do Diretor de Marketing passou a usar **contexto real da empresa ativa** — perfil da empresa + **CRM** (`crm_icp`, top leads e fases), **memórias** (`db.memories`) e **ERP/Sistema de Gestão** (`erp_financial_contexts`) — antes de chamar a IA. O prompt passou a devolver: identidade de marca expandida, **Brand Brain**, **biblioteca de conteúdos**, 10-12 posts e **calendário editorial de 30 dias**.
 - ✅ **Brand Brain expandido**: novo bloco `content.brand_brain` com fontes usadas (memórias/leads/ERP ativo), prioridades editoriais dinâmicas (dor do ICP, concentração de cliente, saúde financeira, pipeline comercial), ângulos principais e guardrail financeiro.

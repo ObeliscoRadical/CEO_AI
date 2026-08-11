@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { ExecutionQueueSection } from "@/components/marketing/ExecutionQueueSection";
 import { AnalyticsSection } from "@/components/marketing/AnalyticsSection";
 import { MarketingBriefingSection } from "@/components/marketing/MarketingBriefingSection";
+import { MetaConnectionSection } from "@/components/marketing/MetaConnectionSection";
+import { CampaignStudioSection } from "@/components/marketing/CampaignStudioSection";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
@@ -18,15 +20,10 @@ import {
   Calendar,
   Play,
   Hash,
-  Share2,
   Instagram,
   Facebook,
   Send,
   Clock,
-  CheckCircle2,
-  XCircle,
-  Link2,
-  Unlink,
   Image as ImageIcon,
   Upload,
   Trash2,
@@ -91,15 +88,19 @@ function Marketing() {
   const [loaded, setLoaded] = useState(false);
   const [gen, setGen] = useState(false);
   const [social, setSocial] = useState(null);
+  const [campaigns, setCampaigns] = useState([]);
   const [execution, setExecution] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [briefing, setBriefing] = useState(null);
   const [marketingEmailEnabled, setMarketingEmailEnabled] = useState(false);
+  const [diagnosticsBusy, setDiagnosticsBusy] = useState(false);
   const [busy, setBusy] = useState(null);
+  const [campaignBusy, setCampaignBusy] = useState(false);
   const [schedFor, setSchedFor] = useState(null);
   const [schedWhen, setSchedWhen] = useState("");
   const [rescheduleFor, setRescheduleFor] = useState(null);
   const [rescheduleWhen, setRescheduleWhen] = useState("");
+  const [selectingPageId, setSelectingPageId] = useState(null);
   const [targets, setTargets] = useState({ instagram: true, facebook: true });
   const [logo, setLogo] = useState(null);
   const [logoBusy, setLogoBusy] = useState(false);
@@ -131,7 +132,16 @@ function Marketing() {
       const { data } = await api.get("/social/status");
       setSocial(data);
     } catch {
-      setSocial(null);
+      setSocial({ configured: false, connected: false, connection_state: "not_connected", checks: [], available_pages: [], missing_config: [] });
+    }
+  };
+
+  const loadCampaigns = async () => {
+    try {
+      const { data } = await api.get("/marketing/campaigns");
+      setCampaigns(data.campaigns || []);
+    } catch {
+      setCampaigns([]);
     }
   };
 
@@ -188,12 +198,18 @@ function Marketing() {
     loadSocial();
     loadExecution();
     loadAnalytics();
+    loadCampaigns();
     loadBriefing();
     loadMarketingSettings();
     loadLogo();
     const params = new URLSearchParams(window.location.search);
     if (params.get("connected")) {
       toast.success("Redes ligadas com sucesso!");
+      window.history.replaceState({}, "", "/marketing");
+      loadSocial();
+    }
+    if (params.get("social_pending")) {
+      toast("Ligação Meta autorizada. Agora escolha a Página certa para concluir.");
       window.history.replaceState({}, "", "/marketing");
       loadSocial();
     }
@@ -289,6 +305,49 @@ function Marketing() {
     await api.post("/social/disconnect");
     toast.success("Redes desligadas.");
     loadSocial();
+  };
+
+  const runSocialDiagnostics = async () => {
+    setDiagnosticsBusy(true);
+    try {
+      const { data } = await api.post("/social/diagnostics");
+      setSocial(data);
+      toast.success(data.connected ? "Ligação Meta validada." : "Checklist Meta atualizada.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setDiagnosticsBusy(false);
+    }
+  };
+
+  const selectMetaPage = async (pageId) => {
+    setSelectingPageId(pageId);
+    try {
+      const { data } = await api.post("/social/select-page", { page_id: pageId });
+      setSocial(data.connection);
+      toast.success("Página Meta escolhida e ligação concluída.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setSelectingPageId(null);
+    }
+  };
+
+  const generateCampaign = async (payload) => {
+    setCampaignBusy(true);
+    try {
+      const { data } = await api.post("/marketing/campaigns/generate", payload);
+      setCampaigns((current) => [data.campaign, ...(current || [])].slice(0, 20));
+      toast.success("Campanha multicanal criada.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setCampaignBusy(false);
+    }
+  };
+
+  const toggleTargetChannel = (channel) => {
+    setTargets((current) => ({ ...current, [channel]: !current[channel] }));
   };
 
   const publishNow = async (post, index) => {
@@ -525,65 +584,17 @@ function Marketing() {
         )}
       </div>
 
-      <div className="surface rounded-3xl p-6 md:p-7 mb-8" data-testid="mkt-social">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex items-start gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-[#A78BFA]/18 flex items-center justify-center shrink-0">
-              <Share2 className="w-5 h-5 text-[#A78BFA]" />
-            </div>
-            <div>
-              <h2 className="font-serif-lux text-xl" data-testid="mkt-social-title">Publicação automática nas redes</h2>
-              {social?.connected ? (
-                <p className="text-sm text-muted-foreground mt-1" data-testid="mkt-social-connected">
-                  Ligado a <b className="text-foreground">{social.page_name || "Página"}</b>
-                  {social.ig_username ? (
-                    <>
-                      {" "}· Instagram <b className="text-foreground">@{social.ig_username}</b>
-                    </>
-                  ) : (
-                    <>
-                      {" "}· <span className="text-amber-400">sem Instagram ligado</span>
-                    </>
-                  )}
-                </p>
-              ) : social?.configured ? (
-                <p className="text-sm text-muted-foreground mt-1" data-testid="mkt-social-hint">
-                  Ligue o Instagram/Facebook da empresa ativa para publicar e agendar diretamente a partir daqui.
-                </p>
-              ) : (
-                <p className="text-sm text-amber-400 mt-1" data-testid="mkt-social-notconfigured">
-                  A integração da Meta ainda não está configurada. Assim que colarmos o App ID/Secret, o botão de ligar fica ativo.
-                </p>
-              )}
-              {social && !social.connected && social.configured && (
-                <p className="text-[11px] text-muted-foreground mt-2" data-testid="mkt-social-redirect-uri">
-                  URL de redireccionamento: <code className="text-[#A78BFA] break-all">{social.redirect_uri}</code>
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {social?.connected ? (
-              <Button data-testid="mkt-disconnect-btn" onClick={disconnect} variant="outline" className="rounded-full border-white/15 hover:bg-white/5">
-                <Unlink className="w-4 h-4 mr-2" />
-                Desligar
-              </Button>
-            ) : (
-              <Button data-testid="mkt-connect-btn" onClick={connect} disabled={!social?.configured} className="rounded-full bg-[#A78BFA] text-white hover:bg-[#9333EA] disabled:opacity-50">
-                <Link2 className="w-4 h-4 mr-2" />
-                Ligar Instagram/Facebook
-              </Button>
-            )}
-          </div>
-        </div>
-        {social?.connected && (
-          <div className="flex items-center gap-2 mt-4 pt-4 border-t border-white/[0.06] flex-wrap" data-testid="mkt-social-targets">
-            <span className="text-xs text-muted-foreground mr-1">Publicar em:</span>
-            <TargetToggle channel="instagram" Icon={Instagram} label="Instagram" enabled={targets.instagram} testId="mkt-social-target-instagram" onToggle={() => setTargets((current) => ({ ...current, instagram: !current.instagram }))} />
-            <TargetToggle channel="facebook" Icon={Facebook} label="Facebook" enabled={targets.facebook} testId="mkt-social-target-facebook" onToggle={() => setTargets((current) => ({ ...current, facebook: !current.facebook }))} />
-          </div>
-        )}
-      </div>
+      <MetaConnectionSection
+        social={social}
+        targets={targets}
+        onToggleTarget={toggleTargetChannel}
+        onConnect={connect}
+        onDisconnect={disconnect}
+        onRunDiagnostics={runSocialDiagnostics}
+        onSelectPage={selectMetaPage}
+        diagnosticsBusy={diagnosticsBusy}
+        selectingPageId={selectingPageId}
+      />
 
       <div className="surface rounded-3xl p-6 md:p-7 mb-8" data-testid="mkt-logo-card">
         <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -737,6 +748,8 @@ function Marketing() {
               </div>
             </div>
           )}
+
+          <CampaignStudioSection campaigns={campaigns} generating={campaignBusy} onGenerate={generateCampaign} />
 
           <ExecutionQueueSection execution={execution} onCancelJob={cancelJob} onRescheduleOpen={openReschedule} />
           <AnalyticsSection analytics={analytics} />

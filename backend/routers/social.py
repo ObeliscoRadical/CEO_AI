@@ -1,7 +1,7 @@
 """Fase 4 — Publicação automática nas redes (Instagram + Facebook via Meta Graph API).
-Agora com isolamento por empresa e sincronização com o workflow editorial do Marketing."""
+Agora com isolamento por empresa, diagnóstico de ligação e sincronização com o workflow editorial."""
 import os, base64, uuid, hmac, hashlib, secrets
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from urllib.parse import urlencode, quote
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, File
@@ -22,8 +22,11 @@ from routers.marketing import apply_post_status, record_marketing_metrics
 router = APIRouter()
 
 GRAPH_VER = os.environ.get("META_GRAPH_VERSION", "v25.0")
+META_CONFIG_ID = (os.environ.get("META_CONFIG_ID") or "").strip()
 SCOPES = ["instagram_basic", "instagram_content_publish", "pages_show_list",
           "pages_read_engagement", "pages_manage_posts", "business_management"]
+REQUIRED_PAGE_TASKS = {"CREATE_CONTENT", "MANAGE"}
+INSIGHTS_SCOPE_HINTS = {"instagram_manage_insights", "pages_read_engagement"}
 
 
 def _cfg():
@@ -73,6 +76,241 @@ async def _find_connection(uid: str, cid: Optional[str]):
         )
         legacy["company_id"] = cid
     return legacy
+
+
+def _conn_state(conn: Optional[dict]) -> str:
+    if not conn:
+        return "not_connected"
+    if conn.get("status"):
+        return conn.get("status")
+    if conn.get("page_id") and conn.get("page_token"):
+        return "connected"
+    return "not_connected"
+
+
+def _conn_ready(conn: Optional[dict]) -> bool:
+    return bool(conn and _conn_state(conn) == "connected" and conn.get("page_id") and conn.get("page_token"))
+
+
+def _has_publish_task(tasks) -> bool:
+    return bool(set(tasks or []) & REQUIRED_PAGE_TASKS)
+
+
+def _requirements(aid: str, sec: str):
+    missing = []
+    if not aid:
+        missing.append("META_APP_ID")
+    if not sec:
+        missing.append("META_APP_SECRET")
+    recommended = []
+    if not META_CONFIG_ID:
+        recommended.append("META_CONFIG_ID")
+    return missing, recommended
+
+
+def _candidate_public(candidate: dict) -> dict:
+    return {
+        "page_id": candidate.get("page_id"),
+        "page_name": candidate.get("page_name") or "Página sem nome",
+        "ig_user_id": candidate.get("ig_user_id"),
+        "ig_username": candidate.get("ig_username"),
+        "has_instagram": bool(candidate.get("ig_user_id")),
+        "tasks": candidate.get("tasks") or [],
+        "publish_ready": _has_publish_task(candidate.get("tasks") or []),
+    }
+
+
+def _base_checks(aid: str, sec: str, conn: Optional[dict]):
+    missing, recommended = _requirements(aid, sec)
+    checks = [
+        {
+            "id": "meta_app_credentials",
+            "label": "Credenciais da app Meta",
+            "ok": not missing,
+            "detail": "Prontas para OAuth." if not missing else f"Em falta: {', '.join(missing)}.",
+        },
+        {
+            "id": "meta_config_id",
+            "label": "Facebook Login for Business config",
+            "ok": bool(META_CONFIG_ID),
+            "detail": "Config ID presente." if META_CONFIG_ID else "Recomendado para produção; fluxo atual usa scope tradicional enquanto isso.",
+        },
+    ]
+    state = _conn_state(conn)
+    if state == "not_connected":
+        checks.append({
+            "id": "meta_oauth",
+            "label": "Ligação OAuth",
+            "ok": False,
+            "detail": "Ligue Facebook + Instagram para escolher a página da empresa ativa.",
+        })
+    elif state == "pending_selection":
+        checks.append({
+            "id": "meta_page_selection",
+            "label": "Escolha da página",
+            "ok": False,
+            "detail": "OAuth concluído. Falta escolher qual Página de Facebook/Instagram deve ficar ligada.",
+        })
+    else:
+        checks.extend([
+            {
+                "id": "meta_page_selected",
+                "label": "Página Facebook ligada",
+                "ok": bool(conn and conn.get("page_id")),
+                "detail": conn.get("page_name") or "Página não definida.",
+            },
+            {
+                "id": "meta_publish_tasks",
+                "label": "Permissões de publicação",
+                "ok": _has_publish_task((conn or {}).get("tasks") or []),
+                "detail": "Tasks OK para publicar." if _has_publish_task((conn or {}).get("tasks") or []) else "A Página precisa de task CREATE_CONTENT ou MANAGE.",
+            },
+            {
+                "id": "meta_instagram_link",
+                "label": "Instagram profissional",
+                "ok": bool(conn and conn.get("ig_user_id")),
+                "detail": f"@{conn.get('ig_username')}" if conn and conn.get("ig_username") else "Sem conta Instagram profissional ligada à Página.",
+            },
+        ])
+        scopes = set((conn or {}).get("granted_scopes") or [])
+        checks.append({
+            "id": "meta_insights_permissions",
+            "label": "Permissões para analytics",
+            "ok": bool(conn and conn.get("ig_user_id") and (not scopes or INSIGHTS_SCOPE_HINTS.issubset(scopes))),
+            "detail": "Pronto para ligar métricas reais quando as credenciais forem validadas." if conn and conn.get("ig_user_id") else "As métricas continuam MOCKED até haver ligação Meta válida.",
+        })
+    if recommended:
+        checks.append({
+            "id": "meta_recommended_setup",
+            "label": "Recomendação de setup",
+            "ok": False,
+            "detail": f"Opcional mas recomendado: {', '.join(recommended)}.",
+        })
+    return checks
+
+
+def _status_payload(conn: Optional[dict], aid: str, sec: str, checks: Optional[list] = None):
+    missing, recommended = _requirements(aid, sec)
+    state = _conn_state(conn)
+    connected = _conn_ready(conn)
+    available_pages = [_candidate_public(item) for item in ((conn or {}).get("candidate_pages") or [])]
+    return {
+        "configured": bool(aid and sec),
+        "missing_config": missing,
+        "recommended_config": recommended,
+        "config_id_present": bool(META_CONFIG_ID),
+        "redirect_uri": _redirect_uri(),
+        "connected": connected,
+        "pending_selection": state == "pending_selection",
+        "connection_state": state,
+        "page_name": conn.get("page_name") if conn else None,
+        "ig_username": conn.get("ig_username") if conn else None,
+        "has_instagram": bool(conn and conn.get("ig_user_id")),
+        "has_facebook": bool(conn and conn.get("page_id")),
+        "selected_tasks": (conn or {}).get("tasks") or [],
+        "checks": checks or ((conn or {}).get("last_diagnostics") or {}).get("checks") or _base_checks(aid, sec, conn),
+        "available_pages": available_pages,
+        "metrics_mocked": True,
+        "live_metrics_ready": bool(conn and conn.get("ig_user_id") and connected),
+    }
+
+
+async def _fetch_granted_scopes(token: str) -> list[str]:
+    try:
+        async with httpx.AsyncClient(timeout=45) as client:
+            r = await client.get(_graph("me/permissions"), params={
+                "access_token": token,
+                "appsecret_proof": _proof(token),
+            })
+        data = r.json() if r.content else {}
+        return [item.get("permission") for item in data.get("data", []) if item.get("status") == "granted" and item.get("permission")]
+    except Exception:
+        return []
+
+
+async def _hydrate_candidate(page: dict) -> dict:
+    item = {
+        "page_id": page.get("id"),
+        "page_name": page.get("name") or "Página sem nome",
+        "page_token": page.get("access_token"),
+        "tasks": page.get("tasks") or [],
+        "ig_user_id": ((page.get("instagram_business_account") or {}).get("id")),
+        "ig_username": None,
+    }
+    if item["ig_user_id"] and item["page_token"]:
+        try:
+            igd = await _graph_req("GET", _graph(item["ig_user_id"]), {"fields": "username"}, item["page_token"])
+            item["ig_username"] = igd.get("username")
+        except Exception as e:
+            logger.error(f"social hydrate ig username: {e}")
+    return item
+
+
+async def _finalize_connection(uid: str, cid: Optional[str], current: Optional[dict], chosen: dict, user_token: str, granted_scopes: Optional[list[str]] = None):
+    await db.social_connections.update_one(
+        {"user_id": uid, "company_id": cid},
+        {"$set": {
+            "user_id": uid,
+            "company_id": cid,
+            "status": "connected",
+            "page_id": chosen.get("page_id"),
+            "page_name": chosen.get("page_name"),
+            "ig_user_id": chosen.get("ig_user_id"),
+            "ig_username": chosen.get("ig_username"),
+            "tasks": chosen.get("tasks") or [],
+            "page_token": chosen.get("page_token"),
+            "user_token": user_token,
+            "granted_scopes": granted_scopes if granted_scopes is not None else (current or {}).get("granted_scopes") or [],
+            "candidate_pages": [],
+            "last_diagnostics": {"checks": _base_checks(*_cfg(), {**(current or {}), **chosen, "status": "connected"})},
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }},
+        upsert=True,
+    )
+
+
+async def _run_diagnostics(conn: Optional[dict], aid: str, sec: str):
+    checks = _base_checks(aid, sec, conn)
+    if not (aid and sec) or not _conn_ready(conn):
+        return checks, _conn_state(conn)
+
+    state = "connected"
+    try:
+        page = await _graph_req("GET", _graph(conn["page_id"]), {"fields": "id,name"}, conn["page_token"])
+        checks.append({
+            "id": "meta_page_api",
+            "label": "API da Página",
+            "ok": True,
+            "detail": f"Ligação confirmada à página {page.get('name') or conn.get('page_name') or 'Página'}.",
+        })
+    except Exception:
+        state = "degraded"
+        checks.append({
+            "id": "meta_page_api",
+            "label": "API da Página",
+            "ok": False,
+            "detail": "A página não respondeu. Reconecte a Meta para renovar o token.",
+        })
+
+    if conn.get("ig_user_id"):
+        try:
+            token = conn.get("page_token") or conn.get("user_token")
+            ig = await _graph_req("GET", _graph(conn["ig_user_id"]), {"fields": "id,username"}, token)
+            checks.append({
+                "id": "meta_ig_api",
+                "label": "API do Instagram",
+                "ok": True,
+                "detail": f"Instagram profissional validado: @{ig.get('username') or conn.get('ig_username') or 'conta ligada'}.",
+            })
+        except Exception:
+            state = "degraded"
+            checks.append({
+                "id": "meta_ig_api",
+                "label": "API do Instagram",
+                "ok": False,
+                "detail": "Não foi possível validar o Instagram profissional ligado à Página.",
+            })
+    return checks, state
 
 
 async def _migrate_legacy_jobs(uid: str, cid: Optional[str]):
@@ -139,14 +377,42 @@ async def social_status(user: dict = Depends(premium_user)):
     aid, sec = _cfg()
     cid = await active_company_id(user["id"])
     conn = await _find_connection(user["id"], cid)
-    return {
-        "configured": bool(aid and sec),
-        "redirect_uri": _redirect_uri(),
-        "connected": bool(conn),
-        "page_name": conn.get("page_name") if conn else None,
-        "ig_username": conn.get("ig_username") if conn else None,
-        "has_instagram": bool(conn and conn.get("ig_user_id")),
-    }
+    return _status_payload(conn, aid, sec)
+
+
+@router.get("/social/requirements")
+async def social_requirements(user: dict = Depends(premium_user)):
+    aid, sec = _cfg()
+    cid = await active_company_id(user["id"])
+    conn = await _find_connection(user["id"], cid)
+    payload = _status_payload(conn, aid, sec)
+    payload["requirements"] = [
+        "Página de Facebook ligada à empresa ativa",
+        "Conta Instagram profissional (Business ou Creator) ligada à Página",
+        "App Meta com redirect URI correto",
+        "Permissões de publicação e leitura aprovadas na app",
+    ]
+    return payload
+
+
+@router.post("/social/diagnostics")
+async def social_diagnostics(user: dict = Depends(premium_user)):
+    aid, sec = _cfg()
+    cid = await active_company_id(user["id"])
+    conn = await _find_connection(user["id"], cid)
+    checks, state = await _run_diagnostics(conn, aid, sec)
+    if conn:
+        await db.social_connections.update_one(
+            {"user_id": user["id"], "company_id": cid},
+            {"$set": {
+                "status": state if state != "not_connected" else (conn.get("status") or "not_connected"),
+                "last_diagnostics": {"checks": checks},
+                "last_validated_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }},
+        )
+        conn = await _find_connection(user["id"], cid)
+    return _status_payload(conn, aid, sec, checks)
 
 
 @router.get("/social/connect")
@@ -156,11 +422,20 @@ async def social_connect(user: dict = Depends(premium_user)):
         raise HTTPException(400, "Integração Meta ainda não configurada (falta App ID/App Secret).")
     cid = await active_company_id(user["id"])
     state = secrets.token_urlsafe(24)
-    await db.social_oauth_states.insert_one({"_id": state, "user_id": user["id"], "company_id": cid,
-                                             "created_at": datetime.now(timezone.utc).isoformat()})
-    q = urlencode({"client_id": aid, "redirect_uri": _redirect_uri(), "state": state,
-                   "scope": ",".join(SCOPES), "response_type": "code"})
-    return {"auth_url": f"https://www.facebook.com/{GRAPH_VER}/dialog/oauth?{q}"}
+    await db.social_oauth_states.insert_one({
+        "_id": state,
+        "user_id": user["id"],
+        "company_id": cid,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10),
+    })
+    q = {"client_id": aid, "redirect_uri": _redirect_uri(), "state": state, "response_type": "code"}
+    if META_CONFIG_ID:
+        q["config_id"] = META_CONFIG_ID
+        q["override_default_response_type"] = "true"
+    else:
+        q["scope"] = ",".join(SCOPES)
+    return {"auth_url": f"https://www.facebook.com/{GRAPH_VER}/dialog/oauth?{urlencode(q)}"}
 
 
 @router.get("/social/callback")
@@ -193,21 +468,51 @@ async def social_callback(code: Optional[str] = None, state: Optional[str] = Non
         data = pages.get("data", [])
         if not data:
             return RedirectResponse(f"{base}/marketing?social_error=sem_pagina")
-        chosen = next((p for p in data if p.get("instagram_business_account")), data[0])
-        ig_id = (chosen.get("instagram_business_account") or {}).get("id")
-        ig_username = None
-        if ig_id:
-            igd = await _graph_req("GET", _graph(ig_id), {"fields": "username"}, chosen["access_token"])
-            ig_username = igd.get("username")
+        granted_scopes = await _fetch_granted_scopes(user_token)
+        candidates = []
+        for page in data:
+            candidates.append(await _hydrate_candidate(page))
+        if len(candidates) == 1:
+            await _finalize_connection(uid, cid, None, candidates[0], user_token, granted_scopes)
+            return RedirectResponse(f"{base}/marketing?connected=1")
         await db.social_connections.update_one({"user_id": uid, "company_id": cid}, {"$set": {
-            "user_id": uid, "company_id": cid, "page_id": chosen["id"], "page_name": chosen.get("name"),
-            "ig_user_id": ig_id, "ig_username": ig_username,
-            "page_token": chosen["access_token"], "user_token": user_token,
+            "user_id": uid,
+            "company_id": cid,
+            "status": "pending_selection",
+            "candidate_pages": candidates,
+            "page_id": None,
+            "page_name": None,
+            "ig_user_id": None,
+            "ig_username": None,
+            "tasks": [],
+            "page_token": None,
+            "user_token": user_token,
+            "granted_scopes": granted_scopes,
+            "last_diagnostics": {"checks": _base_checks(aid, sec, {"status": "pending_selection", "candidate_pages": candidates})},
             "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
-        return RedirectResponse(f"{base}/marketing?connected=1")
+        return RedirectResponse(f"{base}/marketing?social_pending=1")
     except Exception as e:
         logger.error(f"social oauth callback: {e}")
         return RedirectResponse(f"{base}/marketing?social_error=falha_oauth")
+
+
+class SelectPageIn(BaseModel):
+    page_id: str
+
+
+@router.post("/social/select-page")
+async def social_select_page(inp: SelectPageIn, user: dict = Depends(premium_user)):
+    cid = await active_company_id(user["id"])
+    conn = await _find_connection(user["id"], cid)
+    if not conn or _conn_state(conn) != "pending_selection":
+        raise HTTPException(400, "Não existe uma escolha de página pendente.")
+    candidates = conn.get("candidate_pages") or []
+    chosen = next((item for item in candidates if item.get("page_id") == inp.page_id), None)
+    if not chosen:
+        raise HTTPException(404, "Página não encontrada na sessão Meta atual.")
+    await _finalize_connection(user["id"], cid, conn, chosen, conn.get("user_token", ""), conn.get("granted_scopes") or [])
+    fresh = await _find_connection(user["id"], cid)
+    return {"ok": True, "connection": _status_payload(fresh, *_cfg())}
 
 
 @router.post("/social/disconnect")
@@ -234,13 +539,17 @@ class ScheduleIn(PublishIn):
 
 async def _publish_core(uid: str, cid: Optional[str], payload: dict) -> dict:
     conn = await _find_connection(uid, cid)
-    if not conn:
+    if not _conn_ready(conn):
+        if _conn_state(conn) == "pending_selection":
+            raise HTTPException(400, "A ligação Meta foi autorizada, mas ainda falta escolher a Página certa.")
         raise HTTPException(400, "As redes ainda não estão ligadas.")
     caption = payload.get("caption") or ""
     image_url = payload.get("image_url")
     want_img = payload.get("generate_image", True)
     do_ig = payload.get("instagram", True)
     do_fb = payload.get("facebook", True)
+    if not (do_ig or do_fb):
+        raise HTTPException(400, "Escolha pelo menos um canal de publicação.")
     post_id = payload.get("post_id")
     post_meta = payload.get("post_meta") or await _marketing_post_meta(uid, cid, post_id)
     if not image_url and want_img and (do_ig or do_fb):
@@ -304,7 +613,9 @@ async def social_publish(inp: PublishIn, user: dict = Depends(premium_user)):
 async def social_schedule(inp: ScheduleIn, user: dict = Depends(premium_user)):
     cid = await active_company_id(user["id"])
     conn = await _find_connection(user["id"], cid)
-    if not conn:
+    if not _conn_ready(conn):
+        if _conn_state(conn) == "pending_selection":
+            raise HTTPException(400, "Escolha primeiro a Página Meta a ligar a esta empresa.")
         raise HTTPException(400, "As redes ainda não estão ligadas.")
     d = inp.model_dump(); run_at = d.pop("run_at")
     if d.get("post_id"):

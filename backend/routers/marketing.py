@@ -2,6 +2,7 @@
 import base64
 import hashlib
 import os
+import uuid
 from datetime import datetime, timezone, timedelta
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
@@ -27,12 +28,34 @@ router = APIRouter()
 WORKFLOW_STATUSES = {"draft", "approved", "scheduled"}
 POST_FORMATS = ["Post", "Story", "Reel"]
 WEEKDAYS_PT = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
+CAMPAIGN_OBJECTIVES = {
+    "awareness": {
+        "label": "Awareness",
+        "headline": "Ganhar alcance qualificado e reconhecimento de marca",
+        "audience": "novos decisores e mercado frio",
+        "cta": "seguir, guardar e pedir mais informação",
+    },
+    "leads": {
+        "label": "Leads",
+        "headline": "Converter atenção em pedidos de contacto e reuniões",
+        "audience": "leads mornos e decisores com intenção",
+        "cta": "pedir diagnóstico, proposta ou reunião",
+    },
+    "reativacao": {
+        "label": "Reativação",
+        "headline": "Reaquecer oportunidades paradas e clientes adormecidos",
+        "audience": "leads parados e clientes sem contacto recente",
+        "cta": "responder, voltar à conversa ou reabrir oportunidade",
+    },
+}
 
 
 def _serialize(doc):
     if not doc:
         return None
     doc = dict(doc)
+    if doc.get("_id") is not None:
+        doc["id"] = str(doc.get("_id"))
     doc.pop("_id", None)
     doc.pop("user_id", None)
     doc.pop("company_id", None)
@@ -387,6 +410,128 @@ def _normalize_content(raw: dict, ctx: dict):
     return content
 
 
+def _normalize_objective(value: Optional[str]) -> str:
+    raw = (value or "").strip().lower()
+    mapping = {
+        "awareness": "awareness",
+        "alcance": "awareness",
+        "reconhecimento": "awareness",
+        "leads": "leads",
+        "lead": "leads",
+        "reativacao": "reativacao",
+        "reativação": "reativacao",
+        "reactivation": "reativacao",
+    }
+    return mapping.get(raw, "awareness")
+
+
+def _campaign_defaults(ctx: dict, payload: dict):
+    objective = _normalize_objective(payload.get("objective"))
+    meta = CAMPAIGN_OBJECTIVES[objective]
+    company = ctx.get("name") or "Empresa"
+    sector = (ctx.get("sector") or "mercado").lower()
+    icp = ctx.get("icp") or {}
+    audience = payload.get("audience") or icp.get("sector") or meta["audience"]
+    offer = payload.get("offer") or ("diagnóstico rápido" if objective == "leads" else "proposta de valor clara")
+    objective_text = {
+        "awareness": "fazer a marca aparecer mais vezes perante o ICP certo",
+        "leads": "gerar respostas concretas e pedidos de contacto",
+        "reativacao": "dar uma razão forte para responder agora",
+    }[objective]
+    channels = {
+        "awareness": [
+            {"channel": "Instagram", "format": "Reel", "hook": f"Mostrar {company} em ação no setor {sector}", "cta": "Guardar e seguir para ver mais bastidores.", "distribution": "Feed + Reels", "purpose": "Alcance frio"},
+            {"channel": "Instagram Stories", "format": "Story", "hook": "3 provas rápidas com bastidores e prova social", "cta": "Responder à story para saber mais.", "distribution": "Stories em série", "purpose": "Memorização"},
+            {"channel": "Facebook", "format": "Post", "hook": "Caso real com resultado tangível", "cta": "Comentar ou enviar mensagem.", "distribution": "Página + grupos parceiros", "purpose": "Confiança local"},
+            {"channel": "CRM / Email", "format": "Email curto", "hook": "Resumo do melhor conteúdo da semana", "cta": "Pedir exemplo ou demonstração.", "distribution": "Base própria", "purpose": "Reciclar alcance para owned media"},
+        ],
+        "leads": [
+            {"channel": "Instagram", "format": "Carousel", "hook": f"Checklist prática para decisores em {sector}", "cta": "Enviar mensagem para receber o diagnóstico.", "distribution": "Feed", "purpose": "Captação"},
+            {"channel": "Instagram Stories", "format": "Story", "hook": "Pergunta + prova + CTA direto", "cta": "Responder com 'quero' para abrir conversa.", "distribution": "Stories com sticker", "purpose": "Resposta imediata"},
+            {"channel": "Facebook", "format": "Post", "hook": "Oferta clara com prova social", "cta": f"Pedir {offer}.", "distribution": "Página + retargeting manual", "purpose": "Conversão"},
+            {"channel": "CRM / WhatsApp", "format": "Follow-up", "hook": "Mensagem curta a leads mornos com ângulo do conteúdo", "cta": "Agendar chamada de 15 minutos.", "distribution": "Leads do CRM", "purpose": "Fecho comercial"},
+        ],
+        "reativacao": [
+            {"channel": "Instagram", "format": "Reel", "hook": "Antes/depois ou erro comum que faz perder dinheiro", "cta": "Voltar a falar connosco hoje.", "distribution": "Feed + Reels", "purpose": "Reabrir atenção"},
+            {"channel": "Instagram Stories", "format": "Story", "hook": "Sondagem para retomar interesse", "cta": "Responder à story com a prioridade atual.", "distribution": "Stories", "purpose": "Resposta leve"},
+            {"channel": "Facebook", "format": "Post", "hook": "Lembrete com prova recente e urgência saudável", "cta": "Enviar mensagem para atualizar o caso.", "distribution": "Página", "purpose": "Reengagement"},
+            {"channel": "CRM / Email", "format": "Email de reativação", "hook": "'Vale a pena retomarmos este tema?'", "cta": "Responder com interesse ou objeção principal.", "distribution": "Base de leads parados", "purpose": "Desbloqueio"},
+        ],
+    }[objective]
+    kpis = {
+        "awareness": ["reach qualificado", "guardados/partilhas", "visitas ao perfil", "novos seguidores com fit"],
+        "leads": ["DMs iniciadas", "cliques para contacto", "pedidos de diagnóstico", "reuniões marcadas"],
+        "reativacao": ["respostas reabertas", "reativação de oportunidades", "taxa de reply", "reuniões recuperadas"],
+    }[objective]
+    experiments = {
+        "awareness": ["Trocar prova social por bastidores no gancho principal", "Testar Reel curto vs carrossel educativo"],
+        "leads": ["CTA com oferta vs CTA com diagnóstico", "Prova numérica vs dor do ICP no primeiro slide"],
+        "reativacao": ["Urgência leve vs curiosidade no assunto", "Caso real recente vs pergunta direta ao lead"],
+    }[objective]
+    plan = [
+        {"day": "Dia 1", "channel": channels[0]["channel"], "action": f"Lançar peça hero com foco em {objective_text}."},
+        {"day": "Dia 3", "channel": channels[1]["channel"], "action": "Reforçar a mensagem com prova curta e CTA nativo."},
+        {"day": "Dia 5", "channel": channels[2]["channel"], "action": "Publicar a versão mais explicativa com prova social."},
+        {"day": "Dia 7", "channel": channels[3]["channel"], "action": "Ativar a base própria para puxar resposta direta."},
+    ]
+    return {
+        "objective": objective,
+        "objective_label": meta["label"],
+        "name": payload.get("name") or f"{meta['label']} · {company}",
+        "audience": audience,
+        "offer": offer,
+        "summary": f"Campanha multicanal para {objective_text}, alinhada com o contexto comercial e financeiro atual de {company}.",
+        "core_message": f"{company} deve comunicar valor concreto para {audience} e fechar sempre com CTA para {meta['cta']}.",
+        "channels": channels,
+        "kpis": kpis,
+        "experiments": experiments,
+        "launch_plan": plan,
+        "next_actions": [
+            "Escolher um post hero e adaptá-lo aos 2 canais principais.",
+            "Definir um CTA único para esta campanha durante 7-14 dias.",
+            "Rever respostas/comentários e ajustar o 2.º toque com base nisso.",
+        ],
+    }
+
+
+def _normalize_campaign(raw: dict, ctx: dict, payload: dict):
+    base = _campaign_defaults(ctx, payload)
+    raw = raw if isinstance(raw, dict) else {}
+    channels_raw = raw.get("channels") if isinstance(raw.get("channels"), list) else []
+    plan_raw = raw.get("launch_plan") if isinstance(raw.get("launch_plan"), list) else []
+    channels = []
+    for idx, default in enumerate(base["channels"]):
+        item = channels_raw[idx] if idx < len(channels_raw) and isinstance(channels_raw[idx], dict) else {}
+        channels.append({
+            "channel": _short(item.get("channel"), default["channel"]),
+            "format": _short(item.get("format"), default["format"]),
+            "purpose": _short(item.get("purpose"), default["purpose"]),
+            "hook": _short(item.get("hook"), default["hook"]),
+            "cta": _short(item.get("cta"), default["cta"]),
+            "distribution": _short(item.get("distribution"), default["distribution"]),
+        })
+    launch_plan = []
+    for idx, default in enumerate(base["launch_plan"]):
+        item = plan_raw[idx] if idx < len(plan_raw) and isinstance(plan_raw[idx], dict) else {}
+        launch_plan.append({
+            "day": _short(item.get("day"), default["day"]),
+            "channel": _short(item.get("channel"), default["channel"]),
+            "action": _short(item.get("action"), default["action"]),
+        })
+    return {
+        **base,
+        "summary": _short(raw.get("summary"), base["summary"]),
+        "core_message": _short(raw.get("core_message"), base["core_message"]),
+        "audience": _short(raw.get("audience"), base["audience"]),
+        "offer": _short(raw.get("offer"), base["offer"]),
+        "channels": channels,
+        "kpis": _str_list(raw.get("kpis"), 6) or base["kpis"],
+        "experiments": _str_list(raw.get("experiments"), 4) or base["experiments"],
+        "launch_plan": launch_plan,
+        "next_actions": _str_list(raw.get("next_actions"), 4) or base["next_actions"],
+    }
+
+
 def _stable_seed(*parts):
     joined = "|".join(str(p or "") for p in parts)
     return int(hashlib.sha256(joined.encode("utf-8")).hexdigest()[:8], 16)
@@ -713,6 +858,14 @@ class MarketingBriefingIn(BaseModel):
     force: bool = False
 
 
+class CampaignGenerateIn(BaseModel):
+    objective: str
+    name: str = ""
+    offer: str = ""
+    audience: str = ""
+    notes: str = ""
+
+
 @router.get("/marketing/content")
 async def get_content(user: dict = Depends(premium_user)):
     uid = user["id"]
@@ -795,6 +948,56 @@ async def get_marketing_analytics(user: dict = Depends(premium_user)):
     uid = user["id"]
     cid = await active_company_id(uid)
     return await summarize_marketing_analytics(uid, cid)
+
+
+@router.get("/marketing/campaigns")
+async def get_marketing_campaigns(user: dict = Depends(premium_user)):
+    uid = user["id"]
+    cid = await active_company_id(uid)
+    rows = await db.marketing_campaigns.find({"user_id": uid, "company_id": cid}).sort("created_at", -1).to_list(20)
+    return {"campaigns": [_serialize(row) for row in rows]}
+
+
+@router.post("/marketing/campaigns/generate")
+async def generate_marketing_campaign(inp: CampaignGenerateIn, user: dict = Depends(premium_user)):
+    uid = user["id"]
+    cid = await active_company_id(uid)
+    ctx = await _ctx(uid, cid)
+    objective = _normalize_objective(inp.objective)
+    objective_meta = CAMPAIGN_OBJECTIVES[objective]
+    system = (
+        "És um estratega de marketing executivo. Criar campanhas multicanal para PMEs, com foco comercial,"
+        " coerência entre canais e português europeu. Responde apenas com JSON."
+    )
+    prompt = (
+        f"Contexto real da empresa:\n{_prompt_context(ctx)}\n\n"
+        f"Objetivo da campanha: {objective_meta['label']}\n"
+        f"Nome sugerido: {inp.name or 'usar um nome claro'}\n"
+        f"Oferta/gancho principal: {inp.offer or 'definir conforme o contexto'}\n"
+        f"Audiência prioritária: {inp.audience or 'usar ICP e CRM'}\n"
+        f"Notas extra do utilizador: {inp.notes or 'sem notas extra'}\n\n"
+        "Devolve APENAS JSON válido com esta estrutura: "
+        '{"summary":str,"core_message":str,"audience":str,"offer":str,'
+        '"channels":[{"channel":str,"format":str,"purpose":str,"hook":str,"cta":str,"distribution":str}],'
+        '"kpis":[str],"experiments":[str],"launch_plan":[{"day":str,"channel":str,"action":str}],"next_actions":[str]}. '
+        "Quero exatamente 4 canais, 4 passos de lançamento, 3-4 KPIs e 2 experiências."
+    )
+    try:
+        ai_campaign = await ai_json(system, prompt)
+    except Exception:
+        ai_campaign = {}
+    campaign = _normalize_campaign(ai_campaign or {}, ctx, inp.model_dump())
+    now_iso = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "_id": str(uuid.uuid4()),
+        "user_id": uid,
+        "company_id": cid,
+        **campaign,
+        "created_at": now_iso,
+        "updated_at": now_iso,
+    }
+    await db.marketing_campaigns.insert_one(doc)
+    return {"campaign": _serialize(doc)}
 
 
 @router.get("/marketing/briefing")
