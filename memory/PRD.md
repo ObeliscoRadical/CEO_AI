@@ -1,6 +1,8 @@
 # CEO AI — O Executivo Digital
 
 ## CEO AI V2 — Diretor de Marketing Executor (2026-08-11, Meta readiness + campanhas multicanal)
+- ✅ `backend/routers/social.py` endurecido para **Meta real**: suporte a aliases de Secrets (`META_APP_ID` / `META APP ID`, `META_APP_SECRET` / `META APP SECRET`, `META_CONFIG_ID` / `META CONFIG ID`, `META_GRAPH_VERSION` / `META GRAPH VERSION`), callback com expiração válida, `debug_token`, persistência de `granted_scopes`, `granular_scopes`, `token_expires_at`, `data_access_expires_at`, e validação ao vivo de `/me/accounts` + Página selecionada + IG profissional.
+- ✅ Publicação Instagram reforçada: `_publish_core` passou a usar preferencialmente o **user token** no fluxo IG, verifica tasks de publicação da Página e espera o contentor do Instagram ficar pronto antes do `media_publish`.
 - ✅ `backend/routers/social.py`: a ligação Meta ficou mais robusta mesmo sem credenciais reais. O módulo agora expõe `GET /api/social/requirements`, `POST /api/social/diagnostics` e `POST /api/social/select-page`, devolve **checklist de prontidão**, `missing_config`, estado `pending_selection|connected|degraded` e suporta **escolha explícita da Página Facebook** após OAuth (em vez de assumir a primeira página disponível).
 - ✅ OAuth endurecido: `social_connect` passou a preparar o fluxo com `META_CONFIG_ID` quando existir (fallback para scopes clássicos se ainda faltar), e `social_oauth_states` ganhou expiração automática por TTL em `expires_at`.
 - ✅ Frontend `components/marketing/MetaConnectionSection.jsx`: nova experiência de ligação Meta com estado honesto “não ligada”, badge **Analytics MOCKED**, URI de redirect visível, checklist operacional, botão de diagnóstico e painel de seleção de página quando o OAuth ficar pendente.
@@ -10,9 +12,9 @@
   - `pytest /app/backend/tests/test_phase3_marketing.py` → **18/18 PASS**.
   - `testing_agent` iteration_38 → backend **100%** + frontend **100% dos fluxos testados**.
   - `auto_frontend_testing_agent` e `deep_testing_backend_v2` confirmaram o comportamento esperado sem crashes e sem regressões.
-- ⚠️ **Meta real continua BLOQUEADA por credenciais ausentes do utilizador** (`META_APP_ID` / `META_APP_SECRET`). A app agora está melhor preparada, mas publicação OAuth real e métricas reais continuam dependentes dessas credenciais.
+- ⚠️ **Meta real continua BLOQUEADA nesta instância de preview**: apesar do utilizador já ter configurado Secrets no painel, o runtime do preview atual ainda não expõe as variáveis Meta ao backend (`configured:false`). O código foi preparado para os aliases vistos no painel, mas a validação OAuth/publicação real precisa que o preview seja reaberto/republished para apanhar esses Secrets.
 - 📌 Próximos passos do Diretor de Marketing:
-  - **P0**: receber App ID/App Secret da Meta e validar OAuth real com Facebook + Instagram da empresa do utilizador.
+  - **P0**: reabrir/republish o preview para o runtime receber os Secrets Meta e validar OAuth real com Facebook + Instagram da empresa do utilizador.
   - **P1**: substituir definitivamente as métricas **MOCKED** por ingestão real da Meta após a validação das credenciais.
   - **P2**: ligar campanhas multicanal aos resultados reais para otimização automática por objetivo.
 

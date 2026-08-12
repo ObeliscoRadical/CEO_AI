@@ -1,6 +1,6 @@
 """Fase 4 — Publicação automática nas redes (Instagram + Facebook via Meta Graph API).
 Agora com isolamento por empresa, diagnóstico de ligação e sincronização com o workflow editorial."""
-import os, base64, uuid, hmac, hashlib, secrets
+import asyncio, os, base64, uuid, hmac, hashlib, secrets
 from datetime import datetime, timezone, timedelta
 from urllib.parse import urlencode, quote
 from typing import Optional
@@ -21,16 +21,35 @@ from routers.marketing import apply_post_status, record_marketing_metrics
 
 router = APIRouter()
 
-GRAPH_VER = os.environ.get("META_GRAPH_VERSION", "v25.0")
-META_CONFIG_ID = (os.environ.get("META_CONFIG_ID") or "").strip()
 SCOPES = ["instagram_basic", "instagram_content_publish", "pages_show_list",
           "pages_read_engagement", "pages_manage_posts", "business_management"]
 REQUIRED_PAGE_TASKS = {"CREATE_CONTENT", "MANAGE"}
 INSIGHTS_SCOPE_HINTS = {"instagram_manage_insights", "pages_read_engagement"}
 
 
+def _first_env(*names, default=""):
+    for name in names:
+        value = os.environ.get(name)
+        if value is not None and str(value).strip() != "":
+            return str(value).strip()
+    return default
+
+
+def _graph_ver() -> str:
+    return _first_env("META_GRAPH_VERSION", "META GRAPH VERSION", default="v25.0")
+
+
+def _meta_config_id() -> str:
+    return _first_env("META_CONFIG_ID", "META CONFIG ID")
+
+
 def _cfg():
-    return os.environ.get("META_APP_ID", ""), os.environ.get("META_APP_SECRET", "")
+    return _first_env("META_APP_ID", "META APP ID"), _first_env("META_APP_SECRET", "META APP SECRET")
+
+
+def _app_token() -> str:
+    aid, sec = _cfg()
+    return f"{aid}|{sec}" if aid and sec else ""
 
 
 def _base():
@@ -42,12 +61,22 @@ def _redirect_uri():
 
 
 def _graph(path: str) -> str:
-    return f"https://graph.facebook.com/{GRAPH_VER}/{path.lstrip('/')}"
+    return f"https://graph.facebook.com/{_graph_ver()}/{path.lstrip('/')}"
 
 
 def _proof(token: str) -> str:
     _, sec = _cfg()
     return hmac.new(sec.encode(), token.encode(), hashlib.sha256).hexdigest()
+
+
+def _epoch_iso(value) -> Optional[str]:
+    try:
+        value = int(value or 0)
+    except Exception:
+        return None
+    if value <= 0:
+        return None
+    return datetime.fromtimestamp(value, tz=timezone.utc).isoformat()
 
 
 async def _graph_req(method: str, url: str, params: dict, token: str) -> dict:
@@ -61,6 +90,21 @@ async def _graph_req(method: str, url: str, params: dict, token: str) -> dict:
     if r.is_error or "error" in data:
         raise HTTPException(502, {"meta_error": data.get("error", data)})
     return data
+
+
+async def _debug_token(token: str) -> dict:
+    app_token = _app_token()
+    if not app_token or not token:
+        return {}
+    async with httpx.AsyncClient(timeout=45) as client:
+        r = await client.get(_graph("debug_token"), params={
+            "input_token": token,
+            "access_token": app_token,
+        })
+    data = r.json() if r.content else {}
+    if r.is_error or "error" in data:
+        return {}
+    return data.get("data") or {}
 
 
 async def _find_connection(uid: str, cid: Optional[str]):
@@ -103,7 +147,7 @@ def _requirements(aid: str, sec: str):
     if not sec:
         missing.append("META_APP_SECRET")
     recommended = []
-    if not META_CONFIG_ID:
+    if not _meta_config_id():
         recommended.append("META_CONFIG_ID")
     return missing, recommended
 
@@ -132,8 +176,8 @@ def _base_checks(aid: str, sec: str, conn: Optional[dict]):
         {
             "id": "meta_config_id",
             "label": "Facebook Login for Business config",
-            "ok": bool(META_CONFIG_ID),
-            "detail": "Config ID presente." if META_CONFIG_ID else "Recomendado para produção; fluxo atual usa scope tradicional enquanto isso.",
+            "ok": bool(_meta_config_id()),
+            "detail": "Config ID presente." if _meta_config_id() else "Recomendado para produção; fluxo atual usa scope tradicional enquanto isso.",
         },
     ]
     state = _conn_state(conn)
@@ -173,11 +217,17 @@ def _base_checks(aid: str, sec: str, conn: Optional[dict]):
             },
         ])
         scopes = set((conn or {}).get("granted_scopes") or [])
+        missing_scopes = sorted(item for item in [
+            "pages_show_list",
+            "pages_manage_posts",
+            "instagram_basic",
+            "instagram_content_publish",
+        ] if scopes and item not in scopes)
         checks.append({
             "id": "meta_insights_permissions",
             "label": "Permissões para analytics",
             "ok": bool(conn and conn.get("ig_user_id") and (not scopes or INSIGHTS_SCOPE_HINTS.issubset(scopes))),
-            "detail": "Pronto para ligar métricas reais quando as credenciais forem validadas." if conn and conn.get("ig_user_id") else "As métricas continuam MOCKED até haver ligação Meta válida.",
+            "detail": "Pronto para ligar métricas reais quando as credenciais forem validadas." if conn and conn.get("ig_user_id") and not missing_scopes else (f"Scopes em falta: {', '.join(missing_scopes)}." if missing_scopes else "As métricas continuam MOCKED até haver ligação Meta válida."),
         })
     if recommended:
         checks.append({
@@ -198,7 +248,7 @@ def _status_payload(conn: Optional[dict], aid: str, sec: str, checks: Optional[l
         "configured": bool(aid and sec),
         "missing_config": missing,
         "recommended_config": recommended,
-        "config_id_present": bool(META_CONFIG_ID),
+        "config_id_present": bool(_meta_config_id()),
         "redirect_uri": _redirect_uri(),
         "connected": connected,
         "pending_selection": state == "pending_selection",
@@ -208,24 +258,31 @@ def _status_payload(conn: Optional[dict], aid: str, sec: str, checks: Optional[l
         "has_instagram": bool(conn and conn.get("ig_user_id")),
         "has_facebook": bool(conn and conn.get("page_id")),
         "selected_tasks": (conn or {}).get("tasks") or [],
+        "granted_scopes": (conn or {}).get("granted_scopes") or [],
+        "granular_scopes": (conn or {}).get("granular_scopes") or [],
+        "token_expires_at": (conn or {}).get("token_expires_at"),
+        "data_access_expires_at": (conn or {}).get("data_access_expires_at"),
         "checks": checks or ((conn or {}).get("last_diagnostics") or {}).get("checks") or _base_checks(aid, sec, conn),
         "available_pages": available_pages,
         "metrics_mocked": True,
         "live_metrics_ready": bool(conn and conn.get("ig_user_id") and connected),
+        "publish_ready_facebook": bool(connected and _has_publish_task((conn or {}).get("tasks") or [])),
+        "publish_ready_instagram": bool(connected and conn and conn.get("ig_user_id")),
     }
 
 
-async def _fetch_granted_scopes(token: str) -> list[str]:
-    try:
-        async with httpx.AsyncClient(timeout=45) as client:
-            r = await client.get(_graph("me/permissions"), params={
-                "access_token": token,
-                "appsecret_proof": _proof(token),
-            })
-        data = r.json() if r.content else {}
-        return [item.get("permission") for item in data.get("data", []) if item.get("status") == "granted" and item.get("permission")]
-    except Exception:
-        return []
+async def _fetch_token_debug(token: str) -> dict:
+    info = await _debug_token(token)
+    if not info:
+        return {"granted_scopes": []}
+    return {
+        "granted_scopes": info.get("scopes") or [],
+        "granular_scopes": info.get("granular_scopes") or [],
+        "token_expires_at": _epoch_iso(info.get("expires_at")),
+        "data_access_expires_at": _epoch_iso(info.get("data_access_expires_at")),
+        "meta_user_id": info.get("user_id"),
+        "token_is_valid": bool(info.get("is_valid")),
+    }
 
 
 async def _hydrate_candidate(page: dict) -> dict:
@@ -246,13 +303,15 @@ async def _hydrate_candidate(page: dict) -> dict:
     return item
 
 
-async def _finalize_connection(uid: str, cid: Optional[str], current: Optional[dict], chosen: dict, user_token: str, granted_scopes: Optional[list[str]] = None):
+async def _finalize_connection(uid: str, cid: Optional[str], current: Optional[dict], chosen: dict, user_token: str, token_debug: Optional[dict] = None):
+    token_debug = token_debug or {}
     await db.social_connections.update_one(
         {"user_id": uid, "company_id": cid},
         {"$set": {
             "user_id": uid,
             "company_id": cid,
             "status": "connected",
+            "meta_user_id": token_debug.get("meta_user_id") or (current or {}).get("meta_user_id"),
             "page_id": chosen.get("page_id"),
             "page_name": chosen.get("page_name"),
             "ig_user_id": chosen.get("ig_user_id"),
@@ -260,9 +319,12 @@ async def _finalize_connection(uid: str, cid: Optional[str], current: Optional[d
             "tasks": chosen.get("tasks") or [],
             "page_token": chosen.get("page_token"),
             "user_token": user_token,
-            "granted_scopes": granted_scopes if granted_scopes is not None else (current or {}).get("granted_scopes") or [],
+            "granted_scopes": token_debug.get("granted_scopes") or (current or {}).get("granted_scopes") or [],
+            "granular_scopes": token_debug.get("granular_scopes") or (current or {}).get("granular_scopes") or [],
+            "token_expires_at": token_debug.get("token_expires_at") or (current or {}).get("token_expires_at"),
+            "data_access_expires_at": token_debug.get("data_access_expires_at") or (current or {}).get("data_access_expires_at"),
             "candidate_pages": [],
-            "last_diagnostics": {"checks": _base_checks(*_cfg(), {**(current or {}), **chosen, "status": "connected"})},
+            "last_diagnostics": {"checks": _base_checks(*_cfg(), {**(current or {}), **chosen, **token_debug, "status": "connected"})},
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }},
         upsert=True,
@@ -272,9 +334,26 @@ async def _finalize_connection(uid: str, cid: Optional[str], current: Optional[d
 async def _run_diagnostics(conn: Optional[dict], aid: str, sec: str):
     checks = _base_checks(aid, sec, conn)
     if not (aid and sec) or not _conn_ready(conn):
-        return checks, _conn_state(conn)
+        return checks, _conn_state(conn), {}
 
     state = "connected"
+    patch = {}
+    token_debug = await _fetch_token_debug(conn.get("user_token"))
+    if token_debug:
+        patch.update({
+            "meta_user_id": token_debug.get("meta_user_id") or conn.get("meta_user_id"),
+            "granted_scopes": token_debug.get("granted_scopes") or [],
+            "granular_scopes": token_debug.get("granular_scopes") or [],
+            "token_expires_at": token_debug.get("token_expires_at"),
+            "data_access_expires_at": token_debug.get("data_access_expires_at"),
+        })
+        checks.append({
+            "id": "meta_user_token",
+            "label": "Token do utilizador Meta",
+            "ok": bool(token_debug.get("token_is_valid")),
+            "detail": f"Token válido até {token_debug.get('token_expires_at')}." if token_debug.get("token_is_valid") and token_debug.get("token_expires_at") else ("Token válido." if token_debug.get("token_is_valid") else "Não foi possível validar o token do utilizador Meta."),
+        })
+
     try:
         page = await _graph_req("GET", _graph(conn["page_id"]), {"fields": "id,name"}, conn["page_token"])
         checks.append({
@@ -292,15 +371,46 @@ async def _run_diagnostics(conn: Optional[dict], aid: str, sec: str):
             "detail": "A página não respondeu. Reconecte a Meta para renovar o token.",
         })
 
-    if conn.get("ig_user_id"):
+    try:
+        pages = await _graph_req("GET", _graph("me/accounts"), {"fields": "id,name,tasks,instagram_business_account"}, conn["user_token"])
+        selected = next((item for item in pages.get("data", []) if item.get("id") == conn.get("page_id")), None)
+        if selected:
+            patch["tasks"] = selected.get("tasks") or []
+            patch["ig_user_id"] = ((selected.get("instagram_business_account") or {}).get("id")) or conn.get("ig_user_id")
+            checks.append({
+                "id": "meta_selected_page",
+                "label": "Página selecionada na sessão Meta",
+                "ok": True,
+                "detail": f"Página confirmada com tasks: {', '.join(patch['tasks']) or 'sem tasks visíveis'}.",
+            })
+        else:
+            state = "degraded"
+            checks.append({
+                "id": "meta_selected_page",
+                "label": "Página selecionada na sessão Meta",
+                "ok": False,
+                "detail": "A página selecionada já não apareceu no /me/accounts da Meta.",
+            })
+    except Exception:
+        state = "degraded"
+        checks.append({
+            "id": "meta_selected_page",
+            "label": "Página selecionada na sessão Meta",
+            "ok": False,
+            "detail": "Não foi possível voltar a enumerar as páginas da Meta.",
+        })
+
+    ig_user_id = patch.get("ig_user_id") or conn.get("ig_user_id")
+    if ig_user_id:
         try:
             token = conn.get("page_token") or conn.get("user_token")
-            ig = await _graph_req("GET", _graph(conn["ig_user_id"]), {"fields": "id,username"}, token)
+            ig = await _graph_req("GET", _graph(ig_user_id), {"fields": "id,username"}, token)
+            patch["ig_username"] = ig.get("username") or conn.get("ig_username")
             checks.append({
                 "id": "meta_ig_api",
                 "label": "API do Instagram",
                 "ok": True,
-                "detail": f"Instagram profissional validado: @{ig.get('username') or conn.get('ig_username') or 'conta ligada'}.",
+                "detail": f"Instagram profissional validado: @{patch.get('ig_username') or 'conta ligada'}.",
             })
         except Exception:
             state = "degraded"
@@ -310,7 +420,7 @@ async def _run_diagnostics(conn: Optional[dict], aid: str, sec: str):
                 "ok": False,
                 "detail": "Não foi possível validar o Instagram profissional ligado à Página.",
             })
-    return checks, state
+    return checks, state, patch
 
 
 async def _migrate_legacy_jobs(uid: str, cid: Optional[str]):
@@ -400,12 +510,13 @@ async def social_diagnostics(user: dict = Depends(premium_user)):
     aid, sec = _cfg()
     cid = await active_company_id(user["id"])
     conn = await _find_connection(user["id"], cid)
-    checks, state = await _run_diagnostics(conn, aid, sec)
+    checks, state, patch = await _run_diagnostics(conn, aid, sec)
     if conn:
         await db.social_connections.update_one(
             {"user_id": user["id"], "company_id": cid},
             {"$set": {
                 "status": state if state != "not_connected" else (conn.get("status") or "not_connected"),
+                **patch,
                 "last_diagnostics": {"checks": checks},
                 "last_validated_at": datetime.now(timezone.utc).isoformat(),
                 "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -430,12 +541,12 @@ async def social_connect(user: dict = Depends(premium_user)):
         "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10),
     })
     q = {"client_id": aid, "redirect_uri": _redirect_uri(), "state": state, "response_type": "code"}
-    if META_CONFIG_ID:
-        q["config_id"] = META_CONFIG_ID
+    if _meta_config_id():
+        q["config_id"] = _meta_config_id()
         q["override_default_response_type"] = "true"
     else:
         q["scope"] = ",".join(SCOPES)
-    return {"auth_url": f"https://www.facebook.com/{GRAPH_VER}/dialog/oauth?{urlencode(q)}"}
+    return {"auth_url": f"https://www.facebook.com/{_graph_ver()}/dialog/oauth?{urlencode(q)}"}
 
 
 @router.get("/social/callback")
@@ -444,7 +555,7 @@ async def social_callback(code: Optional[str] = None, state: Optional[str] = Non
     base = _base()
     if error:
         return RedirectResponse(f"{base}/marketing?social_error={quote(error_description or error)}")
-    st = await db.social_oauth_states.find_one_and_delete({"_id": state or ""})
+    st = await db.social_oauth_states.find_one_and_delete({"_id": state or "", "expires_at": {"$gt": datetime.now(timezone.utc)}})
     if not st or not code:
         return RedirectResponse(f"{base}/marketing?social_error=estado_invalido")
     uid = st["user_id"]
@@ -468,17 +579,20 @@ async def social_callback(code: Optional[str] = None, state: Optional[str] = Non
         data = pages.get("data", [])
         if not data:
             return RedirectResponse(f"{base}/marketing?social_error=sem_pagina")
-        granted_scopes = await _fetch_granted_scopes(user_token)
+        token_debug = await _fetch_token_debug(user_token)
+        if not token_debug.get("token_expires_at") and longt.get("expires_in"):
+            token_debug["token_expires_at"] = (datetime.now(timezone.utc) + timedelta(seconds=int(longt.get("expires_in") or 0))).isoformat()
         candidates = []
         for page in data:
             candidates.append(await _hydrate_candidate(page))
         if len(candidates) == 1:
-            await _finalize_connection(uid, cid, None, candidates[0], user_token, granted_scopes)
+            await _finalize_connection(uid, cid, None, candidates[0], user_token, token_debug)
             return RedirectResponse(f"{base}/marketing?connected=1")
         await db.social_connections.update_one({"user_id": uid, "company_id": cid}, {"$set": {
             "user_id": uid,
             "company_id": cid,
             "status": "pending_selection",
+            "meta_user_id": token_debug.get("meta_user_id"),
             "candidate_pages": candidates,
             "page_id": None,
             "page_name": None,
@@ -487,7 +601,10 @@ async def social_callback(code: Optional[str] = None, state: Optional[str] = Non
             "tasks": [],
             "page_token": None,
             "user_token": user_token,
-            "granted_scopes": granted_scopes,
+            "granted_scopes": token_debug.get("granted_scopes") or [],
+            "granular_scopes": token_debug.get("granular_scopes") or [],
+            "token_expires_at": token_debug.get("token_expires_at"),
+            "data_access_expires_at": token_debug.get("data_access_expires_at"),
             "last_diagnostics": {"checks": _base_checks(aid, sec, {"status": "pending_selection", "candidate_pages": candidates})},
             "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
         return RedirectResponse(f"{base}/marketing?social_pending=1")
@@ -510,7 +627,13 @@ async def social_select_page(inp: SelectPageIn, user: dict = Depends(premium_use
     chosen = next((item for item in candidates if item.get("page_id") == inp.page_id), None)
     if not chosen:
         raise HTTPException(404, "Página não encontrada na sessão Meta atual.")
-    await _finalize_connection(user["id"], cid, conn, chosen, conn.get("user_token", ""), conn.get("granted_scopes") or [])
+    await _finalize_connection(user["id"], cid, conn, chosen, conn.get("user_token", ""), {
+        "meta_user_id": conn.get("meta_user_id"),
+        "granted_scopes": conn.get("granted_scopes") or [],
+        "granular_scopes": conn.get("granular_scopes") or [],
+        "token_expires_at": conn.get("token_expires_at"),
+        "data_access_expires_at": conn.get("data_access_expires_at"),
+    })
     fresh = await _find_connection(user["id"], cid)
     return {"ok": True, "connection": _status_payload(fresh, *_cfg())}
 
@@ -537,6 +660,18 @@ class ScheduleIn(PublishIn):
     run_at: str                             # ISO 8601 UTC
 
 
+async def _await_ig_container(container_id: str, token: str):
+    for _ in range(5):
+        status = await _graph_req("GET", _graph(container_id), {"fields": "status_code,status"}, token)
+        code = (status.get("status_code") or "").upper()
+        if code in {"FINISHED", "PUBLISHED"}:
+            return status
+        if code in {"ERROR", "EXPIRED"}:
+            raise HTTPException(502, f"A Meta devolveu o estado '{code}' ao preparar o media do Instagram.")
+        await asyncio.sleep(1.5)
+    raise HTTPException(502, "A Meta ainda estava a processar o media do Instagram. Tente novamente dentro de alguns segundos.")
+
+
 async def _publish_core(uid: str, cid: Optional[str], payload: dict) -> dict:
     conn = await _find_connection(uid, cid)
     if not _conn_ready(conn):
@@ -550,6 +685,8 @@ async def _publish_core(uid: str, cid: Optional[str], payload: dict) -> dict:
     do_fb = payload.get("facebook", True)
     if not (do_ig or do_fb):
         raise HTTPException(400, "Escolha pelo menos um canal de publicação.")
+    if not _has_publish_task((conn or {}).get("tasks") or []):
+        raise HTTPException(400, "A Página Meta ligada não tem as tasks necessárias para publicar (CREATE_CONTENT/MANAGE).")
     post_id = payload.get("post_id")
     post_meta = payload.get("post_meta") or await _marketing_post_meta(uid, cid, post_id)
     if not image_url and want_img and (do_ig or do_fb):
@@ -570,8 +707,9 @@ async def _publish_core(uid: str, cid: Optional[str], payload: dict) -> dict:
         elif not image_url:
             results["instagram"] = {"error": "O Instagram exige uma imagem."}
         else:
-            token = conn["page_token"]
+            token = conn.get("user_token") or conn["page_token"]
             cont = await _graph_req("POST", _graph(f"{ig}/media"), {"image_url": image_url, "caption": caption}, token)
+            await _await_ig_container(cont["id"], token)
             pub = await _graph_req("POST", _graph(f"{ig}/media_publish"), {"creation_id": cont["id"]}, token)
             results["instagram"] = {"ok": True, "id": pub.get("id")}
     if do_fb:
