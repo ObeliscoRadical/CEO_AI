@@ -1,56 +1,61 @@
-<analysis>**original_problem_statement**: The user requested a complete audit and phased expansion plan for the Diretor de Marketing (Marketing Director) agent within the CEO AI application. After an initial audit, the user approved the implementation of Phases 1 and 2 (Multi-tenant isolation, CRM/Memories/ERP context injection, 30-day editorial calendar, content workflow), followed by the addition of a visual execution queue, analytics, and an autonomous daily briefing.
+<analysis>**original_problem_statement**: The user requested a complete audit and phased expansion plan for the Diretor de Marketing agent within the CEO AI application. After completing Phases 1 and 2 (workflows, execution queue, mocked analytics), the user requested to un-mock the Meta integration for real publishing (Facebook/Instagram) and to add multi-channel campaigns with specific objectives (awareness, leads, reactivation).
 PRODUCT REQUIREMENTS:
 - Integrate real CRM, ERP, and Memory contexts into Marketing generation.
-- Ensure strict multi-tenant isolation () for all social data.
-- Build a 30-day editorial calendar with states (draft, approved, scheduled).
-- Implement a visual queue for execution, post history, and rescheduling.
-- Implement marketing analytics and a daily autonomous briefing for the user.
+- Ensure strict multi-tenant isolation ().
+- Build a 30-day editorial calendar with visual execution queue.
+- Implement multi-channel campaigns based on objectives (awareness, leads, reactivation).
+- Implement real Meta Graph API integration for automated posting to Facebook Pages and Instagram Business accounts.
 
-**User's preferred language**: Portuguese (pt-PT). You MUST respond in Portuguese only.
+**User's preferred language**: Portuguese (pt-PT). You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT next agent to respond in the user's preferred language only. **(RESPOND IN PORTUGUESE ONLY)**.
 
-**what currently exists?**: A React + FastAPI + MongoDB SaaS CEO AI app. The Marketing module has been heavily upgraded. It now features full multi-tenant isolation, context injection (CRM/ERP/Memories) for content generation, a content library, a 30-day interactive calendar, an execution queue, analytics, and an autonomous daily briefing. Meta Social API integration is coded but currently operates in MOCKED mode because user credentials (App ID/Secret) are missing.
+**what currently exists?**: A React + FastAPI + MongoDB SaaS CEO AI app. The Marketing module features a robust execution queue, content library, and multi-channel campaign generation logic. The backend () is fully coded and hardened to handle real Meta Graph API OAuth, Page selection, Instagram Business validation, diagnostics, and automated publishing. However, the app is currently gracefully handling a Missing Credentials state because the Meta App ID and Secret, despite being provided by the user in the chat, are failing to inject into the Preview environment's environment variables.
 
 **Last working item**:
-    - Last item agent was working: Finishing the Execution Queue, Analytics UI/Backend, and Daily Briefing features. The agent finished the task, successfully ran E2E tests, and asked the user if they should proceed with real Meta Integration (removing the mocked status).
-    - Status: USER VERIFICATION PENDING
-    - Agent Testing Done: Y
-    - Which testing method agent to use?: NA (Testing already done successfully by testing agent in Iteration 37).
+    - Last item agent was working: Acknowledging the user's newly provided  () and trying to resolve the issue where Meta environment variables are not propagating to the container's environment ().
+    - Status: BLOCKED (Waiting on environment variable resolution / user response).
+    - Agent Testing Done: Y (Backend pytest and frontend smoke tests passed for the code).
+    - Which testing method agent to use?: Both (Use frontend/backend testing agents if major changes are made; use / to debug environment variables).
     - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  - Issue 1: Meta Social automatic publishing blocked & Analytics Mocked
-     - Attempted fixes: UI is updated to show 'Métricas MOCKED' and 'Meta credentials intentionally absent'.
-     - Next debug checklist: Ask/Wait for user to provide Meta Graph API App ID and Secret.
-     - Why fix this issue and what will be achieved with the fix?: Necessary to transition from mocked analytics and failed publishing queues to real-world Meta auto-posting and insights.
+  - Issue 1: Meta API Credentials not reflecting in the Preview environment (P0)
+     - Attempted fixes: Agent updated  to check for alias variable names (e.g., spaces instead of underscores) in case the secrets manager injected them differently. Variables still show as MISSING in bash.
+     - Next debug checklist: Check if , , and  exist in . If not, gently ask the user to add them via the Emergent Platform Secrets manager and restart the environment, OR manually inject them into  (temporarily) if the user approves, so testing can continue. (Check ).
+     - Why fix this issue and what will be achieved with the fix?: Real Meta automated publishing and analytics cannot function without these credentials loaded in the backend.
      - Status: BLOCKED
-     - Is recurring issue? N
-     - Should Test frontend/backend/both after fix?: Both
-     - Blocked on other issue: User providing API keys.
+     - Is recurring issue? Y
+     - Should Test frontend/backend/both after fix?: Backend
+     - Blocked on other issue: NA
 
-  - Issue 2: ERP Integration UX (Carried from previous forks)
-     - Attempted fixes: Discussed File Upload vs Simple URL, but paused to focus on the Marketing Director.
-     - Next debug checklist: Revisit when user resumes ERP integration tasks.
-     - Why fix this issue and what will be achieved with the fix?: End-users need a simpler way to sync financial data without manually handling API payloads.
+  - Issue 2: ERP Integration UX (P2)
+     - Attempted fixes: Discussed File Upload vs Simple URL in older forks, paused to focus on Marketing.
+     - Next debug checklist: Revisit when user requests resuming ERP integration.
+     - Why fix this issue and what will be achieved with the fix?: Simplifies financial data sync.
      - Status: NOT STARTED (Paused)
      - Is recurring issue? N
      - Should Test frontend/backend/both after fix?: Both
 
 **In progress Task List**:
-*None currently.*
+  - Task 1: Integrate  (P0)
+     - Where to resume: The user provided  in the last message. Acknowledge this and ensure the backend uses it for the Facebook Login for Business flow.
+     - What will be achieved with this?: Proper Meta OAuth flow initialization.
+     - Status: IN PROGRESS
+     - Should Test frontend/backend/both after fix?: Backend
+     - Blocked on something: Environment variable injection (Issue 1).
 
 **Upcoming and Future Tasks**
-  - Future Task 1 (P1): **Real Meta Integration & Authentication**: Connect user credentials, validate OAuth flow, and transition the queue/analytics out of MOCKED mode.
-  - Future Task 2 (P2): **Campanhas Multicanal**: Expand the marketing director to handle specific multichannel campaigns with tailored objectives (awareness, leads, reactivation).
+    - E2E E2E Testing of Live Meta Publishing (P1): Once credentials load, validate the end-to-end flow of publishing to a real Facebook Page and Instagram account.
+    - Analytics Enhancements (P2): Weekly/Monthly comparative analytics by campaign.
+    - Campaign Scoring (P2): Scoring of campaigns by objective and channel.
+    - Automated Creative Generation (P2): Automatically generate 3 ready-to-publish creatives/posts per channel for newly created campaigns.
 
 **Completed work in this session**
-- Applied multi-tenant isolation () to , , and  (DONE).
-- Injected CRM, ERP, and memory context into  AI prompts (DONE).
-- Implemented Phase 1 + 2 Editorial Workflow (, , ) and 30-day calendar UI (DONE).
-- Implemented visual Execution Queue, Historical records, and Rescheduling (DONE).
-- Implemented Marketing Analytics (Mocked) and Autonomous Daily Briefing via UI and email simulation (DONE).
+- Multi-channel campaigns with objectives (Awareness, Leads, Reactivation) in UI and Backend (DONE)
+- Hardened Meta Graph API backend flow (): robust OAuth,  validation, explicit page/IG selection, and diagnostics (DONE - code ready, waiting on env vars).
+- Handled gracefully the Missing Credentials UI state so the app doesn't crash (DONE).
 
 **Earlier issues found/mentioned but not fixed**
-- None. (Agent successfully implemented and tested all requested UI/Backend features).
+- None.
 
 **Known issue recurrence from previous fork**
   - Issue recurrence in previous fork: None
@@ -61,61 +66,60 @@ PRODUCT REQUIREMENTS:
 
 
 **Key Technical Concepts**
-React SPA, FastAPI backend, MongoDB. AI content generation utilizing Emergent LLM Key ( for text,  for images). The application enforces strict multi-tenancy ( + ).
+React SPA, FastAPI backend, MongoDB. AI content generation via Emergent LLM Key (, ). Strict multi-tenancy ( + ). Meta Graph API OAuth and Publishing.
 
 **key DB schema**
-  - : {user_id, company_id, content: {biblioteca, calendario, ...}}
-  -  /  / : {user_id, company_id, ...}
+  - : {user_id, company_id, content: {...}}
+  - : {user_id, company_id, page_id, page_token, ig_user_id, ...}
+  -  / : {user_id, company_id, ...}
 
 **changes in tech stack**
   - None
 
 **All files of reference**
-  -  (Major updates for queue, analytics, workflows)
-  -  (Multi-tenant fix)
-  -  (Complete UI overhaul for new panels)
-  -  (Briefing logic)
-  -  (Endpoint routing)
-  -  (Updated to cover 16 backend tests)
+  -  (Heavily updated for real Meta integration)
+  -  (Updated for multichannel campaigns)
+  -  (Updated UI)
+  -  (Various components for queue and analytics)
 
 **Areas that need refactoring**:
-- None required immediately. Code is clean and passes all lints and E2E tests.
+- None. Lints and tests are passing. Code is clean.
 
 **key api endpoints**
   - 
   - 
   - 
   - 
-  - 
 
 **Critical Info for New Agent**
-- **WAIT FOR USER DECISION**: The previous agent successfully completed the requested queue, analytics, and briefing tasks. In the final message, the agent suggested moving onto the real Meta integration. *Do not start coding until the user provides their direction for the next step.*
-- **MOCKED META**: The application explicitly operates the social posting and analytics in MOCKED mode. The frontend UI contains badges stating this. Do not attempt to unmock or test real Meta APIs until the user provides an App ID and App Secret.
+- **PREVIEW ENV VAR ISSUE**: The user provided , , and  in the chat. The previous agent tried to use them, but  showed they are missing from the container's environment. *Do not spin in a loop trying to read them from  if they aren't there.* You may need to manually add them to  to proceed with testing in the preview environment, or guide the user.
+- **DEPLOYMENT NOTIFICATION**: The user has deployed the app to production. If they complain about things not working, ensure you verify if they are testing on the preview link or the production link. Env vars added in preview do not automatically sync to production without a redeploy.
 
 **documents and test reports created in this job**
   - 
-  - 
-  -  (Updated)
   -  (Updated)
 
-**Last 10 User Messages and any pending HUMAN messages**
- - *User*: sim eu quero (Yes I want the phased plan)
- - *User*: b (Selected Phase 1 + 2)
- - *User*: P1: criar fila visual de execução/publicação com histórico e re-agendamento por post n P2/Future: analytics de performance + loop de aprendizagem + briefing diário autónomo
- - *User*: 1-c n 2-b n 3-a (Clarification on a previous decision)
- - *Pending*: Agent completed all P1 and P2 tasks requested, ran successful E2E tests, and asked: queres que eu avance já para a integração Meta real e deixe o motor a aprender com métricas verdadeiras assim que houver credenciais?. **Waiting for user's reply.**
+**Last 10 User Messages and any pending HUMAN messages** 
+ - *User*: Já configurei o ID e o Secret da Meta nos Secrets. Implementa agora o fluxo...
+ - *User*: 1 - c, 2 - a, 3 - a, 4 - a
+ - *User*: b : META APP ID 2623447624739815 META APP SECRET e59d8... META GRAPH VERSION v25.0
+ - *User*: veja voce mesmo (Image removed)
+ - *User*: c
+ - *User*: adicione no app minha META_CONFIG_ID : 2623447624739815
+ - *User*: ola
+ - *Pending*: The agent sent an  tool call and is waiting. **You must greet the user in Portuguese, acknowledge the , and address the next steps for getting the Meta integration live.**
 
 **Project Health Check:**
-- Broken: None.
-- Mocked: Meta social analytics and auto-publishing (awaiting user Meta credentials).
+- Broken: Meta API environment variable injection into the Preview container.
+- Mocked: Real publishing is gated because of the missing environment variables.
 
 **3rd Party Integrations**
   - OpenAI (GPT-5.4 & GPT Image 1) — uses Emergent LLM Key
-  - Meta Graph API (Social Posting) — requires User API Key (Currently missing)
+  - Meta Graph API (Social Posting) — requires User API Key (Keys provided by user, but struggling with env var injection)
   - Stripe (Payments) — requires User API Key (Test key present)
 
 **Testing status**
-  - Testing agent used after significant changes: YES (Iterations 36 and 37 both passed completely).
+  - Testing agent used after significant changes: YES (Frontend and Backend deep testing agents both passed in mock mode).
   - Troubleshoot agent used after agent stuck in loop: NO
   - Test files created: Updated 
   - Known regressions: None
@@ -125,8 +129,8 @@ React SPA, FastAPI backend, MongoDB. AI content generation utilizing Emergent LL
   - Password: 
 
 **What agent forgot to execute**
-Nothing. The agent successfully implemented all requested features (Phases 1 & 2, Execution Queue, Analytics, Briefing) and tested them successfully.
+The agent got caught up in the environment variable debugging and didn't directly apply the  to the  file to manually bypass the platform injection issue for the preview environment.
 
 <TESTING METHOD>
-NA
+If debugging environment variables, use  with  or . If making UI changes, use . If major backend logic is altered for Meta, use backend testing agent.
 </TESTING METHOD></analysis>

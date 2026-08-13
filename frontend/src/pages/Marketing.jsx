@@ -8,6 +8,7 @@ import { AnalyticsSection } from "@/components/marketing/AnalyticsSection";
 import { MarketingBriefingSection } from "@/components/marketing/MarketingBriefingSection";
 import { MetaConnectionSection } from "@/components/marketing/MetaConnectionSection";
 import { CampaignStudioSection } from "@/components/marketing/CampaignStudioSection";
+import { OrganicGrowthAgentSection } from "@/components/marketing/OrganicGrowthAgentSection";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
@@ -89,6 +90,8 @@ function Marketing() {
   const [gen, setGen] = useState(false);
   const [social, setSocial] = useState(null);
   const [campaigns, setCampaigns] = useState([]);
+  const [organicData, setOrganicData] = useState({ agent: null, actions: [], reports: { daily: [], weekly: [], monthly: [] } });
+  const [organicBusy, setOrganicBusy] = useState(false);
   const [execution, setExecution] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [briefing, setBriefing] = useState(null);
@@ -142,6 +145,15 @@ function Marketing() {
       setCampaigns(data.campaigns || []);
     } catch {
       setCampaigns([]);
+    }
+  };
+
+  const loadOrganicAgent = async () => {
+    try {
+      const { data } = await api.get("/marketing/organic-agent");
+      setOrganicData(data);
+    } catch {
+      setOrganicData({ agent: null, actions: [], reports: { daily: [], weekly: [], monthly: [] } });
     }
   };
 
@@ -199,6 +211,7 @@ function Marketing() {
     loadExecution();
     loadAnalytics();
     loadCampaigns();
+    loadOrganicAgent();
     loadBriefing();
     loadMarketingSettings();
     loadLogo();
@@ -343,6 +356,92 @@ function Marketing() {
       toast.error(formatApiError(error.response?.data?.detail));
     } finally {
       setCampaignBusy(false);
+    }
+  };
+
+  const createOrganicStrategy = async (payload) => {
+    setOrganicBusy(true);
+    try {
+      const { data } = await api.post("/marketing/organic-agent/strategy", payload);
+      setOrganicData(data);
+      toast.success("Estratégia de Crescimento Orgânico gerada.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setOrganicBusy(false);
+    }
+  };
+
+  const approveOrganicStrategy = async () => {
+    setOrganicBusy(true);
+    try {
+      const { data } = await api.post("/marketing/organic-agent/approve");
+      setOrganicData(data);
+      await loadExecution();
+      await loadAnalytics();
+      toast.success("Estratégia aprovada. O agente entrou em modo autônomo.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setOrganicBusy(false);
+    }
+  };
+
+  const pauseOrganicAgent = async () => {
+    setOrganicBusy(true);
+    try {
+      const { data } = await api.post("/marketing/organic-agent/pause");
+      setOrganicData(data);
+      toast.success("Agente pausado.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setOrganicBusy(false);
+    }
+  };
+
+  const resumeOrganicAgent = async () => {
+    setOrganicBusy(true);
+    try {
+      const { data } = await api.post("/marketing/organic-agent/resume");
+      setOrganicData(data);
+      await loadExecution();
+      await loadAnalytics();
+      toast.success("Agente retomado.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setOrganicBusy(false);
+    }
+  };
+
+  const reanalyzeOrganicAgent = async () => {
+    setOrganicBusy(true);
+    try {
+      const { data } = await api.post("/marketing/organic-agent/reanalyze");
+      setOrganicData(data);
+      await loadExecution();
+      await loadAnalytics();
+      toast.success("Site reanalisado e estratégia atualizada.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setOrganicBusy(false);
+    }
+  };
+
+  const updateOrganicObjective = async (objective) => {
+    setOrganicBusy(true);
+    try {
+      const { data } = await api.post("/marketing/organic-agent/objective", { objective });
+      setOrganicData(data);
+      await loadExecution();
+      await loadAnalytics();
+      toast.success("Objetivo do agente atualizado.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setOrganicBusy(false);
     }
   };
 
@@ -583,6 +682,17 @@ function Marketing() {
           </div>
         )}
       </div>
+
+      <OrganicGrowthAgentSection
+        data={organicData}
+        busy={organicBusy}
+        onCreateStrategy={createOrganicStrategy}
+        onApprove={approveOrganicStrategy}
+        onPause={pauseOrganicAgent}
+        onResume={resumeOrganicAgent}
+        onReanalyze={reanalyzeOrganicAgent}
+        onUpdateObjective={updateOrganicObjective}
+      />
 
       <MetaConnectionSection
         social={social}

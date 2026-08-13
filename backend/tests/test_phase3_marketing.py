@@ -357,6 +357,94 @@ class TestMarketingCampaigns:
         MONGO.marketing_campaigns.delete_many({"_id": campaign["id"]})
 
 
+class TestOrganicGrowthAgent:
+    def test_organic_growth_strategy_and_autonomy(self, sess):
+        companies = sess.get(f"{BASE}/api/companies", timeout=30)
+        assert companies.status_code == 200, companies.text
+        cid = companies.json().get("active_company_id")
+        uid = str(MONGO.users.find_one({"email": ADMIN_EMAIL})["_id"])
+        stamp = int(time.time())
+        previous_social = list(MONGO.social_connections.find({"user_id": uid, "company_id": cid}))
+
+        MONGO.marketing_organic_agents.delete_many({"user_id": uid, "company_id": cid})
+        MONGO.marketing_organic_actions.delete_many({"user_id": uid, "company_id": cid})
+        MONGO.marketing_organic_reports.delete_many({"user_id": uid, "company_id": cid})
+        MONGO.social_jobs.delete_many({"user_id": uid, "company_id": cid, "payload.autonomous_agent": "organic_growth"})
+        MONGO.social_connections.delete_many({"user_id": uid, "company_id": cid})
+        MONGO.social_connections.insert_one({
+            "user_id": uid,
+            "company_id": cid,
+            "status": "connected",
+            "page_id": f"page-{stamp}",
+            "page_name": "Página Orgânica Teste",
+            "page_token": f"token-{stamp}",
+            "ig_user_id": f"ig-{stamp}",
+            "ig_username": "organic_test",
+            "tasks": ["CREATE_CONTENT"],
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        })
+        try:
+            create = sess.post(
+                f"{BASE}/api/marketing/organic-agent/strategy",
+                json={"domain": "example.com", "objective": "Gerar leads qualificados com foco em conversão"},
+                timeout=180,
+            )
+            assert create.status_code == 200, create.text
+            payload = create.json()
+            agent = payload["agent"]
+            assert agent["status"] == "awaiting_approval"
+            assert "example.com" in agent["domain"]
+            assert agent["site_analysis"]["pages_scanned"] >= 0
+            assert len(agent["site_analysis"]["opportunities"]) >= 1
+            assert "financeiro" in agent["director_alignment"]
+            assert "comercial" in agent["director_alignment"]
+            assert len(agent["strategy"]["phase_plan"]) == 3
+
+            approved = sess.post(f"{BASE}/api/marketing/organic-agent/approve", timeout=180)
+            assert approved.status_code == 200, approved.text
+            approved_payload = approved.json()
+            approved_agent = approved_payload["agent"]
+            assert approved_agent["status"] == "running"
+            assert approved_agent["autonomous_mode"] is True
+            assert approved_agent["strategy_approved"] is True
+            assert len(approved_payload["actions"]) >= 1
+            assert approved_agent["metrics"]["traffic"] >= 0
+            assert approved_agent["metrics"]["leads"] >= 0
+            assert "daily" in approved_payload["reports"]
+            assert len(approved_payload["reports"]["daily"]) >= 1
+
+            queued_jobs = list(MONGO.social_jobs.find({"user_id": uid, "company_id": cid, "payload.autonomous_agent": "organic_growth"}))
+            assert len(queued_jobs) >= 1
+
+            paused = sess.post(f"{BASE}/api/marketing/organic-agent/pause", timeout=30)
+            assert paused.status_code == 200, paused.text
+            assert paused.json()["agent"]["status"] == "paused"
+
+            resumed = sess.post(f"{BASE}/api/marketing/organic-agent/resume", timeout=180)
+            assert resumed.status_code == 200, resumed.text
+            assert resumed.json()["agent"]["status"] == "running"
+
+            objective = sess.post(
+                f"{BASE}/api/marketing/organic-agent/objective",
+                json={"objective": "Priorizar qualidade do lead antes de escalar volume"},
+                timeout=180,
+            )
+            assert objective.status_code == 200, objective.text
+            assert objective.json()["agent"]["objective"] == "Priorizar qualidade do lead antes de escalar volume"
+
+            reanalyze = sess.post(f"{BASE}/api/marketing/organic-agent/reanalyze", timeout=180)
+            assert reanalyze.status_code == 200, reanalyze.text
+            assert reanalyze.json()["agent"]["site_analysis"]["scanned_at"]
+        finally:
+            MONGO.marketing_organic_agents.delete_many({"user_id": uid, "company_id": cid})
+            MONGO.marketing_organic_actions.delete_many({"user_id": uid, "company_id": cid})
+            MONGO.marketing_organic_reports.delete_many({"user_id": uid, "company_id": cid})
+            MONGO.social_jobs.delete_many({"user_id": uid, "company_id": cid, "payload.autonomous_agent": "organic_growth"})
+            MONGO.social_connections.delete_many({"user_id": uid, "company_id": cid})
+            if previous_social:
+                MONGO.social_connections.insert_many(previous_social)
+
+
 # ---------------- CRM send-sim ----------------
 class TestSendSim:
     @pytest.fixture(scope="class")

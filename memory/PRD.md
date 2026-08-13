@@ -1,5 +1,40 @@
 # CEO AI — O Executivo Digital
 
+## CEO AI V2 — Diretor de Marketing Executor (2026-08-13, agente autônomo de Crescimento Orgânico)
+- ✅ Nova subcategoria **Crescimento Orgânico** implementada dentro de `/marketing` como **agente autônomo**, sem criar novo projeto: primeira execução pede **domínio do site** + objetivo, analisa o site, cruza com os Diretores **Financeiro** e **Comercial**, gera estratégia de **90 dias** e espera apenas uma aprovação inicial.
+- ✅ Novo backend `backend/routers/marketing_autonomous.py`:
+  - `GET /api/marketing/organic-agent`
+  - `POST /api/marketing/organic-agent/strategy`
+  - `POST /api/marketing/organic-agent/approve`
+  - `POST /api/marketing/organic-agent/pause`
+  - `POST /api/marketing/organic-agent/resume`
+  - `POST /api/marketing/organic-agent/reanalyze`
+  - `POST /api/marketing/organic-agent/objective`
+- ✅ O agente autônomo executa ciclo contínuo **analisar → decidir → criar → agendar/publicar → medir → reajustar**, com scheduler próprio em `server.py` a cada **30 minutos** (`organic_growth_agents`).
+- ✅ Análise de site incluída no backend: varrimento HTML com fallback robusto, leitura de headings/meta/links, oportunidades de conteúdo/SEO/CTA e resumo executivo mesmo quando a IA ou o fetch não enriquecem o resultado.
+- ✅ Governança interagente aplicada: a estratégia do agente cruza sempre prioridades do **Diretor Financeiro** e do **Diretor Comercial** antes de avançar.
+- ✅ Modo autônomo após aprovação inicial:
+  - cria ações recentes próprias (`marketing_organic_actions`)
+  - agenda jobs internos em `social_jobs` com `payload.autonomous_agent="organic_growth"` quando a ligação social estiver pronta
+  - gera relatórios automáticos **diário / semanal / mensal** (`marketing_organic_reports`)
+  - mostra métricas claras de **tráfego**, **leads** e **conversão** no painel
+- ✅ Frontend novo `components/marketing/OrganicGrowthAgentSection.jsx` integrado no topo da página `Marketing.jsx`, acima da ligação Meta, com:
+  - estado do agente
+  - botão **Aprovar Estratégia**
+  - controlos **Pausar / Retomar / Reanalisar site / Alterar objetivo**
+  - leitura do site, alinhamento dos diretores, estratégia 90 dias, ações e relatórios
+  - `data-testid` completos em todos os elementos críticos
+- ✅ Testado e validado nesta iteração:
+  - `pytest /app/backend/tests/test_phase3_marketing.py` → **19/19 PASS**
+  - `deep_testing_backend_v2` → backend do agente autônomo **100% OK**
+  - `auto_frontend_testing_agent` → frontend do agente autônomo **100% OK**
+  - `testing_agent` iteration_39 → backend + frontend **100% dos fluxos testados**, sem bugs
+- ⚠️ **Meta analytics continuam MOCKED** até a ligação Meta real estar operacional nesta instância. O agente já cria jobs internos e fica pronto para publicar automaticamente quando a empresa ativa tiver a ligação social válida.
+- 📌 Próximos passos do Diretor de Marketing:
+  - **P0**: validar a ligação Meta real no runtime para destravar publicação automática real e métricas reais do Crescimento Orgânico
+  - **P1**: substituir tráfego estimado por tráfego real do site/social quando a pipeline live estiver pronta
+  - **P2**: adicionar scoring automático por oportunidade de site, cluster editorial e conversão por página/tema
+
 ## CEO AI V2 — Diretor de Marketing Executor (2026-08-11, Meta readiness + campanhas multicanal)
 - ✅ `backend/routers/social.py` endurecido para **Meta real**: suporte a aliases de Secrets (`META_APP_ID` / `META APP ID`, `META_APP_SECRET` / `META APP SECRET`, `META_CONFIG_ID` / `META CONFIG ID`, `META_GRAPH_VERSION` / `META GRAPH VERSION`), callback com expiração válida, `debug_token`, persistência de `granted_scopes`, `granular_scopes`, `token_expires_at`, `data_access_expires_at`, e validação ao vivo de `/me/accounts` + Página selecionada + IG profissional.
 - ✅ Publicação Instagram reforçada: `_publish_core` passou a usar preferencialmente o **user token** no fluxo IG, verifica tasks de publicação da Página e espera o contentor do Instagram ficar pronto antes do `media_publish`.
