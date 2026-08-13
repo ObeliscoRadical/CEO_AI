@@ -30,3 +30,11 @@ export async function fetchPublicPage(slug) {
 export async function trackPublicView(kind, slug) {
   await fetch(`${API}/public/site/view/${kind}/${slug}`, { method: "POST" });
 }
+
+export async function trackPublicSurface(pageKey, path, title = "") {
+  await fetch(`${API}/public/site/track-static`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ page_key: pageKey, path, title }),
+  });
+}

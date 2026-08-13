@@ -30,6 +30,20 @@ export const PublicContentRenderer = ({ entry, testIdPrefix = "public-content" }
           )}
         </section>
       ))}
+
+      {(entry.related_links || []).length > 0 && (
+        <section className="space-y-4" data-testid={`${testIdPrefix}-related-links`}>
+          <h2 className="font-serif-lux text-2xl text-white" data-testid={`${testIdPrefix}-related-links-heading`}>Conteúdos relacionados</h2>
+          <div className="space-y-3">
+            {entry.related_links.map((item, index) => (
+              <a key={`${item.url}-${index}`} href={item.url} className="block rounded-2xl border border-white/10 bg-white/[0.03] p-4 hover:bg-white/[0.05] transition-colors" data-testid={`${testIdPrefix}-related-link-${index}`}>
+                <p className="text-sm text-white font-medium">{item.title}</p>
+                <p className="text-xs text-slate-400 mt-1">{item.reason}</p>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 };

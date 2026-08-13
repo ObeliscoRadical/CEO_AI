@@ -10,6 +10,7 @@ import { MetaConnectionSection } from "@/components/marketing/MetaConnectionSect
 import { CampaignStudioSection } from "@/components/marketing/CampaignStudioSection";
 import { OrganicGrowthAgentSection } from "@/components/marketing/OrganicGrowthAgentSection";
 import { SitePublishingGatewaySection } from "@/components/marketing/SitePublishingGatewaySection";
+import { GrowthAgentExecutiveSection } from "@/components/marketing/GrowthAgentExecutiveSection";
 import { motion } from "framer-motion";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
@@ -107,8 +108,10 @@ function Marketing() {
   const [campaigns, setCampaigns] = useState([]);
   const [organicData, setOrganicData] = useState({ agent: null, actions: [], reports: { daily: [], weekly: [], monthly: [] } });
   const [siteGateway, setSiteGateway] = useState(null);
+  const [growthAgent, setGrowthAgent] = useState(null);
   const [organicBusy, setOrganicBusy] = useState(false);
   const [siteGatewayBusy, setSiteGatewayBusy] = useState(null);
+  const [growthBusy, setGrowthBusy] = useState(null);
   const [execution, setExecution] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [briefing, setBriefing] = useState(null);
@@ -183,6 +186,15 @@ function Marketing() {
     }
   };
 
+  const loadGrowthAgent = async () => {
+    try {
+      const { data } = await api.get("/marketing/growth-agent/status");
+      setGrowthAgent(data);
+    } catch {
+      setGrowthAgent(null);
+    }
+  };
+
   const loadExecution = async () => {
     try {
       const { data } = await api.get("/marketing/execution");
@@ -239,6 +251,7 @@ function Marketing() {
     loadCampaigns();
     loadOrganicAgent();
     loadSitePublishing();
+    loadGrowthAgent();
     loadBriefing();
     loadMarketingSettings();
     loadLogo();
@@ -268,6 +281,7 @@ function Marketing() {
     !!briefing,
     !!organicData?.agent,
     !!siteGateway?.architecture,
+    !!growthAgent?.policy,
   ].join("-");
 
   useEffect(() => {
@@ -428,6 +442,7 @@ function Marketing() {
       await loadExecution();
       await loadAnalytics();
       await loadSitePublishing();
+      await loadGrowthAgent();
       toast.success("Estratégia aprovada. O agente entrou em modo autônomo.");
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
@@ -457,6 +472,7 @@ function Marketing() {
       await loadExecution();
       await loadAnalytics();
       await loadSitePublishing();
+      await loadGrowthAgent();
       toast.success("Agente retomado.");
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
@@ -473,6 +489,7 @@ function Marketing() {
       await loadExecution();
       await loadAnalytics();
       await loadSitePublishing();
+      await loadGrowthAgent();
       toast.success("Site reanalisado e estratégia atualizada.");
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
@@ -489,6 +506,7 @@ function Marketing() {
       await loadExecution();
       await loadAnalytics();
       await loadSitePublishing();
+      await loadGrowthAgent();
       toast.success("Objetivo do agente atualizado.");
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
@@ -692,6 +710,7 @@ function Marketing() {
       });
       setSiteGateway(data);
       await loadOrganicAgent();
+      await loadGrowthAgent();
       toast.success("Gateway autorizado. O agente já pode escrever no site público dentro do escopo seguro.");
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
@@ -706,6 +725,7 @@ function Marketing() {
       const { data } = await api.post("/marketing/site-publishing/run", { force: true, use_ai: false });
       setSiteGateway(data.status);
       await loadOrganicAgent();
+      await loadGrowthAgent();
       toast.success(data.published_entry ? "Conteúdo público publicado pelo gateway." : "Sem nova publicação necessária neste momento.");
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
@@ -719,6 +739,7 @@ function Marketing() {
     try {
       const { data } = await api.post(`/marketing/site-publishing/content/${entryId}/rollback`, {});
       setSiteGateway(data.status);
+      await loadGrowthAgent();
       toast.success("Rollback concluído.");
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
@@ -732,11 +753,39 @@ function Marketing() {
     try {
       const { data } = await api.post(`/marketing/site-publishing/content/${entryId}/remove`);
       setSiteGateway(data.status);
+      await loadGrowthAgent();
       toast.success("Conteúdo removido do site público.");
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
     } finally {
       setSiteGatewayBusy(null);
+    }
+  };
+
+  const syncGrowthAgent = async () => {
+    setGrowthBusy("sync");
+    try {
+      const { data } = await api.post("/marketing/growth-agent/sync");
+      setGrowthAgent(data.status);
+      toast.success("Sincronização Growth concluída.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setGrowthBusy(null);
+    }
+  };
+
+  const runGrowthAgent = async () => {
+    setGrowthBusy("run");
+    try {
+      const { data } = await api.post("/marketing/growth-agent/run", { force: true, use_ai: false });
+      setGrowthAgent(data);
+      await loadSitePublishing();
+      toast.success("Ciclo Growth executado.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setGrowthBusy(null);
     }
   };
 
@@ -815,6 +864,13 @@ function Marketing() {
         onRollback={rollbackSiteEntry}
         onRemove={removeSiteEntry}
         onRefresh={loadSitePublishing}
+      />
+
+      <GrowthAgentExecutiveSection
+        data={growthAgent}
+        busy={growthBusy}
+        onSync={syncGrowthAgent}
+        onRun={runGrowthAgent}
       />
 
       <section id={SECTION_IDS.contentCampaigns} className="scroll-mt-24" data-testid="marketing-section-content-campaigns">

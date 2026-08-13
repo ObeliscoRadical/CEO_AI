@@ -1,5 +1,63 @@
 # CEO AI — O Executivo Digital
 
+## CEO AI V2 — Growth Agent autónomo + SEO analytics aprofundado (2026-08-13)
+- ✅ Evolução do **Crescimento Orgânico** para uma camada adicional de **Growth Agent** com monitorização contínua de páginas públicas, sinais de performance e oportunidades SEO.
+- ✅ Nova integração backend para Google em `backend/google_growth.py` + `backend/routers/growth_agent.py`:
+  - suporte a **Google Search Console** (read-only)
+  - suporte a **GA4 Data API** (read-only)
+  - tracking interno do próprio site como fallback e complemento
+- ✅ Regra explícita implementada no sistema, no backend e no painel:
+  - **O agente NUNCA deve alterar design, layout, componentes, identidade visual, experiência de navegação ou estrutura do site; só pode atuar em conteúdo e SEO usando sempre o design system existente.**
+- ✅ Endpoints novos:
+  - `GET /api/marketing/growth-agent/status`
+  - `POST /api/marketing/growth-agent/sync`
+  - `POST /api/marketing/growth-agent/run`
+  - `POST /api/public/site/track-static`
+  - `GET /api/public/sitemap.xml`
+- ✅ SEO técnico entregue nesta iteração:
+  - sitemap XML dinâmico (`/api/public/sitemap.xml`)
+  - `robots.txt` a apontar para o sitemap
+  - canonical tags e meta descriptions nas páginas públicas
+  - tracking interno para páginas estáticas e públicas
+  - clusters de keywords
+  - comparação por URL / landing page
+- ✅ Painel executivo novo no Marketing (`GrowthAgentExecutiveSection.jsx`):
+  - hard rule inviolável visível
+  - estado das fontes Google
+  - páginas monitorizadas / quedas / oportunidades / stale pages
+  - clusters de keywords
+  - comparação por URL / landing page
+  - feed executivo cronológico de ações
+  - relatórios automáticos diário / semanal / mensal
+- ✅ Operação autónoma Growth implementada no backend:
+  - monitoriza páginas públicas e entradas publicadas no gateway
+  - sincroniza sinais Google quando disponíveis
+  - usa tracking interno quando Google não responde ou não está completo
+  - gera relatórios executivos automáticos
+  - aplica interligações internas automáticas (`related_links`) entre conteúdos relacionados
+  - pode executar refresh SEO / criação de conteúdo novo por cluster quando as condições estiverem reunidas
+  - sinaliza revisão quando a mudança parece estratégica/mais sensível
+- ✅ Scheduler adicionado no backend:
+  - `growth_agent.run_all_growth_agent_cycles` a cada 6 horas
+- ✅ Testes desta iteração:
+  - `pytest -q backend/tests/test_phase3_marketing.py -k 'site_publishing_gateway_architecture_and_flow or growth_agent_internal_monitoring_and_reports'` → PASS (2/2)
+  - `testing_agent` iteration_42 → frontend/backed **100% PASS**
+- ⚠️ Estado real das integrações Google no ambiente atual:
+  - a service account foi recebida e configurada no preview
+  - **Search Console API** devolve `403 SERVICE_DISABLED`
+  - **Google Analytics Data API** devolve `403 SERVICE_DISABLED`
+  - o utilizador indicou que o **código/tag GA4 ainda não está instalado no site** (`GA4_MEASUREMENT_ID` vazio)
+  - por isso, nesta fase o agente já funciona com tracking interno + gateway + SEO técnico, e mostra blockers claros no painel sem quebrar o fluxo
+- ✅ Ficheiros públicos agora também preparados para SEO/analytics:
+  - `Login.jsx`
+  - `Pricing.jsx`
+  - `legal/Contact.jsx`
+  - `legal/Terms.jsx`
+  - `legal/Privacy.jsx`
+  - `PublicInsightsHub.jsx`
+  - `PublicInsightPage.jsx`
+  - `PublicSitePage.jsx`
+
 ## CEO AI V2 — Site público com publicação autónoma interna (2026-08-13)
 - ✅ **Arquitetura real confirmada no código atual**:
   - Frontend: **React SPA** (mesmo projeto), com páginas públicas em `frontend/src/pages/*` e rotas em `frontend/src/App.js`

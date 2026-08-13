@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { fetchPublicPage, trackPublicView } from "@/lib/publicSite";
+import { fetchPublicPage, trackPublicSurface, trackPublicView } from "@/lib/publicSite";
 import { PublicContentRenderer } from "@/components/public/PublicContentRenderer";
+import { applyPublicSeo } from "@/lib/seo";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 export default function PublicSitePage() {
@@ -16,13 +17,14 @@ export default function PublicSitePage() {
       .then((data) => {
         if (!active) return;
         setEntry(data);
-        document.title = `${data.seo_title || data.title} | CEO AI`;
+        applyPublicSeo({ title: `${data.seo_title || data.title} | CEO AI`, description: data.seo_description || data.excerpt, canonicalPath: data.public_url || `/site/${slug}` });
         trackPublicView("page", slug).catch(() => {});
+        trackPublicSurface(`page-${slug}`, data.public_url || `/site/${slug}`, data.title).catch(() => {});
       })
       .catch(() => {
         if (!active) return;
         setEntry(null);
-        document.title = "Página não encontrada | CEO AI";
+        applyPublicSeo({ title: "Página não encontrada | CEO AI", description: "Página pública não encontrada.", canonicalPath: `/site/${slug}` });
       })
       .finally(() => active && setLoading(false));
     return () => { active = false; };

@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { api, formatApiError } from "@/lib/api";
 import { useAppData } from "@/context/AppDataContext";
 import { fetchPublicSections } from "@/lib/publicSite";
+import { applyPublicSeo } from "@/lib/seo";
+import { trackPublicSurface } from "@/lib/publicSite";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { Check, Loader2, Crown, Flame, Shield, Sparkles, Users, ChevronDown, MessageSquare } from "lucide-react";
@@ -58,6 +60,10 @@ export default function Pricing() {
       })
       .catch(() => {});
   }, []);
+  useEffect(() => {
+    applyPublicSeo({ title: "CEO AI | Planos", description: heroCopy.subtitle, canonicalPath: "/planos" });
+    trackPublicSurface("pricing", "/planos", "Planos").catch(() => {});
+  }, [heroCopy.subtitle]);
 
   const checkout = async (lookup_key) => {
     setLoading(lookup_key);
@@ -89,7 +95,7 @@ export default function Pricing() {
       <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="text-center mb-14">
         <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-[#3B82F6] mb-5"><Sparkles className="w-4 h-4" /> Diretor Executivo Digital</span>
         <h1 className="font-serif-lux text-4xl sm:text-5xl lg:text-6xl leading-[1.05] mb-5" data-testid="pricing-public-headline">{heroCopy.headline}</h1>
-        <p className="text-muted-foreground max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
+        <p className="text-muted-foreground max-w-2xl mx-auto text-base md:text-lg leading-relaxed" data-testid="pricing-public-subtitle">
           {heroCopy.subtitle}
         </p>
       </motion.div>

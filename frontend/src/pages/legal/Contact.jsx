@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api, formatApiError } from "@/lib/api";
 import { fetchPublicSections } from "@/lib/publicSite";
+import { applyPublicSeo } from "@/lib/seo";
+import { trackPublicSurface } from "@/lib/publicSite";
 import { LegalShell, CONTACT_EMAIL } from "./LegalShell";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +24,11 @@ export default function Contact() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    applyPublicSeo({ title: "CEO AI | Contacto", description: intro, canonicalPath: "/contacto" });
+    trackPublicSurface("contact", "/contacto", "Contacto").catch(() => {});
+  }, [intro]);
 
   const submit = async (e) => {
     e.preventDefault();

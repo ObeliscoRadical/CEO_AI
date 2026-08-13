@@ -1,4 +1,5 @@
 """Gateway interno de publicação do site público, sem CMS externo."""
+import os
 import re
 import uuid
 from copy import deepcopy
@@ -38,6 +39,12 @@ class SiteSectionBlockIn(BaseModel):
     bullets: list[str] = Field(default_factory=list)
 
 
+class SiteRelatedLinkIn(BaseModel):
+    title: str = ""
+    url: str = ""
+    reason: str = ""
+
+
 class SiteContentUpsertIn(BaseModel):
     kind: str = "article"
     title: str = ""
@@ -53,6 +60,7 @@ class SiteContentUpsertIn(BaseModel):
     strategy_reason: str = ""
     objective: str = ""
     campaign_label: str = "Organic Growth"
+    related_links: list[SiteRelatedLinkIn] = Field(default_factory=list)
     slot_key: str = ""
     slot_value: str = ""
     publish_now: bool = True
@@ -106,6 +114,10 @@ def _site_url_for(kind: str, slug: str = "", slot_key: str = "") -> str:
     return "/login"
 
 
+def _public_base_url() -> str:
+    return (os.environ.get("SITE_PUBLIC_BASE_URL") or os.environ.get("FRONTEND_URL") or "").rstrip("/")
+
+
 def _safe_slot(slot_key: str):
     if slot_key not in SAFE_SECTION_SLOTS:
         raise HTTPException(400, "O slot pedido não faz parte da zona pública segura do gateway.")
@@ -125,6 +137,25 @@ def _snapshot(doc: dict) -> dict:
     base = _serialize_entry(doc) or {}
     base.pop("metrics", None)
     return base
+
+
+def _clean_related_links(items) -> list[dict]:
+    cleaned = []
+    for item in items or []:
+        if hasattr(item, "model_dump"):
+            item = item.model_dump()
+        if not isinstance(item, dict):
+            continue
+        title = _short(item.get("title"), "Conteúdo relacionado")
+        url = _short(item.get("url"), "")
+        if not url:
+            continue
+        cleaned.append({
+            "title": title,
+            "url": url,
+            "reason": _short(item.get("reason"), "Relacionado com a mesma intenção de procura."),
+        })
+    return cleaned[:4]
 
 
 def _compute_editorial_score(doc: dict) -> int:
@@ -160,6 +191,7 @@ def _architecture_summary() -> dict:
             "stack": "React SPA (Create React App)",
             "public_routes": ["/login", "/planos", "/contacto", "/termos", "/privacidade"],
             "public_content_storage_today": "Copys e layouts públicos hardcoded em ficheiros JSX do frontend.",
+            "canonical_strategy": "Canonicals por página pública + sitemap gerado pelo backend.",
         },
         "backend": {
             "stack": "FastAPI + APScheduler + MongoDB (Motor)",
@@ -188,6 +220,7 @@ def _architecture_summary() -> dict:
                 "Novos artigos públicos em /insights/:slug",
                 "Novas páginas públicas em /site/:slug",
                 "Overrides seguros para secções públicas pré-definidas (login, planos, contacto)",
+                "Interligações internas e metadata SEO sem alterar design, layout, componentes, identidade visual ou navegação",
             ],
         },
     }
@@ -221,6 +254,12 @@ async def _live_owner_company_id() -> Optional[str]:
         {"_id": 0, "company_id": 1},
         sort=[("authorized_at", -1)],
     )
+    if not row:
+        row = await db.site_publication_settings.find_one(
+            {"authorized": True},
+            {"_id": 0, "company_id": 1},
+            sort=[("authorized_at", -1)],
+        )
     return row.get("company_id") if row else None
 
 
@@ -348,6 +387,8 @@ async def upsert_site_content(uid: str, cid: str, inp: SiteContentUpsertIn, acto
         "strategy_reason": _short(inp.strategy_reason, "Atualização autónoma alinhada com a estratégia aprovada."),
         "objective": _short(inp.objective, "crescimento orgânico"),
         "campaign_label": _short(inp.campaign_label, "Organic Growth"),
+        "canonical_url": f"{_public_base_url()}{_site_url_for(kind, slug, inp.slot_key)}" if _public_base_url() else _site_url_for(kind, slug, inp.slot_key),
+        "related_links": _clean_related_links(inp.related_links) if kind != "section_override" else [],
         "slot_key": inp.slot_key if kind == "section_override" else "",
         "slot_value": slot_value,
         "hero_image_url": hero_image_url,

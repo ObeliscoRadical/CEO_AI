@@ -1,6 +1,14 @@
 import { LegalShell, COMPANY_NAME, CONTACT_EMAIL } from "./LegalShell";
+import { useEffect } from "react";
+import { applyPublicSeo } from "@/lib/seo";
+import { trackPublicSurface } from "@/lib/publicSite";
 
 export default function Privacy() {
+  useEffect(() => {
+    applyPublicSeo({ title: "CEO AI | Privacidade", description: `Política de privacidade do CEO AI. Contacto ${CONTACT_EMAIL}.`, canonicalPath: "/privacidade" });
+    trackPublicSurface("privacy", "/privacidade", "Privacidade").catch(() => {});
+  }, []);
+
   return (
     <LegalShell title="Política de Privacidade (RGPD)" updated="23 de junho de 2026">
       <p>A tua privacidade é uma prioridade. Esta política explica que dados recolhemos, como os usamos e os teus direitos ao abrigo do Regulamento Geral sobre a Proteção de Dados (RGPD).</p>

@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fetchPublicSections } from "@/lib/publicSite";
+import { applyPublicSeo } from "@/lib/seo";
+import { trackPublicSurface } from "@/lib/publicSite";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -54,6 +56,15 @@ export default function Login() {
   }, [user]);
 
   useEffect(() => {
+    applyPublicSeo({
+      title: "CEO AI | Login",
+      description: publicCopy.subtitle,
+      canonicalPath: "/login",
+    });
+    trackPublicSurface("login", "/login", "Login / Landing").catch(() => {});
+  }, [publicCopy.subtitle]);
+
+  useEffect(() => {
     fetchPublicSections(["login.hero_headline", "login.hero_subtitle"])
       .then((sections) => {
         setPublicCopy((current) => ({
@@ -95,7 +106,7 @@ export default function Login() {
         <h1 className="font-serif-lux text-5xl mt-12 text-center leading-tight tracking-tight" data-testid="login-public-headline">
           {publicCopy.headline}
         </h1>
-        <p className="text-muted-foreground mt-6 max-w-md text-center">
+        <p className="text-muted-foreground mt-6 max-w-md text-center" data-testid="login-public-subtitle">
           {publicCopy.subtitle}
         </p>
       </div>

@@ -1,6 +1,14 @@
 import { LegalShell, COMPANY_NAME, CONTACT_EMAIL } from "./LegalShell";
+import { useEffect } from "react";
+import { applyPublicSeo } from "@/lib/seo";
+import { trackPublicSurface } from "@/lib/publicSite";
 
 export default function Terms() {
+  useEffect(() => {
+    applyPublicSeo({ title: "CEO AI | Termos", description: "Termos e condições do CEO AI.", canonicalPath: "/termos" });
+    trackPublicSurface("terms", "/termos", "Termos").catch(() => {});
+  }, []);
+
   return (
     <LegalShell title="Termos de Serviço" updated="23 de junho de 2026">
       <p>Bem-vindo ao {COMPANY_NAME}. Ao criar uma conta e utilizar a plataforma, aceitas estes Termos de Serviço. Se não concordares, não deves utilizar o serviço.</p>

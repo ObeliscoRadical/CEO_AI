@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { fetchPublicArticle, trackPublicView } from "@/lib/publicSite";
+import { fetchPublicArticle, trackPublicSurface, trackPublicView } from "@/lib/publicSite";
 import { PublicContentRenderer } from "@/components/public/PublicContentRenderer";
+import { applyPublicSeo } from "@/lib/seo";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 export default function PublicInsightPage() {
@@ -16,13 +17,14 @@ export default function PublicInsightPage() {
       .then((data) => {
         if (!active) return;
         setEntry(data);
-        document.title = `${data.seo_title || data.title} | CEO AI`;
+        applyPublicSeo({ title: `${data.seo_title || data.title} | CEO AI`, description: data.seo_description || data.excerpt, canonicalPath: data.public_url || `/insights/${slug}` });
         trackPublicView("article", slug).catch(() => {});
+        trackPublicSurface(`article-${slug}`, data.public_url || `/insights/${slug}`, data.title).catch(() => {});
       })
       .catch(() => {
         if (!active) return;
         setEntry(null);
-        document.title = "Insight não encontrado | CEO AI";
+        applyPublicSeo({ title: "Insight não encontrado | CEO AI", description: "Conteúdo público não encontrado.", canonicalPath: `/insights/${slug}` });
       })
       .finally(() => active && setLoading(false));
     return () => { active = false; };

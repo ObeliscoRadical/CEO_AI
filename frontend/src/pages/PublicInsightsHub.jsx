@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { fetchPublicEntries } from "@/lib/publicSite";
+import { fetchPublicEntries, trackPublicSurface } from "@/lib/publicSite";
+import { applyPublicSeo } from "@/lib/seo";
 import { ArrowLeft, BookOpen, Loader2 } from "lucide-react";
 
 export default function PublicInsightsHub() {
@@ -8,7 +9,8 @@ export default function PublicInsightsHub() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    document.title = "Insights | CEO AI";
+    applyPublicSeo({ title: "Insights | CEO AI", description: "Hub público de conteúdos publicados autonomamente pelo agente de Growth.", canonicalPath: "/insights" });
+    trackPublicSurface("insights-hub", "/insights", "Insights").catch(() => {});
     fetchPublicEntries("article")
       .then(setEntries)
       .catch(() => setEntries([]))

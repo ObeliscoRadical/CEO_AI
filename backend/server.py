@@ -12,11 +12,11 @@ from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime, timezone
 
 from core import db, client, hash_password, verify_password, init_storage, send_daily_briefings, send_monthly_value_alerts, send_goal_alerts, logger
-from routers import auth, companies, finance, ceo, documents, billing, misc, voice, founders, goals, council, crm, marketing, marketing_autonomous, social, prospecting, notifications, grants, erp_integrations, site_publishing
+from routers import auth, companies, finance, ceo, documents, billing, misc, voice, founders, goals, council, crm, marketing, marketing_autonomous, social, prospecting, notifications, grants, erp_integrations, site_publishing, growth_agent
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
-for _m in (auth, companies, finance, ceo, documents, billing, misc, voice, founders, goals, council, crm, marketing, marketing_autonomous, social, prospecting, notifications, grants, erp_integrations, site_publishing):
+for _m in (auth, companies, finance, ceo, documents, billing, misc, voice, founders, goals, council, crm, marketing, marketing_autonomous, social, prospecting, notifications, grants, erp_integrations, site_publishing, growth_agent):
     api_router.include_router(_m.router)
 app.include_router(api_router)
 
@@ -65,6 +65,12 @@ async def startup():
     await db.site_content_entries.create_index([("kind", 1), ("slot_key", 1)])
     await db.site_content_versions.create_index([("user_id", 1), ("company_id", 1), ("entry_id", 1), ("created_at", -1)])
     await db.site_publication_logs.create_index([("user_id", 1), ("company_id", 1), ("created_at", -1)])
+    await db.growth_internal_page_daily.create_index([("user_id", 1), ("company_id", 1), ("date", 1), ("page_key", 1)], unique=True)
+    await db.growth_page_snapshots.create_index([("user_id", 1), ("company_id", 1), ("source", 1), ("window", 1), ("page_path", 1)], unique=True)
+    await db.growth_query_snapshots.create_index([("user_id", 1), ("company_id", 1), ("page_path", 1), ("query", 1)], unique=True)
+    await db.growth_sync_runs.create_index([("user_id", 1), ("company_id", 1), ("started_at", -1)])
+    await db.growth_agent_actions.create_index([("user_id", 1), ("company_id", 1), ("created_at", -1)])
+    await db.growth_agent_reports.create_index([("user_id", 1), ("company_id", 1), ("period", 1), ("reference_key", 1)], unique=True)
     await db.erp_integrations.create_index([("user_id", 1), ("company_id", 1)], unique=True)
     await db.erp_integrations.create_index("endpoint_id", unique=True)
     await db.erp_events.create_index([("endpoint_id", 1), ("event_key", 1)], unique=True)
@@ -109,6 +115,7 @@ async def startup():
         scheduler.add_job(send_daily_briefings, CronTrigger(hour=7, minute=0), id="daily_briefings", replace_existing=True)
         scheduler.add_job(marketing.send_daily_marketing_briefings, CronTrigger(hour=7, minute=15), id="daily_marketing_briefings", replace_existing=True)
         scheduler.add_job(marketing_autonomous.run_all_organic_growth_agents, "interval", minutes=30, id="organic_growth_agents", replace_existing=True, max_instances=1)
+        scheduler.add_job(growth_agent.run_all_growth_agent_cycles, "interval", hours=6, id="growth_agent_cycles", replace_existing=True, max_instances=1)
         scheduler.add_job(send_monthly_value_alerts, CronTrigger(day=1, hour=8, minute=0), id="monthly_value_alerts", replace_existing=True)
         scheduler.add_job(send_goal_alerts, CronTrigger(hour=8, minute=30), id="goal_alerts", replace_existing=True)
         from routers.social import run_due_social_jobs

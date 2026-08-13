@@ -4,6 +4,7 @@ and /api/crm/leads/{id}/send-sim. Plus regression pings.
 """
 import os
 import time
+import uuid
 from datetime import datetime, timezone
 from urllib.parse import quote
 import pytest
@@ -605,6 +606,146 @@ class TestSitePublishingGateway:
             MONGO.marketing_organic_actions.delete_many({"user_id": uid, "company_id": cid})
             MONGO.marketing_organic_reports.delete_many({"user_id": uid, "company_id": cid})
             MONGO.social_jobs.delete_many({"user_id": uid, "company_id": cid, "payload.autonomous_agent": "organic_growth"})
+
+
+class TestGrowthAgent:
+    def test_growth_agent_internal_monitoring_and_reports(self, sess):
+        # Get current active company to restore later
+        before = sess.get(f"{BASE}/api/companies", timeout=30)
+        assert before.status_code == 200, before.text
+        active_before = before.json().get("active_company_id")
+
+        temp_company = sess.post(
+            f"{BASE}/api/companies",
+            json={"name": f"Growth QA {uuid.uuid4().hex[:6]}", "region": "PT", "currency": "EUR", "sector": "SEO"},
+            timeout=30,
+        )
+        assert temp_company.status_code == 200, temp_company.text
+        cid = temp_company.json().get("id")
+        uid = str(MONGO.users.find_one({"email": ADMIN_EMAIL})["_id"])
+
+        # Switch to the new company
+        switch = sess.put(f"{BASE}/api/companies/active", json={"company_id": cid}, timeout=30)
+        assert switch.status_code == 200, switch.text
+
+        for collection in [
+            MONGO.site_publication_settings,
+            MONGO.site_content_entries,
+            MONGO.site_content_versions,
+            MONGO.site_publication_logs,
+            MONGO.growth_internal_page_daily,
+            MONGO.growth_page_snapshots,
+            MONGO.growth_query_snapshots,
+            MONGO.growth_sync_runs,
+            MONGO.growth_agent_actions,
+            MONGO.growth_agent_reports,
+            MONGO.marketing_organic_agents,
+            MONGO.marketing_organic_actions,
+            MONGO.marketing_organic_reports,
+            MONGO.social_jobs,
+        ]:
+            collection.delete_many({"user_id": uid, "company_id": cid})
+
+        try:
+            auth = sess.post(
+                f"{BASE}/api/marketing/site-publishing/authorize",
+                json={
+                    "auto_publish_after_strategy_approval": True,
+                    "auto_generate_hero_images": False,
+                    "allow_section_overrides": True,
+                    "allow_delete": True,
+                },
+                timeout=30,
+            )
+            assert auth.status_code == 200, auth.text
+
+            article = sess.post(
+                f"{BASE}/api/marketing/site-publishing/content",
+                json={
+                    "kind": "article",
+                    "title": "Growth SEO Playground",
+                    "slug": "growth-seo-playground",
+                    "excerpt": "Artigo para validar monitorização Growth.",
+                    "intro": "Conteúdo base para testar ciclos automáticos.",
+                    "sections": [
+                        {"heading": "Contexto", "paragraphs": ["Texto 1"], "bullets": []},
+                        {"heading": "Ação", "paragraphs": ["Texto 2"], "bullets": []},
+                        {"heading": "Métrica", "paragraphs": ["Texto 3"], "bullets": []},
+                    ],
+                    "seo_keyword": "growth seo",
+                    "seo_title": "Growth SEO Playground",
+                    "seo_description": "Página de teste para growth.",
+                    "strategy_reason": "Validar agente Growth.",
+                    "objective": "growth",
+                    "campaign_label": "Growth QA",
+                    "publish_now": True,
+                    "auto_generate_hero_image": False,
+                },
+                timeout=30,
+            )
+            assert article.status_code == 200, article.text
+
+            strategy = sess.post(
+                f"{BASE}/api/marketing/organic-agent/strategy",
+                json={"domain": "example.com", "objective": "Executar growth contínuo no site"},
+                timeout=180,
+            )
+            assert strategy.status_code == 200, strategy.text
+            approve = sess.post(f"{BASE}/api/marketing/organic-agent/approve", timeout=180)
+            assert approve.status_code == 200, approve.text
+
+            track = requests.post(
+                f"{BASE}/api/public/site/track-static",
+                json={"page_key": "login", "path": "/login", "title": "Login / Landing"},
+                timeout=30,
+            )
+            assert track.status_code == 200, track.text
+            assert track.json()["ok"] is True
+
+            sync = sess.post(f"{BASE}/api/marketing/growth-agent/sync", timeout=60)
+            assert sync.status_code == 200, sync.text
+            sync_status = sync.json()["status"]
+            assert "hard_rule" in sync_status["policy"]
+            assert sync_status["summary"]["pages_monitored"] >= 7
+
+            run = sess.post(
+                f"{BASE}/api/marketing/growth-agent/run",
+                json={"force": True, "use_ai": False},
+                timeout=120,
+            )
+            assert run.status_code == 200, run.text
+            run_data = run.json()
+            assert run_data["policy"]["hard_rule"].startswith("O agente NUNCA deve alterar design")
+            assert len(run_data["actions"]) >= 1
+            assert any(item["action_type"] in {"monitor", "interlink", "refresh", "create"} for item in run_data["actions"])
+            assert len(run_data["reports"]["daily"]) >= 1
+
+            sitemap = requests.get(f"{BASE}/api/public/sitemap.xml", timeout=30)
+            assert sitemap.status_code == 200, sitemap.text
+            assert "<urlset" in sitemap.text
+            assert "/insights/growth-seo-playground" in sitemap.text
+        finally:
+            for collection in [
+                MONGO.site_publication_settings,
+                MONGO.site_content_entries,
+                MONGO.site_content_versions,
+                MONGO.site_publication_logs,
+                MONGO.growth_internal_page_daily,
+                MONGO.growth_page_snapshots,
+                MONGO.growth_query_snapshots,
+                MONGO.growth_sync_runs,
+                MONGO.growth_agent_actions,
+                MONGO.growth_agent_reports,
+                MONGO.marketing_organic_agents,
+                MONGO.marketing_organic_actions,
+                MONGO.marketing_organic_reports,
+                MONGO.social_jobs,
+            ]:
+                collection.delete_many({"user_id": uid, "company_id": cid})
+            # Restore original active company
+            if active_before:
+                sess.put(f"{BASE}/api/companies/active", json={"company_id": active_before}, timeout=30)
+            sess.delete(f"{BASE}/api/companies/{cid}", timeout=30)
 
 
 # ---------------- CRM send-sim ----------------
