@@ -17,9 +17,12 @@
   - `window.dataLayer` disponível no browser
   - canonical continua ativo sem regressão visual
 - ⚠️ Mesmo com o Measurement ID instalado, o backend continua a mostrar bloqueio nas APIs Google porque:
-  - **Search Console API** ainda está `SERVICE_DISABLED`
-  - **Google Analytics Data API** ainda está `SERVICE_DISABLED`
-  - ou seja: a recolha/tag do GA4 ficou pronta no preview, mas a leitura backend de dados GA4/GSC ainda depende da ativação das APIs no projeto Google
+  - (estado anterior) **Search Console API** e **Google Analytics Data API** estavam `SERVICE_DISABLED`
+  - após a ativação pelo utilizador, o estado real ficou assim:
+    - ✅ **GA4 Data API** funcional (`source_status.ga4.ok = true`)
+    - ✅ `ga4_measurement_installed = true`
+    - ⚠️ **Search Console** já não está bloqueado por API desativada, mas devolve agora **403 de permissões insuficientes** para a propriedade `https://obeliscoradical.pt/`
+  - conclusão: a integração GA4 está operacional; falta apenas conceder permissões da service account no Google Search Console para fechar a leitura GSC sem mudanças de código
 
 ## CEO AI V2 — Growth Agent autónomo + SEO analytics aprofundado (2026-08-13)
 - ✅ Evolução do **Crescimento Orgânico** para uma camada adicional de **Growth Agent** com monitorização contínua de páginas públicas, sinais de performance e oportunidades SEO.

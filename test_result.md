@@ -369,6 +369,18 @@ backend:
         agent: "testing"
         comment: "Tested 2026-08-13T17:27. Metrics snapshot correctly calculated from marketing_post_metrics (clicks + profile_visits for traffic), crm_leads count, and conversion rate (leads/traffic * 100). Metrics include traffic_label, leads, conversion_rate, converted_pipeline, published_posts, metrics_mocked flag, analytics_insights, recommended_actions, captured_at timestamp. All metrics present in agent payload and reports."
 
+  - task: "Growth Agent - Google Integration (GA4 + GSC)"
+    implemented: true
+    working: true
+    file: "/app/backend/routers/growth_agent.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Tested 2026-08-13T22:17. POST /api/marketing/growth-agent/sync endpoint working correctly. CONFIGURATION VALIDATED: (1) ga4_measurement_installed = true (GA4_MEASUREMENT_ID: G-V24WWQE39G configured), (2) credentials_ready = true (service account file exists), (3) gsc_configured = true (GSC_SITE_URL set), (4) ga4_configured = true (GA4_PROPERTY_ID set). GA4 DATA API INTEGRATION: source_status.ga4.ok = true - GA4 Data API successfully authenticated and responded (returned 0 rows, expected for new property). GOOGLE SEARCH CONSOLE: source_status.gsc.ok = false - GSC API returns 403 permission error 'User does not have sufficient permission for site https://obeliscoradical.pt/'. This is EXPECTED - the service account needs to be added as a user in Google Search Console property. ERROR MESSAGE: HttpError 403 - User does not have sufficient permission for site 'https://obeliscoradical.pt/'. See https://support.google.com/webmasters/answer/2451999. CONCLUSION: GA4 integration is fully working. GSC requires adding service account email to Search Console property permissions."
+
 frontend:
   - task: "Organic Growth Agent Section - Initial Rendering and Positioning"
     implemented: true
@@ -601,9 +613,9 @@ frontend:
 metadata:
   created_by: "testing_agent"
   version: "1.0"
-  test_sequence: 4
+  test_sequence: 5
   run_ui: false
-  last_tested: "2026-08-13T17:32:00Z"
+  last_tested: "2026-08-13T22:17:00Z"
 
 test_plan:
   current_focus: []
@@ -620,3 +632,5 @@ agent_communication:
     message: "Backend testing completed 2026-08-11T17:33. All 10 backend endpoints tested and passing: (1) Authentication working with admin credentials, (2) GET /api/social/status correctly reports missing Meta config without crashes, (3) GET /api/social/requirements returns coherent checklist, (4) POST /api/social/diagnostics handles missing Meta credentials gracefully, (5) POST /api/marketing/campaigns/generate creates valid multicanal campaigns with objective=leads including 4 channels/KPIs/launch steps, (6) GET /api/marketing/campaigns lists campaigns correctly, (7-10) All regression endpoints (content, execution, analytics, briefing) respond correctly without breaking changes. No critical issues found. Backend expansion validated successfully."
   - agent: "testing"
     message: "Organic Growth Agent backend testing completed 2026-08-13T17:27. ALL 13 NEW ENDPOINTS TESTED AND PASSING: (1) GET /api/marketing/organic-agent returns correct structure, (2) POST /api/marketing/organic-agent/strategy creates strategy with status=awaiting_approval, complete site_analysis (domain, pages_scanned, opportunities), director_alignment (financeiro, comercial), strategy.phase_plan (3 phases), and metrics (traffic, leads, conversion_rate), (3) POST /api/marketing/organic-agent/approve changes status to running, sets autonomous_mode=true and strategy_approved=true, creates actions and reports (daily/weekly/monthly), (4) POST /api/marketing/organic-agent/pause changes status to paused, (5) POST /api/marketing/organic-agent/resume restores status to running, (6) POST /api/marketing/organic-agent/objective updates objective and rebuilds strategy, (7) POST /api/marketing/organic-agent/reanalyze refreshes site_analysis with new scanned_at timestamp. AUTONOMOUS FLOW VALIDATED: No reapproval required after first approval, agent operates autonomously through pause/resume/objective changes. SOCIAL JOBS INTEGRATION VALIDATED: When social_connection exists with publish permissions, agent creates social_jobs with payload.autonomous_agent='organic_growth', correct scheduling, and links to actions. When no connection exists, actions remain in 'ready' status with appropriate blocking message. REPORTS VALIDATED: Daily, weekly, and monthly reports generated with complete structure. METRICS VALIDATED: Traffic, leads, conversion_rate calculated correctly from marketing_post_metrics and crm_leads. NO ERRORS: All endpoints respond without 500/502 errors or timeouts. Only non-blocking email service 401 (external service). Meta analytics remain MOCKED as expected. Backend implementation is stable, complete, and production-ready."
+  - agent: "testing"
+    message: "Growth Agent Google Integration testing completed 2026-08-13T22:17. Validated real state of Google integration after recent activation/configuration. TESTED ENDPOINTS: POST /api/marketing/growth-agent/sync, GET /api/marketing/growth-agent/status. RESULTS: (1) ga4_measurement_installed = TRUE ✅ - GA4 Measurement ID G-V24WWQE39G correctly configured in backend/.env and frontend/.env, (2) source_status.ga4.ok = TRUE ✅ - GA4 Data API successfully authenticated and responded (0 rows returned, expected for new/empty property), (3) source_status.gsc.ok = FALSE ❌ - Google Search Console returns 403 permission error. GSC ERROR MESSAGE: 'HttpError 403: User does not have sufficient permission for site https://obeliscoradical.pt/. See https://support.google.com/webmasters/answer/2451999.' ROOT CAUSE: Service account (from /tmp/ceoai-secrets/agenda-obelisco-3333420c7890.json) needs to be added as a user/owner in Google Search Console property for https://obeliscoradical.pt/. CONFIGURATION STATUS: credentials_ready=true, gsc_configured=true, ga4_configured=true, ga4_measurement_installed=true. CONCLUSION: GA4 integration is FULLY WORKING. GSC integration is correctly configured but blocked by permissions - requires adding service account email to Search Console property. This matches user's expectation that 'Google Search Console pode ainda falhar se a service account não tiver permissão suficiente na propriedade'."
