@@ -1,5 +1,26 @@
 # CEO AI — O Executivo Digital
 
+## CEO AI V2 — Ativação do GA4 Measurement ID no preview (2026-08-13)
+- ✅ Measurement ID fornecido e configurado:
+  - `G-V24WWQE39G`
+- ✅ Atualizado em:
+  - `frontend/.env` → `REACT_APP_GA4_MEASUREMENT_ID=G-V24WWQE39G`
+  - `backend/.env` → `GA4_MEASUREMENT_ID="G-V24WWQE39G"`
+- ✅ Serviços reiniciados após alteração de `.env`:
+  - frontend
+  - backend
+- ✅ Validação concluída no preview:
+  - `growth-agent/status` passou a devolver `ga4_measurement_installed: true`
+  - a página `/login` injeta corretamente:
+    - `script[data-testid="ga4-script"]`
+    - `script[data-testid="ga4-config-script"]`
+  - `window.dataLayer` disponível no browser
+  - canonical continua ativo sem regressão visual
+- ⚠️ Mesmo com o Measurement ID instalado, o backend continua a mostrar bloqueio nas APIs Google porque:
+  - **Search Console API** ainda está `SERVICE_DISABLED`
+  - **Google Analytics Data API** ainda está `SERVICE_DISABLED`
+  - ou seja: a recolha/tag do GA4 ficou pronta no preview, mas a leitura backend de dados GA4/GSC ainda depende da ativação das APIs no projeto Google
+
 ## CEO AI V2 — Growth Agent autónomo + SEO analytics aprofundado (2026-08-13)
 - ✅ Evolução do **Crescimento Orgânico** para uma camada adicional de **Growth Agent** com monitorização contínua de páginas públicas, sinais de performance e oportunidades SEO.
 - ✅ Nova integração backend para Google em `backend/google_growth.py` + `backend/routers/growth_agent.py`:
