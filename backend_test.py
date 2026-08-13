@@ -9,7 +9,7 @@ import sys
 from datetime import datetime
 
 # Configuration
-BASE_URL = "https://ceo-marketing-stage.preview.emergentagent.com/api"
+BASE_URL = "https://agent-marketing-pt.preview.emergentagent.com/api"
 TEST_EMAIL = "adminceoai@gmail.com"
 TEST_PASSWORD = "12345"
 

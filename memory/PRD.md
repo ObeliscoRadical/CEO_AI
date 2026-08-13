@@ -1,5 +1,26 @@
 # CEO AI — O Executivo Digital
 
+## CEO AI V2 — Sidebar Marketing com menus expansíveis (2026-08-13)
+- ✅ Sidebar reorganizada com padrão **Nested Sidebar Nav** para o módulo **Marketing**, sem mexer nas rotas originais do produto.
+- ✅ O item principal **Marketing** passou a **expandir/recolher sem navegar** e mostra 9 subcategorias:
+  - Conteúdo de Campanhas (Meta e Social)
+  - Campanha Multicanal
+  - Identidade da Marca
+  - Fila de Execução
+  - Analytics Editoriais
+  - Briefing Automático Diário
+  - Conteúdos para Aprovação
+  - Calendário Editorial (30 dias)
+  - Crescimento Orgânico (**Novo**)
+- ✅ `frontend/src/components/AppLayout.jsx` atualizado para desktop + mobile drawer, com destaque visual do submenu ativo e auto-expansão quando a rota é `/marketing`.
+- ✅ `frontend/src/pages/Marketing.jsx` passou a expor âncoras por secção (`hash`) e scroll automático para cada subcategoria clicada na sidebar.
+- ✅ Acessibilidade melhorada no drawer mobile: `SheetTitle` e `SheetDescription` escondidos para eliminar warnings do Radix UI.
+- ✅ Testado nesta iteração:
+  - smoke test visual desktop: expandir **Marketing** sem navegar + abrir `#marketing-organic-growth`
+  - smoke test visual mobile drawer: submenu expansível funcional
+  - `testing_agent` iteration_40 → frontend **100% PASS**
+- ⚠️ As métricas Meta/analytics continuam **MOCKED** onde já estavam mocked anteriormente; esta iteração alterou apenas a navegação e âncoras do módulo Marketing.
+
 ## CEO AI V2 — Diretor de Marketing Executor (2026-08-13, agente autônomo de Crescimento Orgânico)
 - ✅ Nova subcategoria **Crescimento Orgânico** implementada dentro de `/marketing` como **agente autônomo**, sem criar novo projeto: primeira execução pede **domínio do site** + objetivo, analisa o site, cruza com os Diretores **Financeiro** e **Comercial**, gera estratégia de **90 dias** e espera apenas uma aprovação inicial.
 - ✅ Novo backend `backend/routers/marketing_autonomous.py`:

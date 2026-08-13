@@ -10,6 +10,7 @@ import { MetaConnectionSection } from "@/components/marketing/MetaConnectionSect
 import { CampaignStudioSection } from "@/components/marketing/CampaignStudioSection";
 import { OrganicGrowthAgentSection } from "@/components/marketing/OrganicGrowthAgentSection";
 import { motion } from "framer-motion";
+import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -40,6 +41,18 @@ const STATUS_META = {
   draft: { label: "Rascunho", tone: "text-slate-200 bg-slate-500/15 border-slate-400/20" },
   approved: { label: "Aprovado", tone: "text-emerald-300 bg-emerald-500/15 border-emerald-400/20" },
   scheduled: { label: "Agendado", tone: "text-amber-300 bg-amber-500/15 border-amber-400/20" },
+};
+
+const SECTION_IDS = {
+  contentCampaigns: "marketing-content-campaigns",
+  multichannel: "marketing-campaign-studio",
+  brandIdentity: "marketing-brand-identity",
+  executionQueue: "marketing-execution-queue",
+  analytics: "marketing-analytics-editorial",
+  dailyBriefing: "marketing-daily-briefing",
+  approval: "marketing-approval-content",
+  editorialCalendar: "marketing-editorial-calendar",
+  organicGrowth: "marketing-organic-growth",
 };
 
 const captionOf = (post) => `${post.legenda || ""}\n\n${(post.hashtags || []).join(" ")}\n${post.cta || ""}`.trim();
@@ -84,6 +97,7 @@ const TargetToggle = ({ channel, Icon, label, enabled, onToggle, testId }) => (
 );
 
 function Marketing() {
+  const location = useLocation();
   const [content, setContent] = useState(null);
   const [updated, setUpdated] = useState(null);
   const [loaded, setLoaded] = useState(false);
@@ -231,6 +245,26 @@ function Marketing() {
       window.history.replaceState({}, "", "/marketing");
     }
   }, []);
+
+  const sectionReadyKey = [
+    loaded,
+    !!content,
+    campaigns.length,
+    !!execution,
+    !!analytics,
+    !!briefing,
+    !!organicData?.agent,
+  ].join("-");
+
+  useEffect(() => {
+    if (!location.hash) return;
+    const timer = window.setTimeout(() => {
+      const id = location.hash.replace("#", "");
+      const target = document.getElementById(id);
+      if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [location.hash, sectionReadyKey]);
 
   const workflow = useMemo(() => {
     if (!content?.workflow_summary) return { draft: 0, approved: 0, scheduled: 0, total: 0 };
@@ -683,55 +717,59 @@ function Marketing() {
         )}
       </div>
 
-      <OrganicGrowthAgentSection
-        data={organicData}
-        busy={organicBusy}
-        onCreateStrategy={createOrganicStrategy}
-        onApprove={approveOrganicStrategy}
-        onPause={pauseOrganicAgent}
-        onResume={resumeOrganicAgent}
-        onReanalyze={reanalyzeOrganicAgent}
-        onUpdateObjective={updateOrganicObjective}
-      />
+      <section id={SECTION_IDS.organicGrowth} className="scroll-mt-24" data-testid="marketing-section-organic-growth">
+        <OrganicGrowthAgentSection
+          data={organicData}
+          busy={organicBusy}
+          onCreateStrategy={createOrganicStrategy}
+          onApprove={approveOrganicStrategy}
+          onPause={pauseOrganicAgent}
+          onResume={resumeOrganicAgent}
+          onReanalyze={reanalyzeOrganicAgent}
+          onUpdateObjective={updateOrganicObjective}
+        />
+      </section>
 
-      <MetaConnectionSection
-        social={social}
-        targets={targets}
-        onToggleTarget={toggleTargetChannel}
-        onConnect={connect}
-        onDisconnect={disconnect}
-        onRunDiagnostics={runSocialDiagnostics}
-        onSelectPage={selectMetaPage}
-        diagnosticsBusy={diagnosticsBusy}
-        selectingPageId={selectingPageId}
-      />
+      <section id={SECTION_IDS.contentCampaigns} className="scroll-mt-24" data-testid="marketing-section-content-campaigns">
+        <MetaConnectionSection
+          social={social}
+          targets={targets}
+          onToggleTarget={toggleTargetChannel}
+          onConnect={connect}
+          onDisconnect={disconnect}
+          onRunDiagnostics={runSocialDiagnostics}
+          onSelectPage={selectMetaPage}
+          diagnosticsBusy={diagnosticsBusy}
+          selectingPageId={selectingPageId}
+        />
 
-      <div className="surface rounded-3xl p-6 md:p-7 mb-8" data-testid="mkt-logo-card">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center overflow-hidden shrink-0">
-              {logo ? <img src={logo} alt="Logo" className="w-full h-full object-contain p-1.5" data-testid="mkt-logo-preview" /> : <ImageIcon className="w-6 h-6 text-muted-foreground" />}
+        <div className="surface rounded-3xl p-6 md:p-7 mb-8" data-testid="mkt-logo-card">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center overflow-hidden shrink-0">
+                {logo ? <img src={logo} alt="Logo" className="w-full h-full object-contain p-1.5" data-testid="mkt-logo-preview" /> : <ImageIcon className="w-6 h-6 text-muted-foreground" />}
+              </div>
+              <div>
+                <h2 className="font-serif-lux text-xl" data-testid="mkt-logo-title">Logo da empresa</h2>
+                <p className="text-sm text-muted-foreground mt-1 max-w-md" data-testid="mkt-logo-description">
+                  {logo ? "O seu logo será sobreposto automaticamente em todas as imagens geradas." : "Carregue o seu logo para aparecer nas imagens geradas e nas publicações sociais."}
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="font-serif-lux text-xl" data-testid="mkt-logo-title">Logo da empresa</h2>
-              <p className="text-sm text-muted-foreground mt-1 max-w-md" data-testid="mkt-logo-description">
-                {logo ? "O seu logo será sobreposto automaticamente em todas as imagens geradas." : "Carregue o seu logo para aparecer nas imagens geradas e nas publicações sociais."}
-              </p>
+            <div className="flex gap-2 flex-wrap">
+              <label data-testid="mkt-logo-upload" className="cursor-pointer inline-flex items-center gap-2 text-sm px-4 h-10 rounded-full border border-white/15 hover:bg-white/5 transition-colors">
+                {logoBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} {logo ? "Alterar" : "Carregar logo"}
+                <input type="file" accept="image/*" className="hidden" onChange={uploadLogo} disabled={logoBusy} />
+              </label>
+              {logo && (
+                <Button data-testid="mkt-logo-remove" onClick={removeLogo} variant="outline" className="rounded-full border-white/15 hover:bg-white/5 h-10">
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
             </div>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <label data-testid="mkt-logo-upload" className="cursor-pointer inline-flex items-center gap-2 text-sm px-4 h-10 rounded-full border border-white/15 hover:bg-white/5 transition-colors">
-              {logoBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} {logo ? "Alterar" : "Carregar logo"}
-              <input type="file" accept="image/*" className="hidden" onChange={uploadLogo} disabled={logoBusy} />
-            </label>
-            {logo && (
-              <Button data-testid="mkt-logo-remove" onClick={removeLogo} variant="outline" className="rounded-full border-white/15 hover:bg-white/5 h-10">
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            )}
           </div>
         </div>
-      </div>
+      </section>
 
       {!content ? (
         <div className="surface rounded-3xl p-8 md:p-12 text-center" data-testid="mkt-intro">
@@ -769,7 +807,8 @@ function Marketing() {
           </div>
 
           {content.brand && (
-            <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-5 mb-8">
+            <section id={SECTION_IDS.brandIdentity} className="scroll-mt-24" data-testid="marketing-section-brand-identity">
+              <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-5 mb-8">
               <div className="surface rounded-3xl p-6 md:p-8" data-testid="mkt-brand">
                 <h2 className="font-serif-lux text-xl mb-2 flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#A78BFA]" /> Identidade da marca</h2>
                 <p className="text-muted-foreground mb-4" data-testid="mkt-brand-tone">{content.brand.tom}</p>
@@ -827,7 +866,8 @@ function Marketing() {
                   </div>
                 </div>
               </div>
-            </div>
+              </div>
+            </section>
           )}
 
           {content.biblioteca?.length > 0 && (
@@ -859,31 +899,42 @@ function Marketing() {
             </div>
           )}
 
-          <CampaignStudioSection campaigns={campaigns} generating={campaignBusy} onGenerate={generateCampaign} />
+          <section id={SECTION_IDS.multichannel} className="scroll-mt-24" data-testid="marketing-section-campaign-studio">
+            <CampaignStudioSection campaigns={campaigns} generating={campaignBusy} onGenerate={generateCampaign} />
+          </section>
 
-          <ExecutionQueueSection execution={execution} onCancelJob={cancelJob} onRescheduleOpen={openReschedule} />
-          <AnalyticsSection analytics={analytics} />
-          <MarketingBriefingSection
-            briefing={briefing}
-            briefingBusy={briefingBusy}
-            emailSending={briefingEmailBusy}
-            autoEmailEnabled={marketingEmailEnabled}
-            onToggleAutoEmail={toggleMarketingEmail}
-            onRefresh={refreshBriefing}
-            onSendEmail={sendBriefingEmail}
-          />
+          <section id={SECTION_IDS.executionQueue} className="scroll-mt-24" data-testid="marketing-section-execution-queue">
+            <ExecutionQueueSection execution={execution} onCancelJob={cancelJob} onRescheduleOpen={openReschedule} />
+          </section>
 
-          <div className="flex items-end justify-between flex-wrap gap-4 mb-4">
+          <section id={SECTION_IDS.analytics} className="scroll-mt-24" data-testid="marketing-section-analytics">
+            <AnalyticsSection analytics={analytics} />
+          </section>
+
+          <section id={SECTION_IDS.dailyBriefing} className="scroll-mt-24" data-testid="marketing-section-daily-briefing">
+            <MarketingBriefingSection
+              briefing={briefing}
+              briefingBusy={briefingBusy}
+              emailSending={briefingEmailBusy}
+              autoEmailEnabled={marketingEmailEnabled}
+              onToggleAutoEmail={toggleMarketingEmail}
+              onRefresh={refreshBriefing}
+              onSendEmail={sendBriefingEmail}
+            />
+          </section>
+
+          <section id={SECTION_IDS.approval} className="scroll-mt-24" data-testid="marketing-section-approval-content">
+            <div className="flex items-end justify-between flex-wrap gap-4 mb-4">
             <div>
               <h2 className="font-serif-lux text-2xl" data-testid="mkt-posts-title">Conteúdos prontos a aprovar</h2>
               <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-posts-description">Aprovar → publicar/agendar. Cada peça já nasce ligada ao plano editorial de 30 dias.</p>
             </div>
             <WorkflowBadge status="approved" testId="mkt-workflow-hint" />
-          </div>
+            </div>
 
-          <div className="grid md:grid-cols-2 gap-5 mb-10" data-testid="mkt-posts">
-            {(content.posts || []).map((post, index) => (
-              <motion.div key={post.id || index} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }} className="surface rounded-3xl p-6 flex flex-col" data-testid={`mkt-post-${index}`}>
+            <div className="grid md:grid-cols-2 gap-5 mb-10" data-testid="mkt-posts">
+              {(content.posts || []).map((post, index) => (
+                <motion.div key={post.id || index} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }} className="surface rounded-3xl p-6 flex flex-col" data-testid={`mkt-post-${index}`}>
                 {post.image_url ? (
                   <img src={post.image_url} alt={post.titulo} className="w-full aspect-square object-cover rounded-2xl mb-4" data-testid={`mkt-img-${index}`} />
                 ) : (
@@ -993,12 +1044,14 @@ function Marketing() {
                     </>
                   )}
                 </div>
-              </motion.div>
-            ))}
-          </div>
+                </motion.div>
+              ))}
+            </div>
+          </section>
 
           {content.calendario?.length > 0 && (
-            <div className="surface rounded-3xl p-6 md:p-8" data-testid="mkt-calendar">
+            <section id={SECTION_IDS.editorialCalendar} className="scroll-mt-24" data-testid="marketing-section-editorial-calendar">
+              <div className="surface rounded-3xl p-6 md:p-8" data-testid="mkt-calendar">
               <div className="flex items-end justify-between gap-4 flex-wrap mb-4">
                 <div>
                   <h2 className="font-serif-lux text-xl flex items-center gap-2"><Calendar className="w-5 h-5 text-[#A78BFA]" /> Calendário editorial 30 dias</h2>
@@ -1024,7 +1077,8 @@ function Marketing() {
                   </div>
                 ))}
               </div>
-            </div>
+              </div>
+            </section>
           )}
 
           <p className="text-[11px] text-muted-foreground mt-8" data-testid="mkt-footer-note">

@@ -1,13 +1,13 @@
-import { useState } from "react";
-import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/context/AuthContext";
 import { useAppData } from "@/context/AppDataContext";
-import { Home, Lightbulb, HeartPulse, Coins, MessageSquare, Wallet, TrendingUp, FileText, Settings as SettingsIcon, LogOut, Building2, Plus, Crown, Check, Menu, Compass, Lock, Shield, X, ChevronDown, Target, LineChart, Landmark, Briefcase, Megaphone, HandCoins, PlugZap } from "lucide-react";
+import { Home, Lightbulb, HeartPulse, Coins, MessageSquare, Wallet, TrendingUp, FileText, Settings as SettingsIcon, LogOut, Building2, Plus, Crown, Check, Menu, Compass, Lock, Shield, ChevronDown, Target, LineChart, Landmark, Briefcase, Megaphone, HandCoins, PlugZap } from "lucide-react";
 import { motion } from "framer-motion";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -15,12 +15,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CEOTour } from "@/components/CEOTour";
 import { toast } from "sonner";
 
+const MARKETING_SUBNAV = [
+  { to: "/marketing#marketing-content-campaigns", hash: "#marketing-content-campaigns", label: "Conteúdo de Campanhas (Meta e Social)", testid: "nav-marketing-content" },
+  { to: "/marketing#marketing-campaign-studio", hash: "#marketing-campaign-studio", label: "Campanha Multicanal", testid: "nav-marketing-multicanal" },
+  { to: "/marketing#marketing-brand-identity", hash: "#marketing-brand-identity", label: "Identidade da Marca", testid: "nav-marketing-brand" },
+  { to: "/marketing#marketing-execution-queue", hash: "#marketing-execution-queue", label: "Fila de Execução", testid: "nav-marketing-queue" },
+  { to: "/marketing#marketing-analytics-editorial", hash: "#marketing-analytics-editorial", label: "Analytics Editoriais", testid: "nav-marketing-analytics" },
+  { to: "/marketing#marketing-daily-briefing", hash: "#marketing-daily-briefing", label: "Briefing Automático Diário", testid: "nav-marketing-briefing" },
+  { to: "/marketing#marketing-approval-content", hash: "#marketing-approval-content", label: "Conteúdos para Aprovação", testid: "nav-marketing-approval" },
+  { to: "/marketing#marketing-editorial-calendar", hash: "#marketing-editorial-calendar", label: "Calendário Editorial (30 dias)", testid: "nav-marketing-calendar" },
+  { to: "/marketing#marketing-organic-growth", hash: "#marketing-organic-growth", label: "Crescimento Orgânico", testid: "nav-marketing-organic", badge: "Novo" },
+];
+
 const NAV = [
   { to: "/", label: "Painel do CEO", short: "Painel", icon: Home, end: true, testid: "nav-painel" },
   { to: "/conselho-executivo", label: "Conselho Executivo", short: "Conselho", icon: Landmark, testid: "nav-conselho-exec", gated: true },
   { to: "/crm", label: "CRM Comercial", short: "CRM", icon: Briefcase, testid: "nav-crm", gated: true },
   { to: "/captacao", label: "Captação", short: "Captação", icon: Target, testid: "nav-captacao", gated: true },
-  { to: "/marketing", label: "Marketing", short: "Marketing", icon: Megaphone, testid: "nav-marketing", gated: true },
+  { to: "/marketing", label: "Marketing", short: "Marketing", icon: Megaphone, testid: "nav-marketing", gated: true, children: MARKETING_SUBNAV },
   { to: "/apoios", label: "Apoios & Incentivos", short: "Apoios", icon: HandCoins, testid: "nav-apoios", gated: true },
   { to: "/conselhos", label: "Conselhos", short: "Conselhos", icon: Lightbulb, testid: "nav-conselhos", gated: true },
   { to: "/saude", label: "Saúde Empresarial", short: "Saúde", icon: HeartPulse, testid: "nav-saude", gated: true },
@@ -44,6 +56,134 @@ const Logo = ({ size = 40 }) => (
   </div>
 );
 
+const SidebarItem = ({ n, isPremium, isAdmin, isActive, go }) => {
+  const locked = n.gated && !isPremium && !isAdmin;
+  const activeItem = isActive(n);
+  const showCrown = n.premium && !isPremium && !isAdmin && !locked;
+  return (
+    <button
+      data-testid={n.testid}
+      onClick={() => go(locked ? "/planos" : n.to)}
+      className={`group relative w-full flex items-center gap-3 pl-4 pr-3 py-2.5 rounded-xl text-[13.5px] font-medium transition-all duration-200 ${
+        activeItem
+          ? "text-white bg-blue-500/[0.14] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+          : "text-slate-400 hover:text-white hover:bg-white/[0.045]"
+      }`}
+    >
+      {activeItem && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.7)]" />}
+      <n.icon className={`w-[18px] h-[18px] shrink-0 transition-colors ${activeItem ? "text-blue-400" : "text-slate-500 group-hover:text-blue-400"}`} />
+      <span className="truncate flex-1 text-left">{n.label}</span>
+      {locked && <Lock className="w-3.5 h-3.5 text-slate-500 group-hover:text-blue-400" />}
+      {showCrown && <Crown className="w-3.5 h-3.5 text-amber-400/80" />}
+    </button>
+  );
+};
+
+const SidebarGroup = ({ n, mobile = false, isPremium, isAdmin, isActive, isOpen, setIsOpen, go, isMarketingChildActive }) => {
+  const locked = n.gated && !isPremium && !isAdmin;
+  const activeItem = isActive(n);
+  const sharedClass = mobile
+    ? `flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm transition-colors ${activeItem ? "bg-blue-500/10 text-blue-400" : "text-slate-400 hover:text-white hover:bg-white/[0.04]"}`
+    : `group relative w-full flex items-center gap-3 pl-4 pr-3 py-2.5 rounded-xl text-[13.5px] font-medium transition-all duration-200 ${activeItem ? "text-white bg-blue-500/[0.14] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]" : "text-slate-400 hover:text-white hover:bg-white/[0.045]"}`;
+
+  return (
+    <div data-testid={`${n.testid}-group`}>
+      <button
+        type="button"
+        data-testid={mobile ? `${n.testid}-m` : n.testid}
+        aria-expanded={isOpen}
+        onClick={() => {
+          if (locked) {
+            go("/planos");
+            return;
+          }
+          setIsOpen((current) => !current);
+        }}
+        className={sharedClass}
+      >
+        {!mobile && activeItem && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.7)]" />}
+        <n.icon className={`${mobile ? "w-[18px] h-[18px]" : "w-[18px] h-[18px] shrink-0 transition-colors"} ${activeItem ? "text-blue-400" : "text-slate-500 group-hover:text-blue-400"}`} />
+        <span className="truncate flex-1 text-left">{n.label}</span>
+        {locked ? <Lock className="w-3.5 h-3.5 text-slate-500 group-hover:text-blue-400" /> : <ChevronDown className={`w-4 h-4 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180 text-blue-400" : "text-slate-500"}`} />}
+      </button>
+
+      {isOpen && !locked && (
+        <div className={mobile ? "ml-4 mt-1 space-y-1 border-l border-white/10 pl-3" : "ml-6 mr-2 mt-1 space-y-1 border-l border-white/[0.08] pl-3"}>
+          {n.children.map((child) => {
+            const childActive = isMarketingChildActive(child.hash);
+            return (
+              <button
+                key={child.to}
+                type="button"
+                data-testid={mobile ? `${child.testid}-m` : child.testid}
+                onClick={() => go(child.to)}
+                className={`group w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-colors ${childActive ? "bg-blue-500/10 text-blue-300" : "text-slate-400 hover:text-white hover:bg-white/[0.04]"}`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${childActive ? "bg-blue-400" : "bg-slate-600 group-hover:bg-blue-400"}`} />
+                <span className="flex-1 text-[12.5px] leading-snug">{child.label}</span>
+                {child.badge && <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-emerald-300">{child.badge}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const MobileDrawerNav = ({ active, setNewOpen, isPremium, isAdmin, isActive, go, doLogout, marketingOpen, setMarketingOpen, isMarketingChildActive }) => (
+  <div className="flex flex-col h-full">
+    <div className="flex items-center gap-3 mb-8">
+      <Logo />
+      <div><span className="font-serif-lux text-xl">CEO AI</span><p className="text-[10px] text-slate-400 uppercase tracking-[0.15em]">Diretor Executivo Digital</p></div>
+    </div>
+    <button data-testid="company-selector-mobile" onClick={() => { setNewOpen(true); }} className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl border border-white/10 hover:bg-white/[0.04] transition-colors mb-4 text-left">
+      <Building2 className="w-4 h-4 text-blue-400" /><span className="text-sm truncate flex-1">{active?.name || "Empresa"}</span><Plus className="w-4 h-4 text-slate-400" />
+    </button>
+    <nav className="flex-1 flex flex-col gap-1 overflow-y-auto">
+      {NAV.map((n) => {
+        if (n.children) {
+          return (
+            <SidebarGroup
+              key={n.to}
+              n={n}
+              mobile
+              isPremium={isPremium}
+              isAdmin={isAdmin}
+              isActive={isActive}
+              isOpen={marketingOpen}
+              setIsOpen={setMarketingOpen}
+              go={go}
+              isMarketingChildActive={isMarketingChildActive}
+            />
+          );
+        }
+
+        const locked = n.gated && !isPremium && !isAdmin;
+        return (
+          <button key={n.to} data-testid={`${n.testid}-m`} onClick={() => go(locked ? "/planos" : n.to)}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors ${isActive(n) ? "bg-blue-500/10 text-blue-400" : "text-slate-400 hover:text-white hover:bg-white/[0.04]"}`}>
+            <n.icon className="w-[18px] h-[18px]" />{n.label}{locked && <Lock className="w-3.5 h-3.5 ml-auto text-blue-400" />}
+          </button>
+        );
+      })}
+      <div className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Integrações</div>
+      {INTEGRATION_NAV.map((n) => (
+        <button key={n.to} data-testid={`${n.testid}-m`} onClick={() => go(n.to)}
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors ${isActive(n) ? "bg-blue-500/10 text-blue-400" : "text-slate-400 hover:text-white hover:bg-white/[0.04]"}`}>
+          <n.icon className="w-[18px] h-[18px]" />{n.label}
+        </button>
+      ))}
+      {isAdmin && <button data-testid="nav-admin-m" onClick={() => go("/admin")} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/[0.04]"><Shield className="w-[18px] h-[18px]" /> Administração</button>}
+      {!isPremium && !isAdmin && <button data-testid="nav-planos-m" onClick={() => go("/planos")} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm mt-1 border border-blue-500/30 text-blue-400"><Crown className="w-[18px] h-[18px]" /> Passar a Premium</button>}
+    </nav>
+    <div className="pt-4 border-t border-white/10 flex gap-2">
+      <button onClick={() => { go("/subscricao"); }} className="flex-1 py-2 rounded-lg border border-white/10 text-xs text-slate-400">{isPremium ? "Subscrição" : "Upgrade"}</button>
+      <button onClick={doLogout} data-testid="logout-btn-m" className="py-2 px-3 rounded-lg border border-white/10 text-xs text-slate-400 hover:text-red-400"><LogOut className="w-4 h-4" /></button>
+    </div>
+  </div>
+);
+
 export function AppLayout() {
   const { user, logout } = useAuth();
   const { companies, activeCompanyId, isPremium, isAdmin, switchCompany, createCompany } = useAppData();
@@ -51,7 +191,12 @@ export function AppLayout() {
   const location = useLocation();
   const [newOpen, setNewOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [marketingOpen, setMarketingOpen] = useState(location.pathname.startsWith("/marketing"));
   const [form, setForm] = useState({ name: "", region: "PT", currency: "EUR", sector: "" });
+
+  useEffect(() => {
+    if (location.pathname.startsWith("/marketing")) setMarketingOpen(true);
+  }, [location.pathname]);
 
   const doLogout = async () => { await logout(); navigate("/login"); };
   const active = companies.find((c) => c.id === activeCompanyId);
@@ -67,29 +212,10 @@ export function AppLayout() {
 
   const go = (to) => { navigate(to); setMobileOpen(false); };
   const isActive = (n) => (n.end ? location.pathname === n.to : location.pathname.startsWith(n.to));
-
-  // ---- Desktop sidebar ----
-  const SidebarItem = ({ n }) => {
-    const locked = n.gated && !isPremium && !isAdmin;
-    const activeItem = isActive(n);
-    const showCrown = n.premium && !isPremium && !isAdmin && !locked;
-    return (
-      <button
-        data-testid={n.testid}
-        onClick={() => go(locked ? "/planos" : n.to)}
-        className={`group relative w-full flex items-center gap-3 pl-4 pr-3 py-2.5 rounded-xl text-[13.5px] font-medium transition-all duration-200 ${
-          activeItem
-            ? "text-white bg-blue-500/[0.14] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
-            : "text-slate-400 hover:text-white hover:bg-white/[0.045]"
-        }`}
-      >
-        {activeItem && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.7)]" />}
-        <n.icon className={`w-[18px] h-[18px] shrink-0 transition-colors ${activeItem ? "text-blue-400" : "text-slate-500 group-hover:text-blue-400"}`} />
-        <span className="truncate flex-1 text-left">{n.label}</span>
-        {locked && <Lock className="w-3.5 h-3.5 text-slate-500 group-hover:text-blue-400" />}
-        {showCrown && <Crown className="w-3.5 h-3.5 text-amber-400/80" />}
-      </button>
-    );
+  const isMarketingChildActive = (hash) => {
+    if (location.pathname !== "/marketing") return false;
+    if (!location.hash && hash === MARKETING_SUBNAV[0].hash) return true;
+    return location.hash === hash;
   };
 
   const initials = (user?.name || user?.email || "?").trim().slice(0, 2).toUpperCase();
@@ -136,10 +262,10 @@ export function AppLayout() {
       {/* Nav */}
       <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto no-scrollbar">
         <div className="px-4 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Menu</div>
-        {NAV.map((n) => <SidebarItem key={n.to} n={n} />)}
+        {NAV.map((n) => (n.children ? <SidebarGroup key={n.to} n={n} isPremium={isPremium} isAdmin={isAdmin} isActive={isActive} isOpen={marketingOpen} setIsOpen={setMarketingOpen} go={go} isMarketingChildActive={isMarketingChildActive} /> : <SidebarItem key={n.to} n={n} isPremium={isPremium} isAdmin={isAdmin} isActive={isActive} go={go} />))}
         <div className="px-4 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Integrações</div>
-        {INTEGRATION_NAV.map((n) => <SidebarItem key={n.to} n={n} />)}
-        {isAdmin && <SidebarItem n={{ to: "/admin", label: "Administração", icon: Shield, testid: "nav-admin" }} />}
+        {INTEGRATION_NAV.map((n) => <SidebarItem key={n.to} n={n} isPremium={isPremium} isAdmin={isAdmin} isActive={isActive} go={go} />)}
+        {isAdmin && <SidebarItem n={{ to: "/admin", label: "Administração", icon: Shield, testid: "nav-admin" }} isPremium={isPremium} isAdmin={isAdmin} isActive={isActive} go={go} />}
         <div className="px-4 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Conta</div>
         <button data-testid="restart-tour-btn" onClick={() => window.dispatchEvent(new Event("start-ceo-tour"))} className="group w-full flex items-center gap-3 pl-4 pr-3 py-2.5 rounded-xl text-[13.5px] font-medium text-slate-400 hover:text-white hover:bg-white/[0.045] transition-all"><Compass className="w-[18px] h-[18px] text-slate-500 group-hover:text-blue-400" /> Tour guiado</button>
         <button data-testid="nav-subscricao" onClick={() => go("/subscricao")} className="group w-full flex items-center gap-3 pl-4 pr-3 py-2.5 rounded-xl text-[13.5px] font-medium text-slate-400 hover:text-white hover:bg-white/[0.045] transition-all"><Crown className={`w-[18px] h-[18px] ${isPremium ? "text-amber-400" : "text-slate-500 group-hover:text-blue-400"}`} /> {isPremium ? "A minha subscrição" : "Ver planos"}</button>
@@ -172,44 +298,6 @@ export function AppLayout() {
       </div>
     </aside>
   );
-
-  // ---- Mobile labeled drawer ----
-  const DrawerNav = () => (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 mb-8">
-        <Logo />
-        <div><span className="font-serif-lux text-xl">CEO AI</span><p className="text-[10px] text-slate-400 uppercase tracking-[0.15em]">Diretor Executivo Digital</p></div>
-      </div>
-      <button data-testid="company-selector-mobile" onClick={() => { setNewOpen(true); }} className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl border border-white/10 hover:bg-white/[0.04] transition-colors mb-4 text-left">
-        <Building2 className="w-4 h-4 text-blue-400" /><span className="text-sm truncate flex-1">{active?.name || "Empresa"}</span><Plus className="w-4 h-4 text-slate-400" />
-      </button>
-      <nav className="flex-1 flex flex-col gap-1 overflow-y-auto">
-        {NAV.map((n) => {
-          const locked = n.gated && !isPremium && !isAdmin;
-          return (
-            <button key={n.to} data-testid={`${n.testid}-m`} onClick={() => go(locked ? "/planos" : n.to)}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors ${isActive(n) ? "bg-blue-500/10 text-blue-400" : "text-slate-400 hover:text-white hover:bg-white/[0.04]"}`}>
-              <n.icon className="w-[18px] h-[18px]" />{n.label}{locked && <Lock className="w-3.5 h-3.5 ml-auto text-blue-400" />}
-            </button>
-          );
-        })}
-        <div className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Integrações</div>
-        {INTEGRATION_NAV.map((n) => (
-          <button key={n.to} data-testid={`${n.testid}-m`} onClick={() => go(n.to)}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors ${isActive(n) ? "bg-blue-500/10 text-blue-400" : "text-slate-400 hover:text-white hover:bg-white/[0.04]"}`}>
-            <n.icon className="w-[18px] h-[18px]" />{n.label}
-          </button>
-        ))}
-        {isAdmin && <button data-testid="nav-admin-m" onClick={() => go("/admin")} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/[0.04]"><Shield className="w-[18px] h-[18px]" /> Administração</button>}
-        {!isPremium && !isAdmin && <button data-testid="nav-planos-m" onClick={() => go("/planos")} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm mt-1 border border-blue-500/30 text-blue-400"><Crown className="w-[18px] h-[18px]" /> Passar a Premium</button>}
-      </nav>
-      <div className="pt-4 border-t border-white/10 flex gap-2">
-        <button onClick={() => { go("/subscricao"); }} className="flex-1 py-2 rounded-lg border border-white/10 text-xs text-slate-400">{isPremium ? "Subscrição" : "Upgrade"}</button>
-        <button onClick={doLogout} data-testid="logout-btn-m" className="py-2 px-3 rounded-lg border border-white/10 text-xs text-slate-400 hover:text-red-400"><LogOut className="w-4 h-4" /></button>
-      </div>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-background text-foreground relative">
       {DesktopRail}
@@ -224,7 +312,9 @@ export function AppLayout() {
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="w-[288px] p-6 bg-[#07070d] border-white/10 overflow-y-auto">
-          <DrawerNav />
+          <SheetTitle className="sr-only">Menu principal</SheetTitle>
+          <SheetDescription className="sr-only">Navegação mobile com acesso às áreas do CEO AI e submenu de Marketing.</SheetDescription>
+          <MobileDrawerNav active={active} setNewOpen={setNewOpen} isPremium={isPremium} isAdmin={isAdmin} isActive={isActive} go={go} doLogout={doLogout} marketingOpen={marketingOpen} setMarketingOpen={setMarketingOpen} isMarketingChildActive={isMarketingChildActive} />
         </SheetContent>
       </Sheet>
 
