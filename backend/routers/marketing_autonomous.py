@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from core import active_company_id, ai_json, db, logger, premium_user
 from routers.council import DIRECTORS, _ctx_text, build_council_context
 from routers.marketing import _ctx, _prompt_context, _short, _str_list, summarize_marketing_analytics
+from routers.site_publishing import _get_settings as _site_gateway_settings, maybe_publish_autonomous_site_content
 
 router = APIRouter()
 
@@ -819,12 +820,15 @@ async def run_organic_growth_agent_cycle(uid: str, cid: str, force: bool = False
             agent.update({"site_analysis": site_analysis, "director_alignment": alignment, "strategy": strategy, "last_analysis_at": _now_iso()})
         metrics = await _metrics_snapshot(uid, cid)
         social_ready = await _social_readiness(uid, cid)
+        site_gateway = await _site_gateway_settings(uid, cid)
         blockers = []
         await _refresh_action_statuses(uid, cid)
         if not social_ready.get("connected"):
             blockers.append("Meta ainda não está ligada à empresa ativa; o agente continua a preparar ações, mas a publicação automática fica pendente.")
         elif not social_ready.get("publish_ready"):
             blockers.append("A ligação Meta existe, mas faltam permissões de publicação da Página.")
+        if not site_gateway.get("authorized"):
+            blockers.append("O gateway interno do site público ainda não foi autorizado; o agente analisa e decide, mas ainda não publica no site público.")
 
         scheduled_count = await db.marketing_organic_actions.count_documents({"user_id": uid, "company_id": cid, "status": {"$in": ["scheduled", "ready"]}})
         if scheduled_count < 3:
@@ -852,6 +856,13 @@ async def run_organic_growth_agent_cycle(uid: str, cid: str, force: bool = False
                 await db.marketing_organic_actions.insert_one(action_doc)
                 await _schedule_action(uid, cid, agent["_id"], action_doc, social_ready, offset=scheduled_count + idx)
 
+        site_publication = None
+        if site_gateway.get("authorized") and site_gateway.get("auto_publish_after_strategy_approval"):
+            try:
+                site_publication = await maybe_publish_autonomous_site_content(uid, cid, agent, use_ai=not fast_mode)
+            except Exception as e:
+                blockers.append(f"Falha ao publicar no site público: {str(e)[:180]}")
+
         await _ensure_reports(uid, cid, agent, metrics, use_ai=not fast_mode)
         await db.marketing_organic_agents.update_one(
             {"_id": agent["_id"]},
@@ -862,6 +873,11 @@ async def run_organic_growth_agent_cycle(uid: str, cid: str, force: bool = False
                 "metrics": metrics,
                 "blockers": blockers,
                 "social_readiness": social_ready,
+                "site_publishing": {
+                    "authorized": bool(site_gateway.get("authorized")),
+                    "auto_publish_after_strategy_approval": bool(site_gateway.get("auto_publish_after_strategy_approval")),
+                    "latest_publication": site_publication,
+                },
                 "last_run_at": _now_iso(),
                 "next_run_at": (now + timedelta(hours=6)).isoformat(),
                 "last_error": None,

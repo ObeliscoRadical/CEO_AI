@@ -36,6 +36,9 @@ import Terms from "@/pages/legal/Terms";
 import Privacy from "@/pages/legal/Privacy";
 import Contact from "@/pages/legal/Contact";
 import ResetPassword from "@/pages/ResetPassword";
+import PublicInsightsHub from "@/pages/PublicInsightsHub";
+import PublicInsightPage from "@/pages/PublicInsightPage";
+import PublicSitePage from "@/pages/PublicSitePage";
 import { AppLayout } from "@/components/AppLayout";
 import { UpgradeWall } from "@/components/Premium";
 import { Loader2 } from "lucide-react";
@@ -81,6 +84,9 @@ function App() {
               <Route path="/termos" element={<Terms />} />
               <Route path="/privacidade" element={<Privacy />} />
               <Route path="/contacto" element={<Contact />} />
+              <Route path="/insights" element={<PublicInsightsHub />} />
+              <Route path="/insights/:slug" element={<PublicInsightPage />} />
+              <Route path="/site/:slug" element={<PublicSitePage />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/partilha/meta/:token" element={<MetaShare />} />
               <Route path="/relatorio-meta" element={<Protected><MetaReport /></Protected>} />

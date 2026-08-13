@@ -6,6 +6,7 @@ import { VoiceSphere } from "@/components/VoiceSphere";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { fetchPublicSections } from "@/lib/publicSite";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -16,6 +17,10 @@ export default function Login() {
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
+  const [publicCopy, setPublicCopy] = useState({
+    headline: "O CEO que trabalha 24 horas pela sua empresa",
+    subtitle: "Não é um ERP nem um software de gestão. É o seu Diretor Executivo Digital — analisa a empresa consigo e decide, lado a lado, o que fazer hoje.",
+  });
 
   const routeAfter = async () => {
     try {
@@ -48,6 +53,17 @@ export default function Login() {
     // eslint-disable-next-line
   }, [user]);
 
+  useEffect(() => {
+    fetchPublicSections(["login.hero_headline", "login.hero_subtitle"])
+      .then((sections) => {
+        setPublicCopy((current) => ({
+          headline: sections["login.hero_headline"]?.value || current.headline,
+          subtitle: sections["login.hero_subtitle"]?.value || current.subtitle,
+        }));
+      })
+      .catch(() => {});
+  }, []);
+
   const submit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -76,11 +92,11 @@ export default function Login() {
           <div className="absolute inset-10 rounded-full" style={{ background: "radial-gradient(circle, rgba(59,130,246,0.4), transparent 70%)", filter: "blur(36px)" }} />
           <img src="/android_cut.png" alt="CEO AI" className="relative w-full h-full object-contain" style={{ filter: "drop-shadow(0 0 26px rgba(59,130,246,0.5))" }} />
         </div>
-        <h1 className="font-serif-lux text-5xl mt-12 text-center leading-tight tracking-tight">
-          O CEO que trabalha<br />24 horas pela sua empresa
+        <h1 className="font-serif-lux text-5xl mt-12 text-center leading-tight tracking-tight" data-testid="login-public-headline">
+          {publicCopy.headline}
         </h1>
         <p className="text-muted-foreground mt-6 max-w-md text-center">
-          Não é um ERP nem um software de gestão. É o seu Diretor Executivo Digital — analisa a empresa consigo e decide, lado a lado, o que fazer hoje.
+          {publicCopy.subtitle}
         </p>
       </div>
 
@@ -141,6 +157,8 @@ export default function Login() {
             <a href="/privacidade" data-testid="footer-privacy" className="hover:text-[#3B82F6] transition-colors">Privacidade</a>
             <span>·</span>
             <a href="/contacto" data-testid="footer-contact" className="hover:text-[#3B82F6] transition-colors">Contacto</a>
+            <span>·</span>
+            <a href="/insights" data-testid="footer-insights" className="hover:text-[#3B82F6] transition-colors">Insights</a>
           </div>
         </motion.div>
       </div>

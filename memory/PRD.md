@@ -1,5 +1,82 @@
 # CEO AI — O Executivo Digital
 
+## CEO AI V2 — Site público com publicação autónoma interna (2026-08-13)
+- ✅ **Arquitetura real confirmada no código atual**:
+  - Frontend: **React SPA** (mesmo projeto), com páginas públicas em `frontend/src/pages/*` e rotas em `frontend/src/App.js`
+  - Backend: **FastAPI** em `backend/server.py`, com MongoDB via Motor e rotas sob `/api/*`
+  - CMS: **não existe CMS externo/headless CMS** para o site público atual
+  - Publicação atual antes desta iteração: páginas públicas principais (`/login`, `/planos`, `/contacto`, legal) estavam com conteúdo **hardcoded em JSX**, exigindo alteração de código + redeploy para mudar copy pública
+  - Conteúdo operacional já existente (marketing/campanhas/agente) fica em MongoDB; media pública já usava storage/coleções do próprio projeto
+- ✅ **Mecanismo escolhido e implementado**: `Content Publishing Gateway` interno, no mesmo projeto, sem CMS externo nem novo serviço
+  - Novo router backend: `backend/routers/site_publishing.py`
+  - Novas coleções Mongo:
+    - `site_publication_settings`
+    - `site_content_entries`
+    - `site_content_versions`
+    - `site_publication_logs`
+  - O gateway publica diretamente no **site público real do mesmo projeto** através de MongoDB + API interna + rotas públicas React, sem novo deploy
+- ✅ **Autorização única** implementada:
+  - Endpoint: `POST /api/marketing/site-publishing/authorize`
+  - Após esta autorização, o agente pode operar autonomamente dentro do escopo seguro do gateway
+  - Escopo seguro atual:
+    - novos artigos públicos em `/insights/:slug`
+    - novas páginas públicas em `/site/:slug`
+    - overrides seguros de secções públicas pré-definidas:
+      - `login.hero_headline`
+      - `login.hero_subtitle`
+      - `pricing.hero_headline`
+      - `pricing.hero_subtitle`
+      - `contact.hero_intro`
+  - Isolamento multiempresa adicionado: só o `company_id` marcado como `site_live_owner=true` pode expor conteúdo publicamente
+- ✅ **Operação autónoma do Crescimento Orgânico** ligada ao gateway:
+  - `backend/routers/marketing_autonomous.py` agora deteta se o gateway está autorizado
+  - após estratégia aprovada, o ciclo passa a poder **publicar conteúdo no site público** sem nova aprovação rotineira
+  - publicação manual de reforço disponível em `POST /api/marketing/site-publishing/run`
+  - rate-limit defensivo: máximo de 6 conteúdos autónomos publicados por este fluxo antes de nova curadoria/expansão
+- ✅ **Observabilidade, auditoria e rollback** implementados:
+  - cada publicação guarda:
+    - URL pública criada/alterada
+    - conteúdo anterior e novo (`previous_content`, `new_content`)
+    - data/hora
+    - motivo estratégico
+    - palavra‑chave / objetivo SEO
+    - métricas posteriores (`views`, `last_view_at`, `rollback_count`)
+  - rollback por endpoint: `POST /api/marketing/site-publishing/content/{entry_id}/rollback`
+  - remoção/arquivamento: `POST /api/marketing/site-publishing/content/{entry_id}/remove`
+  - tracking público de leitura: `POST /api/public/site/view/{kind}/{slug}`
+- ✅ **Rotas públicas dinâmicas** criadas:
+  - `/insights` — hub público de artigos do agente
+  - `/insights/:slug` — detalhe do artigo
+  - `/site/:slug` — páginas públicas geridas pelo gateway
+- ✅ **Páginas públicas existentes tornadas editáveis via gateway**:
+  - `Login.jsx`
+  - `Pricing.jsx`
+  - `legal/Contact.jsx`
+  - estas páginas continuam com fallback hardcoded, mas passam a consumir overrides publicados pelo gateway quando existirem
+- ✅ **P2 entregue nesta iteração dentro do gateway**:
+  - analytics comparativos por campanha (agrupamento por `campaign_label`)
+  - scoring editorial por conteúdo (SEO + estrutura + imagem + consumo)
+  - criativos automáticos/hero images reutilizando a geração de imagem já existente quando ativada nas settings
+- ✅ **APIs principais do gateway**:
+  - `GET /api/marketing/site-publishing/architecture`
+  - `GET /api/marketing/site-publishing/status`
+  - `POST /api/marketing/site-publishing/authorize`
+  - `POST /api/marketing/site-publishing/content`
+  - `POST /api/marketing/site-publishing/content/{entry_id}/rollback`
+  - `POST /api/marketing/site-publishing/content/{entry_id}/remove`
+  - `POST /api/marketing/site-publishing/run`
+  - `GET /api/public/site/entries`
+  - `GET /api/public/site/article/{slug}`
+  - `GET /api/public/site/page/{slug}`
+  - `GET /api/public/site/sections`
+  - `POST /api/public/site/view/{kind}/{slug}`
+- ✅ **Testes desta iteração**:
+  - `pytest -q backend/tests/test_phase3_marketing.py -k site_publishing_gateway_architecture_and_flow` → PASS
+  - `testing_agent` iteration_41 → PASS total backend + frontend
+- ⚠️ Continua **MOCKED** apenas o que já vinha mockado fora deste gateway:
+  - analytics Meta/live insights até existirem credenciais Meta válidas no ambiente
+  - execução autónoma do gateway pode usar fallback determinístico (`use_ai=false`) quando se quiser testar sem dependência do modelo
+
 ## CEO AI V2 — Sidebar Marketing com menus expansíveis (2026-08-13)
 - ✅ Sidebar reorganizada com padrão **Nested Sidebar Nav** para o módulo **Marketing**, sem mexer nas rotas originais do produto.
 - ✅ O item principal **Marketing** passou a **expandir/recolher sem navegar** e mostra 9 subcategorias:

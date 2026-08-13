@@ -9,6 +9,7 @@ import { MarketingBriefingSection } from "@/components/marketing/MarketingBriefi
 import { MetaConnectionSection } from "@/components/marketing/MetaConnectionSection";
 import { CampaignStudioSection } from "@/components/marketing/CampaignStudioSection";
 import { OrganicGrowthAgentSection } from "@/components/marketing/OrganicGrowthAgentSection";
+import { SitePublishingGatewaySection } from "@/components/marketing/SitePublishingGatewaySection";
 import { motion } from "framer-motion";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
@@ -105,7 +106,9 @@ function Marketing() {
   const [social, setSocial] = useState(null);
   const [campaigns, setCampaigns] = useState([]);
   const [organicData, setOrganicData] = useState({ agent: null, actions: [], reports: { daily: [], weekly: [], monthly: [] } });
+  const [siteGateway, setSiteGateway] = useState(null);
   const [organicBusy, setOrganicBusy] = useState(false);
+  const [siteGatewayBusy, setSiteGatewayBusy] = useState(null);
   const [execution, setExecution] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [briefing, setBriefing] = useState(null);
@@ -171,6 +174,15 @@ function Marketing() {
     }
   };
 
+  const loadSitePublishing = async () => {
+    try {
+      const { data } = await api.get("/marketing/site-publishing/status");
+      setSiteGateway(data);
+    } catch {
+      setSiteGateway(null);
+    }
+  };
+
   const loadExecution = async () => {
     try {
       const { data } = await api.get("/marketing/execution");
@@ -226,6 +238,7 @@ function Marketing() {
     loadAnalytics();
     loadCampaigns();
     loadOrganicAgent();
+    loadSitePublishing();
     loadBriefing();
     loadMarketingSettings();
     loadLogo();
@@ -254,6 +267,7 @@ function Marketing() {
     !!analytics,
     !!briefing,
     !!organicData?.agent,
+    !!siteGateway?.architecture,
   ].join("-");
 
   useEffect(() => {
@@ -413,6 +427,7 @@ function Marketing() {
       setOrganicData(data);
       await loadExecution();
       await loadAnalytics();
+      await loadSitePublishing();
       toast.success("Estratégia aprovada. O agente entrou em modo autônomo.");
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
@@ -441,6 +456,7 @@ function Marketing() {
       setOrganicData(data);
       await loadExecution();
       await loadAnalytics();
+      await loadSitePublishing();
       toast.success("Agente retomado.");
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
@@ -456,6 +472,7 @@ function Marketing() {
       setOrganicData(data);
       await loadExecution();
       await loadAnalytics();
+      await loadSitePublishing();
       toast.success("Site reanalisado e estratégia atualizada.");
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
@@ -471,6 +488,7 @@ function Marketing() {
       setOrganicData(data);
       await loadExecution();
       await loadAnalytics();
+      await loadSitePublishing();
       toast.success("Objetivo do agente atualizado.");
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
@@ -663,6 +681,65 @@ function Marketing() {
     }
   };
 
+  const authorizeSitePublishing = async () => {
+    setSiteGatewayBusy("authorize");
+    try {
+      const { data } = await api.post("/marketing/site-publishing/authorize", {
+        auto_publish_after_strategy_approval: true,
+        auto_generate_hero_images: true,
+        allow_section_overrides: true,
+        allow_delete: true,
+      });
+      setSiteGateway(data);
+      await loadOrganicAgent();
+      toast.success("Gateway autorizado. O agente já pode escrever no site público dentro do escopo seguro.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setSiteGatewayBusy(null);
+    }
+  };
+
+  const runSitePublishingNow = async () => {
+    setSiteGatewayBusy("run");
+    try {
+      const { data } = await api.post("/marketing/site-publishing/run", { force: true, use_ai: false });
+      setSiteGateway(data.status);
+      await loadOrganicAgent();
+      toast.success(data.published_entry ? "Conteúdo público publicado pelo gateway." : "Sem nova publicação necessária neste momento.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setSiteGatewayBusy(null);
+    }
+  };
+
+  const rollbackSiteEntry = async (entryId) => {
+    setSiteGatewayBusy(`rollback-${entryId}`);
+    try {
+      const { data } = await api.post(`/marketing/site-publishing/content/${entryId}/rollback`, {});
+      setSiteGateway(data.status);
+      toast.success("Rollback concluído.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setSiteGatewayBusy(null);
+    }
+  };
+
+  const removeSiteEntry = async (entryId) => {
+    setSiteGatewayBusy(`remove-${entryId}`);
+    try {
+      const { data } = await api.post(`/marketing/site-publishing/content/${entryId}/remove`);
+      setSiteGateway(data.status);
+      toast.success("Conteúdo removido do site público.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setSiteGatewayBusy(null);
+    }
+  };
+
   const downloadImage = async (url, index) => {
     try {
       const res = await fetch(url);
@@ -729,6 +806,16 @@ function Marketing() {
           onUpdateObjective={updateOrganicObjective}
         />
       </section>
+
+      <SitePublishingGatewaySection
+        data={siteGateway}
+        busy={siteGatewayBusy}
+        onAuthorize={authorizeSitePublishing}
+        onRunNow={runSitePublishingNow}
+        onRollback={rollbackSiteEntry}
+        onRemove={removeSiteEntry}
+        onRefresh={loadSitePublishing}
+      />
 
       <section id={SECTION_IDS.contentCampaigns} className="scroll-mt-24" data-testid="marketing-section-content-campaigns">
         <MetaConnectionSection

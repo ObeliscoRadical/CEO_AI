@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, formatApiError } from "@/lib/api";
 import { useAppData } from "@/context/AppDataContext";
+import { fetchPublicSections } from "@/lib/publicSite";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { Check, Loader2, Crown, Flame, Shield, Sparkles, Users, ChevronDown, MessageSquare } from "lucide-react";
@@ -40,9 +41,23 @@ export default function Pricing() {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(null);
   const [openFaq, setOpenFaq] = useState(0);
+  const [heroCopy, setHeroCopy] = useState({
+    headline: "Planos e Preços",
+    subtitle: "Escolha o plano ideal para transformar a forma como gere a sua empresa. Todos os planos incluem melhorias contínuas da Inteligência Artificial e atualizações gratuitas.",
+  });
 
   const loadStatus = () => api.get("/founders/status").then(({ data }) => setStatus(data)).catch(() => {});
   useEffect(() => { loadStatus(); }, []);
+  useEffect(() => {
+    fetchPublicSections(["pricing.hero_headline", "pricing.hero_subtitle"])
+      .then((sections) => {
+        setHeroCopy((current) => ({
+          headline: sections["pricing.hero_headline"]?.value || current.headline,
+          subtitle: sections["pricing.hero_subtitle"]?.value || current.subtitle,
+        }));
+      })
+      .catch(() => {});
+  }, []);
 
   const checkout = async (lookup_key) => {
     setLoading(lookup_key);
@@ -73,9 +88,9 @@ export default function Pricing() {
     <div className="px-6 md:px-10 py-14 md:py-20 max-w-[1180px] mx-auto">
       <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="text-center mb-14">
         <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-[#3B82F6] mb-5"><Sparkles className="w-4 h-4" /> Diretor Executivo Digital</span>
-        <h1 className="font-serif-lux text-4xl sm:text-5xl lg:text-6xl leading-[1.05] mb-5">Planos e Preços</h1>
+        <h1 className="font-serif-lux text-4xl sm:text-5xl lg:text-6xl leading-[1.05] mb-5" data-testid="pricing-public-headline">{heroCopy.headline}</h1>
         <p className="text-muted-foreground max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
-          Escolha o plano ideal para transformar a forma como gere a sua empresa. Todos os planos incluem melhorias contínuas da Inteligência Artificial e atualizações gratuitas.
+          {heroCopy.subtitle}
         </p>
       </motion.div>
 

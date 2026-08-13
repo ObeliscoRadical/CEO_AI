@@ -1,0 +1,66 @@
+{
+  "summary": "Iteration 41 — E2E testing of Content Publishing Gateway for Crescimento Orgânico. Backend test passed (1/1). Frontend E2E via Playwright verified: Gateway section visible on /marketing with architecture summary, authorization flow works, 'Publicar agora' button publishes content after strategy approval, public pages /insights and /insights/:slug work correctly, section overrides (login.hero_headline) are applied to public pages, rollback and remove functionality work, view tracking increments metrics, analytics (campaign comparison, editorial scoring) display correctly.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase3_marketing.py",
+    "/app/test_reports/pytest/iter41_site_gateway.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "site_publishing.py: Architecture summary correctly reports React SPA + FastAPI + MongoDB without external CMS.",
+    "site_publishing.py: Authorization flow sets site_live_owner=true and clears other owners atomically.",
+    "site_publishing.py: upsert_site_content() handles article, page, and section_override kinds with proper validation.",
+    "site_publishing.py: _compute_editorial_score() calculates score based on SEO fields, structure, hero image, and views.",
+    "site_publishing.py: maybe_publish_autonomous_site_content() integrates with organic agent and respects rate limits (max 6 articles).",
+    "site_publishing.py: Public endpoints correctly filter by site_live_owner company_id for multi-tenant isolation.",
+    "site_publishing.py: Rollback creates new version and restores previous snapshot while preserving metrics.",
+    "site_publishing.py: Logs capture action, status, previous/new content, strategy reason, keyword, and objective.",
+    "SitePublishingGatewaySection.jsx: All data-testids correctly implemented for testing.",
+    "SitePublishingGatewaySection.jsx: Stats grid shows authorization, published entries, failures, and rollbacks.",
+    "SitePublishingGatewaySection.jsx: Analytics card shows campaign comparison, editorial scoring, and creatives status.",
+    "PublicInsightsHub.jsx: Correctly fetches and displays public articles with hero images.",
+    "PublicInsightPage.jsx: Tracks views on page load and renders sections with PublicContentRenderer.",
+    "Login.jsx: Consumes section overrides from fetchPublicSections() for hero headline/subtitle.",
+    "Pricing.jsx: Consumes section overrides for hero headline/subtitle (requires auth to access).",
+    "Contact.jsx: Consumes section overrides for hero intro."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (1/1 site gateway test)", "frontend": "100% of tested flows"},
+  "test_credentials": "adminceoai@gmail.com / 12345",
+  "seed_data_creation": "Backend tests create/cleanup site_publication_settings, site_content_entries, site_content_versions, site_publication_logs, and organic agent data for isolation testing.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Content Publishing Gateway tests at /app/backend/tests/test_phase3_marketing.py::TestSitePublishingGateway cover: architecture endpoint, authorization, section overrides, article CRUD, rollback, view tracking, and autonomous publication via /run endpoint. Frontend data-testids for gateway: site-publishing-gateway-section, site-publishing-authorize-btn, site-publishing-run-btn, site-publishing-refresh-btn, site-publishing-stat-authorized, site-publishing-stat-published, site-publishing-stat-failures, site-publishing-stat-rollbacks, site-publishing-architecture-card, site-publishing-analytics-card, site-publishing-entries-card, site-publishing-logs-card, site-publishing-entry-*, site-publishing-log-*. Public pages: public-insights-title, public-insights-grid, public-insight-card-*, public-insight-page, public-insight-heading, login-public-headline, pricing-public-headline, contact-public-intro. Meta analytics remain MOCKED.",
+  "mocked_apis": {
+    "has_mocked_apis": true,
+    "mocked_apis_list": [
+      "Meta analytics remain MOCKED until the user provides App ID/App Secret and the live insights pipeline is validated.",
+      "Autonomous publication via /api/marketing/site-publishing/run can be tested with use_ai=false (fallback determinístico) to avoid AI dependency during QA."
+    ]
+  },
+  "features_tested": [
+    "Architecture endpoint reports React SPA + FastAPI + MongoDB without external CMS",
+    "Gateway section visible on /marketing page with correct architecture summary",
+    "Authorization button activates gateway and sets site_live_owner=true",
+    "After authorization, 'Publicar agora' button is visible instead of 'Autorizar uma vez'",
+    "Stats grid shows authorization status, published entries, failures, and rollbacks",
+    "Architecture card shows frontend, backend, CMS, and chosen mechanism details",
+    "Analytics card shows campaign comparison, editorial scoring, and creatives status",
+    "Entries card shows published articles/pages with rollback and remove buttons",
+    "Logs card shows audit trail with action, status, URL, keyword, and strategy reason",
+    "Section override for login.hero_headline is applied to public login page",
+    "Public /insights hub shows published articles with hero images",
+    "Public /insights/:slug page shows article content with sections and CTA",
+    "View tracking increments metrics on public article page load",
+    "Rollback restores previous version while preserving metrics",
+    "Remove/archive marks content as deleted and removes from public endpoints",
+    "/api/marketing/site-publishing/run publishes content when organic strategy is approved",
+    "No regression on existing public pages (/login, /contacto)"
+  ],
+  "rca_of_the_issue": "No issues found. All Content Publishing Gateway features working as specified."
+}

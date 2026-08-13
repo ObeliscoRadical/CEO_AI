@@ -445,6 +445,168 @@ class TestOrganicGrowthAgent:
                 MONGO.social_connections.insert_many(previous_social)
 
 
+class TestSitePublishingGateway:
+    def test_site_publishing_gateway_architecture_and_flow(self, sess):
+        companies = sess.get(f"{BASE}/api/companies", timeout=30)
+        assert companies.status_code == 200, companies.text
+        cid = companies.json().get("active_company_id")
+        uid = str(MONGO.users.find_one({"email": ADMIN_EMAIL})["_id"])
+
+        MONGO.site_publication_settings.delete_many({"user_id": uid, "company_id": cid})
+        MONGO.site_content_entries.delete_many({"user_id": uid, "company_id": cid})
+        MONGO.site_content_versions.delete_many({"user_id": uid, "company_id": cid})
+        MONGO.site_publication_logs.delete_many({"user_id": uid, "company_id": cid})
+        MONGO.marketing_organic_agents.delete_many({"user_id": uid, "company_id": cid})
+        MONGO.marketing_organic_actions.delete_many({"user_id": uid, "company_id": cid})
+        MONGO.marketing_organic_reports.delete_many({"user_id": uid, "company_id": cid})
+        MONGO.social_jobs.delete_many({"user_id": uid, "company_id": cid, "payload.autonomous_agent": "organic_growth"})
+        try:
+            arch = sess.get(f"{BASE}/api/marketing/site-publishing/architecture", timeout=30)
+            assert arch.status_code == 200, arch.text
+            arch_data = arch.json()["architecture"]
+            assert arch_data["cms"]["exists"] is False
+            assert arch_data["chosen_mechanism"]["name"] == "Content Publishing Gateway interno"
+
+            auth = sess.post(
+                f"{BASE}/api/marketing/site-publishing/authorize",
+                json={
+                    "auto_publish_after_strategy_approval": True,
+                    "auto_generate_hero_images": False,
+                    "allow_section_overrides": True,
+                    "allow_delete": True,
+                },
+                timeout=30,
+            )
+            assert auth.status_code == 200, auth.text
+            assert auth.json()["settings"]["authorized"] is True
+
+            override = sess.post(
+                f"{BASE}/api/marketing/site-publishing/content",
+                json={
+                    "kind": "section_override",
+                    "slot_key": "login.hero_headline",
+                    "slot_value": "O seu Diretor Executivo Digital agora também publica no seu site.",
+                    "strategy_reason": "Teste de override seguro do hero público.",
+                    "objective": "seo",
+                    "campaign_label": "Test Gateway",
+                    "publish_now": True,
+                    "auto_generate_hero_image": False,
+                },
+                timeout=30,
+            )
+            assert override.status_code == 200, override.text
+            public_sections = requests.get(f"{BASE}/api/public/site/sections", params={"slots": "login.hero_headline"}, timeout=30)
+            assert public_sections.status_code == 200, public_sections.text
+            assert public_sections.json()["sections"]["login.hero_headline"]["value"].startswith("O seu Diretor Executivo Digital")
+
+            article_slug = "guia-seo-teste-site"
+            article = sess.post(
+                f"{BASE}/api/marketing/site-publishing/content",
+                json={
+                    "kind": "article",
+                    "title": "Guia SEO Teste Site",
+                    "slug": article_slug,
+                    "excerpt": "Primeira versão do artigo público.",
+                    "intro": "Conteúdo de teste para validar publicação direta no site.",
+                    "sections": [
+                        {"heading": "Primeira secção", "paragraphs": ["Parágrafo 1"], "bullets": ["Bullet A", "Bullet B"]},
+                        {"heading": "Segunda secção", "paragraphs": ["Parágrafo 2"], "bullets": []},
+                        {"heading": "Terceira secção", "paragraphs": ["Parágrafo 3"], "bullets": []},
+                    ],
+                    "seo_keyword": "seo teste",
+                    "seo_title": "Guia SEO Teste Site",
+                    "seo_description": "Descrição SEO do teste.",
+                    "strategy_reason": "Validação do fluxo create/update/rollback.",
+                    "objective": "crescimento orgânico",
+                    "campaign_label": "Test Gateway",
+                    "publish_now": True,
+                    "auto_generate_hero_image": False,
+                },
+                timeout=30,
+            )
+            assert article.status_code == 200, article.text
+            article_entry = article.json()["entry"]
+            assert article_entry["public_url"] == f"/insights/{article_slug}"
+            assert article_entry["editorial_score"] >= 60
+
+            public_article = requests.get(f"{BASE}/api/public/site/article/{article_slug}", timeout=30)
+            assert public_article.status_code == 200, public_article.text
+            assert public_article.json()["entry"]["title"] == "Guia SEO Teste Site"
+
+            updated = sess.post(
+                f"{BASE}/api/marketing/site-publishing/content",
+                json={
+                    "kind": "article",
+                    "title": "Guia SEO Teste Site",
+                    "slug": article_slug,
+                    "excerpt": "Segunda versão com copy diferente.",
+                    "intro": "Versão atualizada.",
+                    "sections": [
+                        {"heading": "Primeira secção", "paragraphs": ["Parágrafo atualizado"], "bullets": ["Bullet A"]},
+                        {"heading": "Segunda secção", "paragraphs": ["Parágrafo 2"], "bullets": []},
+                        {"heading": "Terceira secção", "paragraphs": ["Parágrafo 3"], "bullets": []},
+                    ],
+                    "seo_keyword": "seo teste",
+                    "seo_title": "Guia SEO Teste Site",
+                    "seo_description": "Descrição SEO atualizada.",
+                    "strategy_reason": "Atualização de teste.",
+                    "objective": "crescimento orgânico",
+                    "campaign_label": "Test Gateway",
+                    "publish_now": True,
+                    "auto_generate_hero_image": False,
+                },
+                timeout=30,
+            )
+            assert updated.status_code == 200, updated.text
+            assert updated.json()["entry"]["excerpt"] == "Segunda versão com copy diferente."
+
+            view = requests.post(f"{BASE}/api/public/site/view/article/{article_slug}", timeout=30)
+            assert view.status_code == 200, view.text
+            assert view.json()["views"] >= 1
+
+            rollback = sess.post(
+                f"{BASE}/api/marketing/site-publishing/content/{article_entry['id']}/rollback",
+                json={},
+                timeout=30,
+            )
+            assert rollback.status_code == 200, rollback.text
+            rolled_entry = rollback.json()["entry"]
+            assert rolled_entry["excerpt"] == "Primeira versão do artigo público."
+
+            strategy = sess.post(
+                f"{BASE}/api/marketing/organic-agent/strategy",
+                json={"domain": "example.com", "objective": "Publicar conteúdos públicos no site"},
+                timeout=180,
+            )
+            assert strategy.status_code == 200, strategy.text
+            approved = sess.post(f"{BASE}/api/marketing/organic-agent/approve", timeout=180)
+            assert approved.status_code == 200, approved.text
+
+            manual_run = sess.post(
+                f"{BASE}/api/marketing/site-publishing/run",
+                json={"force": True, "use_ai": False},
+                timeout=120,
+            )
+            assert manual_run.status_code == 200, manual_run.text
+            published_entry = manual_run.json()["published_entry"]
+            assert published_entry is not None
+            assert published_entry["managed_by"] == "organic_agent"
+            assert published_entry["status"] == "published"
+
+            remove = sess.post(f"{BASE}/api/marketing/site-publishing/content/{article_entry['id']}/remove", timeout=30)
+            assert remove.status_code == 200, remove.text
+            assert remove.json()["entry"]["status"] == "deleted"
+        finally:
+            MONGO.site_publication_settings.delete_many({"user_id": uid, "company_id": cid})
+            MONGO.site_content_entries.delete_many({"user_id": uid, "company_id": cid})
+            MONGO.site_content_versions.delete_many({"user_id": uid, "company_id": cid})
+            MONGO.site_publication_logs.delete_many({"user_id": uid, "company_id": cid})
+            MONGO.marketing_organic_agents.delete_many({"user_id": uid, "company_id": cid})
+            MONGO.marketing_organic_actions.delete_many({"user_id": uid, "company_id": cid})
+            MONGO.marketing_organic_reports.delete_many({"user_id": uid, "company_id": cid})
+            MONGO.social_jobs.delete_many({"user_id": uid, "company_id": cid, "payload.autonomous_agent": "organic_growth"})
+
+
 # ---------------- CRM send-sim ----------------
 class TestSendSim:
     @pytest.fixture(scope="class")

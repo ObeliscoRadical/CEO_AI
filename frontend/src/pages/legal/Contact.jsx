@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, formatApiError } from "@/lib/api";
+import { fetchPublicSections } from "@/lib/publicSite";
 import { LegalShell, CONTACT_EMAIL } from "./LegalShell";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,15 @@ export default function Contact() {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [intro, setIntro] = useState(`Preferes email direto? ${CONTACT_EMAIL}`);
+
+  useEffect(() => {
+    fetchPublicSections(["contact.hero_intro"])
+      .then((sections) => {
+        setIntro(sections["contact.hero_intro"]?.value || `Preferes email direto? ${CONTACT_EMAIL}`);
+      })
+      .catch(() => {});
+  }, []);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -28,7 +38,7 @@ export default function Contact() {
 
   return (
     <LegalShell title="Fala connosco">
-      <p className="flex items-center gap-2"><Mail className="w-4 h-4 text-[#3B82F6]" /> Preferes email direto? <strong>{CONTACT_EMAIL}</strong></p>
+      <p className="flex items-center gap-2" data-testid="contact-public-intro"><Mail className="w-4 h-4 text-[#3B82F6]" /> <span>{intro}</span></p>
 
       {sent ? (
         <div className="mt-6 p-6 rounded-2xl border border-[#10B981]/40 bg-[#10B981]/10 flex items-center gap-3" data-testid="contact-success">
