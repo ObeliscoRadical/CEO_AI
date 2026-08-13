@@ -1,5 +1,23 @@
 # CEO AI — O Executivo Digital
 
+## CEO AI V2 — Correção da propriedade Google Search Console do Growth Agent (2026-08-13)
+- ✅ Confirmado no código e no runtime que o Growth Agent estava a tentar aceder à propriedade errada: `https://obeliscoradical.pt/` (sem `www`).
+- ✅ Corrigido em `backend/.env`:
+  - `GSC_SITE_URL="https://www.obeliscoradical.pt/"`
+- ✅ Restaurada neste fork a credencial Google esperada pelo backend em:
+  - `/tmp/ceoai-secrets/agenda-obelisco-3333420c7890.json`
+- ✅ Validação técnica concluída:
+  - `sites().list()` devolve `https://www.obeliscoradical.pt/ | siteFullUser`
+  - `POST /api/marketing/growth-agent/sync` devolve agora:
+    - `source_status.gsc.ok = true`
+    - `source_status.ga4.ok = true`
+    - `status.blockers = []`
+- ℹ️ GSC e GA4 estão autenticados e operacionais; neste momento devolveram `0 rows`, o que é compatível com propriedade/janela ainda sem dados relevantes.
+- 📌 Estado atualizado:
+  - GSC 403 por propriedade errada: RESOLVIDO
+  - Growth Agent Google sync: OPERACIONAL
+  - Meta publishing real: continua BLOQUEADO por falta de `META_APP_ID` e `META_APP_SECRET`
+
 ## CEO AI V2 — Ativação do GA4 Measurement ID no preview (2026-08-13)
 - ✅ Measurement ID fornecido e configurado:
   - `G-V24WWQE39G`

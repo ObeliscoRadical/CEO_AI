@@ -9,7 +9,7 @@ import sys
 from datetime import datetime
 
 # Configuration
-BASE_URL = "https://agent-marketing-pt.preview.emergentagent.com/api"
+BASE_URL = "https://organic-growth-agent.preview.emergentagent.com/api"
 TEST_EMAIL = "adminceoai@gmail.com"
 TEST_PASSWORD = "12345"
 
@@ -454,6 +454,145 @@ def test_marketing_briefing_generate():
         results.add_fail("POST /api/marketing/briefing/generate", f"Exception: {str(e)}")
         return False
 
+def test_growth_agent_status():
+    """Test 11: GET /api/marketing/growth-agent/status"""
+    print(f"\n{BLUE}[TEST 11] GET /api/marketing/growth-agent/status{RESET}")
+    
+    try:
+        response = session.get(f"{BASE_URL}/marketing/growth-agent/status", timeout=30)
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Validate google configuration
+            if "google" not in data:
+                results.add_fail("GET /api/marketing/growth-agent/status", "Missing 'google' field in response")
+                return False
+            
+            google = data.get("google", {})
+            
+            # Check gsc_site_url
+            gsc_site_url = google.get("gsc_site_url")
+            if gsc_site_url != "https://www.obeliscoradical.pt/":
+                results.add_fail(
+                    "GET /api/marketing/growth-agent/status",
+                    f"Expected gsc_site_url='https://www.obeliscoradical.pt/', got '{gsc_site_url}'"
+                )
+                return False
+            
+            # Check credentials_ready
+            credentials_ready = google.get("credentials_ready")
+            if not credentials_ready:
+                results.add_fail(
+                    "GET /api/marketing/growth-agent/status",
+                    f"Expected credentials_ready=true, got {credentials_ready}"
+                )
+                return False
+            
+            # Check gsc_configured
+            gsc_configured = google.get("gsc_configured")
+            if not gsc_configured:
+                results.add_fail(
+                    "GET /api/marketing/growth-agent/status",
+                    f"Expected gsc_configured=true, got {gsc_configured}"
+                )
+                return False
+            
+            # Check ga4_configured
+            ga4_configured = google.get("ga4_configured")
+            if not ga4_configured:
+                results.add_fail(
+                    "GET /api/marketing/growth-agent/status",
+                    f"Expected ga4_configured=true, got {ga4_configured}"
+                )
+                return False
+            
+            results.add_pass(
+                "GET /api/marketing/growth-agent/status",
+                f"GSC URL: {gsc_site_url} | Credentials ready: {credentials_ready} | GSC configured: {gsc_configured} | GA4 configured: {ga4_configured}"
+            )
+            return True
+        else:
+            results.add_fail("GET /api/marketing/growth-agent/status", f"Status {response.status_code}: {response.text[:300]}")
+            return False
+    except Exception as e:
+        results.add_fail("GET /api/marketing/growth-agent/status", f"Exception: {str(e)}")
+        return False
+
+def test_growth_agent_sync():
+    """Test 12: POST /api/marketing/growth-agent/sync"""
+    print(f"\n{BLUE}[TEST 12] POST /api/marketing/growth-agent/sync{RESET}")
+    
+    try:
+        response = session.post(f"{BASE_URL}/marketing/growth-agent/sync", json={}, timeout=90)
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Validate sync_run
+            if "sync_run" not in data:
+                results.add_fail("POST /api/marketing/growth-agent/sync", "Missing 'sync_run' field in response")
+                return False
+            
+            sync_run = data.get("sync_run", {})
+            source_status = sync_run.get("source_status", {})
+            
+            # Check GSC status
+            gsc_status = source_status.get("gsc", {})
+            gsc_ok = gsc_status.get("ok")
+            gsc_error = gsc_status.get("error")
+            
+            # Check GA4 status
+            ga4_status = source_status.get("ga4", {})
+            ga4_ok = ga4_status.get("ok")
+            ga4_error = ga4_status.get("error")
+            
+            # Check blockers
+            status = data.get("status", {})
+            blockers = status.get("blockers", [])
+            
+            # Build detailed message
+            details = []
+            details.append(f"GSC: {'✓ OK' if gsc_ok else '✗ FAILED'}")
+            if gsc_error:
+                details.append(f"GSC Error: {gsc_error[:100]}")
+            if gsc_ok and "rows" in gsc_status:
+                details.append(f"GSC Rows: {gsc_status.get('rows')}")
+            
+            details.append(f"GA4: {'✓ OK' if ga4_ok else '✗ FAILED'}")
+            if ga4_error:
+                details.append(f"GA4 Error: {ga4_error[:100]}")
+            if ga4_ok and "rows" in ga4_status:
+                details.append(f"GA4 Rows: {ga4_status.get('rows')}")
+            
+            if blockers:
+                details.append(f"Blockers: {len(blockers)}")
+                for blocker in blockers[:2]:
+                    details.append(f"  - {blocker[:80]}")
+            else:
+                details.append("Blockers: None")
+            
+            # Determine if test passes
+            if gsc_ok and ga4_ok:
+                results.add_pass(
+                    "POST /api/marketing/growth-agent/sync",
+                    " | ".join(details)
+                )
+                return True
+            else:
+                # If either GSC or GA4 failed, it's a failure
+                results.add_fail(
+                    "POST /api/marketing/growth-agent/sync",
+                    " | ".join(details)
+                )
+                return False
+        else:
+            results.add_fail("POST /api/marketing/growth-agent/sync", f"Status {response.status_code}: {response.text[:300]}")
+            return False
+    except Exception as e:
+        results.add_fail("POST /api/marketing/growth-agent/sync", f"Exception: {str(e)}")
+        return False
+
 def main():
     print(f"\n{'='*70}")
     print(f"{BLUE}CEO AI - Backend Marketing Module Testing{RESET}")
@@ -477,6 +616,8 @@ def main():
     test_marketing_execution()
     test_marketing_analytics()
     test_marketing_briefing_generate()
+    test_growth_agent_status()
+    test_growth_agent_sync()
     
     # Print summary
     success = results.summary()
