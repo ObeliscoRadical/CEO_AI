@@ -118,7 +118,8 @@ async def startup():
         scheduler.add_job(growth_agent.run_all_growth_agent_cycles, "interval", hours=6, id="growth_agent_cycles", replace_existing=True, max_instances=1)
         scheduler.add_job(send_monthly_value_alerts, CronTrigger(day=1, hour=8, minute=0), id="monthly_value_alerts", replace_existing=True)
         scheduler.add_job(send_goal_alerts, CronTrigger(hour=8, minute=30), id="goal_alerts", replace_existing=True)
-        from routers.social import run_due_social_jobs
+        from routers.social import run_due_social_jobs, run_all_social_media_agent_cycles
+        scheduler.add_job(run_all_social_media_agent_cycles, "interval", minutes=30, id="social_media_agent_cycles", replace_existing=True, max_instances=1)
         scheduler.add_job(run_due_social_jobs, "interval", seconds=60, id="social_publisher", replace_existing=True, max_instances=1)
         from routers.notifications import evaluate_crm_alerts
         scheduler.add_job(evaluate_crm_alerts, "interval", hours=6, id="crm_alerts", replace_existing=True, max_instances=1)

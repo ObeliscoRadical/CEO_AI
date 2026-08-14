@@ -13,12 +13,11 @@ from pydantic import BaseModel
 
 from core import active_company_id, ai_json, db, logger, premium_user
 from routers.council import DIRECTORS, _ctx_text, build_council_context
-from routers.marketing import _ctx, _prompt_context, _short, _str_list, summarize_marketing_analytics
-from routers.site_publishing import _get_settings as _site_gateway_settings, maybe_publish_autonomous_site_content
+from routers.marketing import _ctx, _prompt_context, _short, _str_list
+from routers.site_publishing import SiteContentUpsertIn, SiteSectionBlockIn, _get_settings as _site_gateway_settings, _slugify, upsert_site_content
 
 router = APIRouter()
 
-PUBLISH_TASKS = {"CREATE_CONTENT", "MANAGE"}
 STOPWORDS = {
     "para", "com", "uma", "mais", "como", "sobre", "entre", "pelos", "pelas", "este", "esta",
     "esse", "essa", "your", "ours", "with", "from", "that", "have", "will", "into", "about",
@@ -518,27 +517,15 @@ async def build_strategy_fast(uid: str, cid: str, objective: str, domain: str, r
     return ctx, site_analysis, alignment, strategy
 
 
-async def _social_readiness(uid: str, cid: str) -> dict:
-    conn = await db.social_connections.find_one({"user_id": uid, "company_id": cid}, {"_id": 0}) or {}
-    tasks = set(conn.get("tasks") or [])
-    connected = bool(conn.get("page_id") and conn.get("page_token") and (conn.get("status") in {None, "connected"}))
-    return {
-        "connected": connected,
-        "has_instagram": bool(conn.get("ig_user_id")),
-        "publish_ready": bool(tasks & PUBLISH_TASKS),
-        "tasks": list(tasks),
-        "page_name": conn.get("page_name"),
-    }
-
-
 async def _metrics_snapshot(uid: str, cid: str) -> dict:
-    analytics = await summarize_marketing_analytics(uid, cid)
-    since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
-    rows = await db.marketing_post_metrics.find({"user_id": uid, "company_id": cid, "published_at": {"$gte": since}}, {"_id": 0, "metrics": 1}).to_list(200)
-    traffic = 0
-    for row in rows:
-        metrics = row.get("metrics") or {}
-        traffic += int(metrics.get("clicks", 0) or 0) + int(metrics.get("profile_visits", 0) or 0)
+    since = (datetime.now(timezone.utc).date() - timedelta(days=29)).isoformat()
+    static_rows = await db.growth_internal_page_daily.find({"user_id": uid, "company_id": cid, "date": {"$gte": since}}, {"_id": 0, "views": 1}).to_list(500)
+    site_rows = await db.site_content_entries.find(
+        {"user_id": uid, "company_id": cid, "status": "published"},
+        {"_id": 0, "metrics.views": 1, "managed_by": 1},
+    ).to_list(200)
+    traffic = sum(int(row.get("views", 0) or 0) for row in static_rows)
+    traffic += sum(int((row.get("metrics") or {}).get("views", 0) or 0) for row in site_rows)
     leads = await db.crm_leads.count_documents({"user_id": uid, "company_id": cid, "created_at": {"$gte": since}})
     converted = await db.crm_leads.count_documents({
         "user_id": uid,
@@ -546,50 +533,53 @@ async def _metrics_snapshot(uid: str, cid: str) -> dict:
         "created_at": {"$gte": since},
         "stage": {"$in": ["reuniao", "proposta", "negociacao", "ganho"]},
     })
+    latest_growth = await db.growth_agent_reports.find_one(
+        {"user_id": uid, "company_id": cid},
+        {"_id": 0, "learnings": 1, "next_steps": 1},
+        sort=[("created_at", -1)],
+    ) or {}
+    published_entries = len(site_rows)
     return {
         "traffic": traffic,
-        "traffic_label": "Tráfego estimado (cliques + visitas de perfil, 30d)" if analytics.get("mocked", True) else "Tráfego acionado (30d)",
+        "traffic_label": "Views do site e páginas públicas (30d)",
         "leads": leads,
         "conversion_rate": round((leads / max(traffic, 1)) * 100, 2) if traffic else 0,
         "converted_pipeline": converted,
-        "published_posts": analytics.get("summary", {}).get("published_posts", 0),
-        "metrics_mocked": analytics.get("mocked", True),
-        "analytics_insights": analytics.get("insights") or [],
-        "recommended_actions": analytics.get("recommended_actions") or [],
+        "published_site_entries": published_entries,
+        "metrics_mocked": False,
+        "analytics_insights": _str_list(latest_growth.get("learnings"), 3),
+        "recommended_actions": _str_list(latest_growth.get("next_steps"), 3),
         "captured_at": _now_iso(),
     }
 
 
-def _action_fallback(agent: dict, metrics: dict, social_ready: dict) -> list[dict]:
-    pillars = agent.get("strategy", {}).get("content_pillars") or []
-    opportunities = agent.get("site_analysis", {}).get("opportunities") or []
-    top_pillar = (pillars[0] or {}).get("name") if pillars else "Prova e autoridade"
-    top_opportunity = (opportunities[0] or {}).get("title") if opportunities else "Clarificar proposta de valor"
-    channel_priority = ["instagram", "facebook"] if social_ready.get("connected") else ["site"]
+def _action_fallback(agent: dict, metrics: dict, site_gateway: dict) -> list[dict]:
+    site = agent.get("site_analysis") or {}
+    opportunities = site.get("opportunities") or []
+    service = (site.get("primary_services") or ["serviço principal"])[0]
+    keyword = (site.get("keywords") or [service])[0]
+    first_opportunity = (opportunities[0] or {}).get("title") if opportunities else "Clarificar proposta de valor"
+    second_opportunity = (opportunities[1] or {}).get("title") if len(opportunities) > 1 else "Reforçar prova e CTA"
     return [
         {
-            "title": f"{top_pillar}: conteúdo de autoridade",
-            "theme": top_pillar,
-            "format": "Reel",
-            "goal": "Gerar tráfego com intenção e reforçar confiança.",
-            "why_now": f"A oportunidade principal é '{top_opportunity}' e o agente precisa de sinais rápidos para aprender.",
-            "caption": f"Hoje mostramos como transformar {top_pillar.lower()} em confiança real e próximo passo comercial.",
-            "hashtags": ["#marketing", "#crescimentoorganico", "#ceoai"],
-            "cta": "Quer ver como isto se aplica ao seu caso? Envie mensagem.",
-            "image_prompt": f"Cena profissional de crescimento orgânico com foco em {top_pillar.lower()}, sem texto na imagem.",
-            "channel_priority": channel_priority,
+            "title": f"{service}: guia prático sobre {keyword}",
+            "theme": "conteúdo evergreen",
+            "format": "Artigo SEO",
+            "goal": "Captar procura qualificada no site e responder a uma intenção concreta.",
+            "why_now": f"O site mostra a oportunidade '{first_opportunity}' e o agente precisa de reforçar cobertura orgânica sem depender das redes sociais.",
+            "target_kind": "article",
+            "seo_keyword": keyword,
+            "cta": "Pedir diagnóstico ou contacto.",
         },
         {
-            "title": "Oferta + prova social",
-            "theme": "Oferta e conversão",
-            "format": "Post",
-            "goal": "Converter atenção em lead qualificado.",
-            "why_now": f"O objetivo do agente é {agent.get('objective') or 'crescimento orgânico com conversão'}.",
-            "caption": f"Conteúdo criado para puxar leads com mais qualidade. Tráfego atual: {metrics.get('traffic', 0)} sinais e {metrics.get('leads', 0)} leads recentes.",
-            "hashtags": ["#leads", "#conversao", "#ceoai"],
-            "cta": "Peça um diagnóstico rápido e veja o próximo passo recomendado.",
-            "image_prompt": "Composição visual profissional sobre crescimento, prova social e conversão, sem texto.",
-            "channel_priority": channel_priority,
+            "title": f"{service}: página de conversão reforçada",
+            "theme": "otimização de página",
+            "format": "Página do site",
+            "goal": "Melhorar clareza, prova social e CTA numa página crítica do site.",
+            "why_now": f"O agente está a trabalhar para {agent.get('objective') or 'crescimento orgânico'} e a prioridade seguinte é '{second_opportunity}'.",
+            "target_kind": "page",
+            "seo_keyword": service.lower(),
+            "cta": "Levar o visitante a pedir contacto.",
         },
     ]
 
@@ -607,17 +597,15 @@ def _normalize_actions(raw: dict, fallback: list[dict]) -> list[dict]:
             "format": _short(item.get("format"), fb["format"]),
             "goal": _short(item.get("goal"), fb["goal"]),
             "why_now": _short(item.get("why_now"), fb["why_now"]),
-            "caption": _short(item.get("caption"), fb["caption"]),
-            "hashtags": _str_list(item.get("hashtags"), 6) or fb["hashtags"],
+            "target_kind": _short(item.get("target_kind"), fb["target_kind"]),
+            "seo_keyword": _short(item.get("seo_keyword"), fb["seo_keyword"]),
             "cta": _short(item.get("cta"), fb["cta"]),
-            "image_prompt": _short(item.get("image_prompt"), fb["image_prompt"]),
-            "channel_priority": [str(ch).lower() for ch in (_str_list(item.get("channel_priority"), 3) or fb["channel_priority"])],
         })
     return out or fallback
 
 
-async def _generate_next_actions(uid: str, cid: str, agent: dict, metrics: dict, social_ready: dict, queue_depth: int, use_ai: bool = True) -> list[dict]:
-    fallback = _action_fallback(agent, metrics, social_ready)
+async def _generate_next_actions(uid: str, cid: str, agent: dict, metrics: dict, site_gateway: dict, queue_depth: int, use_ai: bool = True) -> list[dict]:
+    fallback = _action_fallback(agent, metrics, site_gateway)
     if not use_ai:
         return fallback
     try:
@@ -626,12 +614,12 @@ async def _generate_next_actions(uid: str, cid: str, agent: dict, metrics: dict,
             (
                 f"Agente atual: {agent}\n"
                 f"Métricas atuais: {metrics}\n"
-                f"Social readiness: {social_ready}\n"
+                f"Gateway do site: {site_gateway}\n"
                 f"Fila atual: {queue_depth}\n\n"
                 "Devolve APENAS JSON válido com a estrutura "
                 '{"actions":[{"title":str,"theme":str,"format":str,"goal":str,"why_now":str,'
-                '"caption":str,"hashtags":[str],"cta":str,"image_prompt":str,"channel_priority":[str]}]}. '
-                "Quero 2 ações autónomas alinhadas com a estratégia aprovada, prontas para publicação."
+                '"target_kind":str,"seo_keyword":str,"cta":str}]}. '
+                "Quero 2 ações autónomas focadas apenas no site, SEO e conteúdo público."
             ),
         )
     except Exception:
@@ -639,69 +627,81 @@ async def _generate_next_actions(uid: str, cid: str, agent: dict, metrics: dict,
     return _normalize_actions(raw, fallback)
 
 
-def _next_run_slot(base: Optional[datetime] = None, offset: int = 0) -> str:
-    anchor = base or datetime.now(timezone.utc)
-    slot = anchor + timedelta(hours=2 + (offset * 12))
-    return slot.isoformat()
-
-
-async def _refresh_action_statuses(uid: str, cid: str):
-    rows = await db.marketing_organic_actions.find({"user_id": uid, "company_id": cid, "status": {"$in": ["scheduled", "publishing"]}}).to_list(50)
-    for action in rows:
-        job_id = action.get("social_job_id")
-        if not job_id:
-            continue
-        job = await db.social_jobs.find_one({"_id": job_id, "user_id": uid, "company_id": cid}, {"_id": 0, "status": 1, "published_at": 1, "error": 1})
-        if not job:
-            continue
-        if job.get("status") == "published":
-            await db.marketing_organic_actions.update_one(
-                {"_id": action["_id"]},
-                {"$set": {"status": "published", "published_at": job.get("published_at"), "updated_at": _now_iso()}},
-            )
-        elif job.get("status") == "failed":
-            await db.marketing_organic_actions.update_one(
-                {"_id": action["_id"]},
-                {"$set": {"status": "blocked", "note": job.get("error") or "Falhou ao publicar", "updated_at": _now_iso()}},
-            )
-
-
-async def _schedule_action(uid: str, cid: str, agent_id: str, action_doc: dict, social_ready: dict, offset: int = 0) -> dict:
-    if not (social_ready.get("connected") and social_ready.get("publish_ready")):
-        note = "Meta ainda não está pronta para publicação automática."
-        await db.marketing_organic_actions.update_one({"_id": action_doc["_id"]}, {"$set": {"status": "ready", "note": note, "updated_at": _now_iso()}})
-        action_doc["status"] = "ready"
-        action_doc["note"] = note
+async def _publish_growth_site_action(uid: str, cid: str, agent: dict, action_doc: dict, use_ai: bool = False) -> dict:
+    settings = await _site_gateway_settings(uid, cid)
+    if not settings.get("authorized"):
+        note = "O gateway do site ainda não está autorizado para publicação automática."
+        await db.marketing_organic_actions.update_one(
+            {"_id": action_doc["_id"]},
+            {"$set": {"status": "ready", "note": note, "updated_at": _now_iso()}},
+        )
+        action_doc.update({"status": "ready", "note": note})
         return action_doc
-    run_at = _next_run_slot(offset=offset)
-    payload = {
-        "caption": f"{action_doc.get('caption', '')}\n\n{' '.join(action_doc.get('hashtags') or [])}\n{action_doc.get('cta', '')}".strip(),
-        "image_prompt": action_doc.get("image_prompt") or action_doc.get("title"),
-        "generate_image": True,
-        "image_url": None,
-        "instagram": bool(social_ready.get("has_instagram")),
-        "facebook": True,
-        "post_id": None,
-        "post_meta": {"title": action_doc.get("title"), "theme": action_doc.get("theme"), "format": action_doc.get("format")},
-        "autonomous_agent": "organic_growth",
-        "agent_id": agent_id,
-        "action_id": action_doc["_id"],
-    }
-    job_id = str(uuid.uuid4())
-    await db.social_jobs.insert_one({
-        "_id": job_id,
-        "user_id": uid,
-        "company_id": cid,
-        "payload": payload,
-        "run_at": run_at,
-        "status": "queued",
-        "created_at": _now_iso(),
-    })
+
+    site = agent.get("site_analysis") or {}
+    service = (site.get("primary_services") or ["serviço principal"])[0]
+    title = action_doc.get("title") or f"{service}: atualização do site"
+    excerpt = f"Atualização do Growth Agent para reforçar {action_doc.get('seo_keyword') or service} com foco em procura qualificada e conversão."
+    intro = action_doc.get("why_now") or f"Conteúdo criado autonomamente para reforçar {service} sem alterar design ou navegação."
+    sections = [
+        SiteSectionBlockIn(
+            heading="Porque esta atualização existe",
+            paragraphs=[action_doc.get("why_now") or "O agente identificou uma oportunidade clara no site."],
+            bullets=[],
+        ),
+        SiteSectionBlockIn(
+            heading="O que esta página precisa de resolver",
+            paragraphs=[action_doc.get("goal") or "Responder à intenção de procura e reduzir fricção até ao contacto."],
+            bullets=["clareza de oferta", "prova social", "CTA direto"],
+        ),
+        SiteSectionBlockIn(
+            heading="Próximo passo recomendado",
+            paragraphs=["O objetivo é transformar a visita em contacto qualificado, sem mexer no layout do site."],
+            bullets=[action_doc.get("cta") or "Pedir diagnóstico"],
+        ),
+    ]
+
+    entry = await upsert_site_content(
+        uid,
+        cid,
+        SiteContentUpsertIn(
+            kind="page" if action_doc.get("target_kind") == "page" else "article",
+            title=title,
+            slug=_slugify(title),
+            excerpt=excerpt,
+            intro=intro,
+            sections=sections,
+            cta_label="Falar com a equipa",
+            cta_url="/contacto",
+            seo_keyword=action_doc.get("seo_keyword") or service,
+            seo_title=title,
+            seo_description=excerpt,
+            strategy_reason=action_doc.get("why_now") or "Ação autónoma do Growth Agent.",
+            objective=agent.get("objective") or "crescimento orgânico",
+            campaign_label="Growth Agent",
+            publish_now=True,
+            auto_generate_hero_image=settings.get("auto_generate_hero_images", True),
+        ),
+        actor="organic_agent",
+    )
     await db.marketing_organic_actions.update_one(
         {"_id": action_doc["_id"]},
-        {"$set": {"status": "scheduled", "run_at": run_at, "social_job_id": job_id, "updated_at": _now_iso()}},
+        {"$set": {
+            "status": "published",
+            "public_url": entry.get("public_url"),
+            "site_entry_id": entry.get("id"),
+            "published_at": _now_iso(),
+            "note": "Publicado automaticamente pelo Growth Agent no site.",
+            "updated_at": _now_iso(),
+        }},
     )
-    action_doc.update({"status": "scheduled", "run_at": run_at, "social_job_id": job_id})
+    action_doc.update({
+        "status": "published",
+        "public_url": entry.get("public_url"),
+        "site_entry_id": entry.get("id"),
+        "published_at": _now_iso(),
+        "note": "Publicado automaticamente pelo Growth Agent no site.",
+    })
     return action_doc
 
 
@@ -716,7 +716,7 @@ async def _generate_report(uid: str, cid: str, agent: dict, metrics: dict, perio
         return existing
     actions = await db.marketing_organic_actions.find({"user_id": uid, "company_id": cid}, {"_id": 0}).sort("created_at", -1).to_list(6)
     fallback = {
-        "headline": f"Relatório {period} do Crescimento Orgânico",
+        "headline": f"Relatório {period} do Growth Agent",
         "summary": "O agente manteve o foco em qualidade, alinhamento com vendas/finanças e ajuste contínuo da estratégia.",
         "executed_actions": [item.get("title") for item in actions[:3] if item.get("title")] or ["Sem ações relevantes registadas ainda."],
         "results": [
@@ -819,21 +819,18 @@ async def run_organic_growth_agent_cycle(uid: str, cid: str, force: bool = False
             _, site_analysis, alignment, strategy = await build_strategy(uid, cid, agent.get("objective") or "", agent.get("domain") or "")
             agent.update({"site_analysis": site_analysis, "director_alignment": alignment, "strategy": strategy, "last_analysis_at": _now_iso()})
         metrics = await _metrics_snapshot(uid, cid)
-        social_ready = await _social_readiness(uid, cid)
         site_gateway = await _site_gateway_settings(uid, cid)
         blockers = []
-        await _refresh_action_statuses(uid, cid)
-        if not social_ready.get("connected"):
-            blockers.append("Meta ainda não está ligada à empresa ativa; o agente continua a preparar ações, mas a publicação automática fica pendente.")
-        elif not social_ready.get("publish_ready"):
-            blockers.append("A ligação Meta existe, mas faltam permissões de publicação da Página.")
         if not site_gateway.get("authorized"):
             blockers.append("O gateway interno do site público ainda não foi autorizado; o agente analisa e decide, mas ainda não publica no site público.")
 
-        scheduled_count = await db.marketing_organic_actions.count_documents({"user_id": uid, "company_id": cid, "status": {"$in": ["scheduled", "ready"]}})
-        if scheduled_count < 3:
-            new_actions = await _generate_next_actions(uid, cid, agent, metrics, social_ready, scheduled_count, use_ai=not fast_mode)
-            for idx, item in enumerate(new_actions[: max(1, 3 - scheduled_count)]):
+        pending_actions = await db.marketing_organic_actions.find(
+            {"user_id": uid, "company_id": cid, "status": {"$in": ["draft", "ready"]}},
+        ).sort("created_at", 1).to_list(10)
+
+        if len(pending_actions) < 2:
+            new_actions = await _generate_next_actions(uid, cid, agent, metrics, site_gateway, len(pending_actions), use_ai=not fast_mode)
+            for item in new_actions[: max(1, 2 - len(pending_actions))]:
                 action_doc = {
                     "_id": str(uuid.uuid4()),
                     "user_id": uid,
@@ -844,24 +841,36 @@ async def run_organic_growth_agent_cycle(uid: str, cid: str, force: bool = False
                     "format": item.get("format"),
                     "goal": item.get("goal"),
                     "why_now": item.get("why_now"),
-                    "caption": item.get("caption"),
-                    "hashtags": item.get("hashtags") or [],
+                    "target_kind": item.get("target_kind") or "article",
+                    "seo_keyword": item.get("seo_keyword") or item.get("theme"),
                     "cta": item.get("cta"),
-                    "image_prompt": item.get("image_prompt"),
-                    "channel_priority": item.get("channel_priority") or [],
                     "status": "draft",
                     "created_at": _now_iso(),
                     "updated_at": _now_iso(),
                 }
                 await db.marketing_organic_actions.insert_one(action_doc)
-                await _schedule_action(uid, cid, agent["_id"], action_doc, social_ready, offset=scheduled_count + idx)
+            pending_actions = await db.marketing_organic_actions.find(
+                {"user_id": uid, "company_id": cid, "status": {"$in": ["draft", "ready"]}},
+            ).sort("created_at", 1).to_list(10)
 
         site_publication = None
         if site_gateway.get("authorized") and site_gateway.get("auto_publish_after_strategy_approval"):
-            try:
-                site_publication = await maybe_publish_autonomous_site_content(uid, cid, agent, use_ai=not fast_mode)
-            except Exception as e:
-                blockers.append(f"Falha ao publicar no site público: {str(e)[:180]}")
+            for action_doc in pending_actions[:2]:
+                try:
+                    published = await _publish_growth_site_action(uid, cid, agent, action_doc, use_ai=not fast_mode)
+                    site_publication = {"public_url": published.get("public_url"), "title": published.get("title")}
+                except Exception as e:
+                    blockers.append(f"Falha ao publicar no site público: {str(e)[:180]}")
+                    await db.marketing_organic_actions.update_one(
+                        {"_id": action_doc["_id"]},
+                        {"$set": {"status": "blocked", "note": str(e)[:180], "updated_at": _now_iso()}},
+                    )
+        else:
+            for action_doc in pending_actions:
+                await db.marketing_organic_actions.update_one(
+                    {"_id": action_doc["_id"]},
+                    {"$set": {"status": "ready", "note": "À espera de autorização do gateway do site.", "updated_at": _now_iso()}},
+                )
 
         await _ensure_reports(uid, cid, agent, metrics, use_ai=not fast_mode)
         await db.marketing_organic_agents.update_one(
@@ -872,7 +881,6 @@ async def run_organic_growth_agent_cycle(uid: str, cid: str, force: bool = False
                 "strategy": agent.get("strategy"),
                 "metrics": metrics,
                 "blockers": blockers,
-                "social_readiness": social_ready,
                 "site_publishing": {
                     "authorized": bool(site_gateway.get("authorized")),
                     "auto_publish_after_strategy_approval": bool(site_gateway.get("auto_publish_after_strategy_approval")),
@@ -938,7 +946,6 @@ async def create_organic_growth_strategy(inp: OrganicStrategyIn, user: dict = De
         "director_alignment": alignment,
         "strategy": strategy,
         "metrics": await _metrics_snapshot(uid, cid),
-        "social_readiness": await _social_readiness(uid, cid),
         "blockers": [],
         "last_analysis_at": now_iso,
         "last_run_at": None,
@@ -956,7 +963,7 @@ async def approve_organic_growth_strategy(user: dict = Depends(premium_user)):
     cid = await active_company_id(uid)
     agent = await db.marketing_organic_agents.find_one({"user_id": uid, "company_id": cid})
     if not agent:
-        raise HTTPException(404, "Crie primeiro a estratégia inicial do Crescimento Orgânico.")
+        raise HTTPException(404, "Crie primeiro a estratégia inicial do Growth Agent.")
     now_iso = _now_iso()
     await db.marketing_organic_agents.update_one(
         {"_id": agent["_id"]},
@@ -983,7 +990,7 @@ async def resume_organic_growth_agent(user: dict = Depends(premium_user)):
     cid = await active_company_id(uid)
     agent = await db.marketing_organic_agents.find_one({"user_id": uid, "company_id": cid})
     if not agent:
-        raise HTTPException(404, "Agente de Crescimento Orgânico não encontrado.")
+        raise HTTPException(404, "Growth Agent não encontrado.")
     now_iso = _now_iso()
     await db.marketing_organic_agents.update_one(
         {"_id": agent["_id"]},
@@ -999,7 +1006,7 @@ async def reanalyze_organic_growth_agent(user: dict = Depends(premium_user)):
     cid = await active_company_id(uid)
     agent = await db.marketing_organic_agents.find_one({"user_id": uid, "company_id": cid})
     if not agent:
-        raise HTTPException(404, "Agente de Crescimento Orgânico não encontrado.")
+        raise HTTPException(404, "Growth Agent não encontrado.")
     _, site_analysis, alignment, strategy = await build_strategy_fast(uid, cid, agent.get("objective") or "", agent.get("domain") or "", refresh_site=True)
     now_iso = _now_iso()
     await db.marketing_organic_agents.update_one(
@@ -1017,7 +1024,7 @@ async def update_organic_growth_objective(inp: OrganicObjectiveIn, user: dict = 
     cid = await active_company_id(uid)
     agent = await db.marketing_organic_agents.find_one({"user_id": uid, "company_id": cid})
     if not agent:
-        raise HTTPException(404, "Agente de Crescimento Orgânico não encontrado.")
+        raise HTTPException(404, "Growth Agent não encontrado.")
     _, site_analysis, alignment, strategy = await build_strategy_fast(
         uid,
         cid,

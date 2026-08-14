@@ -535,7 +535,7 @@ def _fallback_autonomous_payload(agent: dict) -> dict:
         "title": title,
         "slug": _slugify(title),
         "excerpt": f"Guia objetivo para transformar {keyword} em tração qualificada e conversão para {service}.",
-        "intro": f"Este conteúdo nasce da estratégia aprovada de Crescimento Orgânico e responde à oportunidade '{opportunity}'.",
+        "intro": f"Este conteúdo nasce da estratégia aprovada do Growth Agent e responde à oportunidade '{opportunity}'.",
         "sections": [
             {"heading": "O problema que estamos a resolver", "paragraphs": [f"Muitas empresas em {service.lower()} atraem atenção, mas não conseguem converter essa atenção em procura qualificada.", f"O foco aqui é usar {keyword} com intenção comercial, prova e clareza de oferta."], "bullets": []},
             {"heading": "O que fazer agora", "paragraphs": ["Comece por clarificar a proposta de valor, alinhar CTA e remover fricção de contacto.", "Depois, publique conteúdo útil que responda às dúvidas reais do cliente ideal."], "bullets": ["Posicionamento claro", "Prova social visível", "CTA dominante", "Conteúdo orientado a intenção"]},
@@ -574,7 +574,7 @@ async def maybe_publish_autonomous_site_content(uid: str, cid: str, agent: dict,
                 "És o agente autónomo de publicação do site público. Respondes só com JSON em português europeu.",
                 (
                     f"Contexto da empresa:\n{_prompt_context(ctx)}\n\n"
-                    f"Agente de Crescimento Orgânico: {agent}\n\n"
+                    f"Growth Agent: {agent}\n\n"
                     "Devolve APENAS JSON válido com a estrutura "
                     '{"kind":"article","title":str,"slug":str,"excerpt":str,"intro":str,'
                     '"sections":[{"heading":str,"paragraphs":[str],"bullets":[str]}],'
@@ -696,7 +696,7 @@ async def run_site_publication_now(inp: SiteAgentRunIn, user: dict = Depends(pre
     cid = await active_company_id(uid)
     agent = await db.marketing_organic_agents.find_one({"user_id": uid, "company_id": cid, "strategy_approved": True}, {"_id": 0})
     if not agent:
-        raise HTTPException(400, "A estratégia inicial do Crescimento Orgânico ainda não foi aprovada.")
+        raise HTTPException(400, "A estratégia inicial do Growth Agent ainda não foi aprovada.")
     entry = await maybe_publish_autonomous_site_content(uid, cid, deepcopy(agent), use_ai=inp.use_ai)
     return {"published_entry": entry, "status": await get_site_publishing_status(uid, cid)}
 

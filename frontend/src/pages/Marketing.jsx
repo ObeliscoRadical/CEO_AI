@@ -11,6 +11,7 @@ import { CampaignStudioSection } from "@/components/marketing/CampaignStudioSect
 import { OrganicGrowthAgentSection } from "@/components/marketing/OrganicGrowthAgentSection";
 import { SitePublishingGatewaySection } from "@/components/marketing/SitePublishingGatewaySection";
 import { GrowthAgentExecutiveSection } from "@/components/marketing/GrowthAgentExecutiveSection";
+import { SocialMediaAgentSection } from "@/components/marketing/SocialMediaAgentSection";
 import { motion } from "framer-motion";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
@@ -46,15 +47,18 @@ const STATUS_META = {
 };
 
 const SECTION_IDS = {
-  contentCampaigns: "marketing-content-campaigns",
-  multichannel: "marketing-campaign-studio",
-  brandIdentity: "marketing-brand-identity",
-  executionQueue: "marketing-execution-queue",
-  analytics: "marketing-analytics-editorial",
-  dailyBriefing: "marketing-daily-briefing",
-  approval: "marketing-approval-content",
-  editorialCalendar: "marketing-editorial-calendar",
-  organicGrowth: "marketing-organic-growth",
+  growthStrategy: "marketing-growth-site-strategy",
+  growthPublishing: "marketing-growth-site-publishing",
+  growthMonitor: "marketing-growth-seo-monitor",
+  socialAgent: "marketing-social-agent",
+  socialConnection: "marketing-social-connection",
+  socialBrandIdentity: "marketing-social-brand-identity",
+  socialCampaigns: "marketing-social-campaigns",
+  socialExecution: "marketing-social-execution",
+  socialAnalytics: "marketing-social-analytics",
+  socialBriefing: "marketing-social-briefing",
+  socialApproval: "marketing-social-approval",
+  socialCalendar: "marketing-social-calendar",
 };
 
 const captionOf = (post) => `${post.legenda || ""}\n\n${(post.hashtags || []).join(" ")}\n${post.cta || ""}`.trim();
@@ -109,9 +113,11 @@ function Marketing() {
   const [organicData, setOrganicData] = useState({ agent: null, actions: [], reports: { daily: [], weekly: [], monthly: [] } });
   const [siteGateway, setSiteGateway] = useState(null);
   const [growthAgent, setGrowthAgent] = useState(null);
+  const [socialAgent, setSocialAgent] = useState(null);
   const [organicBusy, setOrganicBusy] = useState(false);
   const [siteGatewayBusy, setSiteGatewayBusy] = useState(null);
   const [growthBusy, setGrowthBusy] = useState(null);
+  const [socialAgentBusy, setSocialAgentBusy] = useState(false);
   const [execution, setExecution] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [briefing, setBriefing] = useState(null);
@@ -195,6 +201,15 @@ function Marketing() {
     }
   };
 
+  const loadSocialMediaAgent = async () => {
+    try {
+      const { data } = await api.get("/social/media-agent");
+      setSocialAgent(data);
+    } catch {
+      setSocialAgent(null);
+    }
+  };
+
   const loadExecution = async () => {
     try {
       const { data } = await api.get("/marketing/execution");
@@ -252,6 +267,7 @@ function Marketing() {
     loadOrganicAgent();
     loadSitePublishing();
     loadGrowthAgent();
+    loadSocialMediaAgent();
     loadBriefing();
     loadMarketingSettings();
     loadLogo();
@@ -282,6 +298,7 @@ function Marketing() {
     !!organicData?.agent,
     !!siteGateway?.architecture,
     !!growthAgent?.policy,
+    !!socialAgent?.boundary,
   ].join("-");
 
   useEffect(() => {
@@ -305,6 +322,7 @@ function Marketing() {
       const { data } = await api.post(`/marketing/posts/${postId}/status`, { status });
       setContent(data.content);
       setUpdated(data.updated_at);
+      await loadSocialMediaAgent();
       toast.success(status === "approved" ? "Conteúdo aprovado." : "Conteúdo voltou a rascunho.");
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
@@ -320,6 +338,7 @@ function Marketing() {
       setContent(data.content.content);
       setUpdated(data.content.updated_at);
       await loadExecution();
+      await loadSocialMediaAgent();
       await loadBriefing(true, false);
       toast.success("Plano editorial gerado com contexto real do CRM, memórias e ERP.");
     } catch {
@@ -380,6 +399,7 @@ function Marketing() {
     await api.post("/social/disconnect");
     toast.success("Redes desligadas.");
     loadSocial();
+    loadSocialMediaAgent();
   };
 
   const runSocialDiagnostics = async () => {
@@ -387,6 +407,7 @@ function Marketing() {
     try {
       const { data } = await api.post("/social/diagnostics");
       setSocial(data);
+      await loadSocialMediaAgent();
       toast.success(data.connected ? "Ligação Meta validada." : "Checklist Meta atualizada.");
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
@@ -400,11 +421,29 @@ function Marketing() {
     try {
       const { data } = await api.post("/social/select-page", { page_id: pageId });
       setSocial(data.connection);
+      await loadSocialMediaAgent();
       toast.success("Página Meta escolhida e ligação concluída.");
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
     } finally {
       setSelectingPageId(null);
+    }
+  };
+
+  const runSocialMediaAgent = async () => {
+    setSocialAgentBusy(true);
+    try {
+      const { data } = await api.post("/social/media-agent/run");
+      setSocialAgent(data);
+      await loadExecution();
+      await loadMarketing();
+      await loadAnalytics();
+      await loadBriefing(true, false);
+      toast.success("Social Media Agent executado.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setSocialAgentBusy(false);
     }
   };
 
@@ -426,7 +465,7 @@ function Marketing() {
     try {
       const { data } = await api.post("/marketing/organic-agent/strategy", payload);
       setOrganicData(data);
-      toast.success("Estratégia de Crescimento Orgânico gerada.");
+      toast.success("Estratégia do Growth Agent gerada.");
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
     } finally {
@@ -547,6 +586,7 @@ function Marketing() {
       await loadMarketing();
       await loadExecution();
       await loadAnalytics();
+      await loadSocialMediaAgent();
       await loadBriefing(true, false);
     } catch (error) {
       const detail = error.response?.data?.detail;
@@ -584,6 +624,7 @@ function Marketing() {
       setSchedFor(null);
       await loadMarketing();
       await loadExecution();
+      await loadSocialMediaAgent();
       await loadBriefing(true, false);
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
@@ -596,6 +637,7 @@ function Marketing() {
       toast.success("Agendamento cancelado.");
       await loadExecution();
       await loadMarketing();
+      await loadSocialMediaAgent();
       await loadBriefing(true, false);
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
@@ -617,6 +659,7 @@ function Marketing() {
       setRescheduleFor(null);
       await loadExecution();
       await loadMarketing();
+      await loadSocialMediaAgent();
       await loadBriefing(true, false);
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
@@ -822,10 +865,10 @@ function Marketing() {
         <div className="space-y-2 max-w-3xl">
           <h1 className="font-serif-lux text-4xl md:text-5xl text-[#A78BFA] flex items-center gap-3" data-testid="marketing-page-title">
             <Megaphone className="w-8 h-8" />
-            Conteúdos & Campanhas
+            Marketing · Growth Agent + Social Media Agent
           </h1>
           <p className="text-sm md:text-base text-muted-foreground" data-testid="marketing-page-subtitle">
-            Agora com linha editorial baseada no CRM, nas memórias estratégicas e no contexto financeiro atual da empresa.
+            Duas esteiras autónomas e separadas: o Growth Agent trata exclusivamente do site, SEO, GA4, GSC e conteúdo público; o Social Media Agent trata exclusivamente de redes sociais, calendário editorial, imagens, reels, legendas e publicação.
           </p>
           {updated && <p className="text-xs text-muted-foreground" data-testid="mkt-updated-at">Atualizado em {new Date(updated).toLocaleString("pt-PT")}</p>}
         </div>
@@ -843,7 +886,25 @@ function Marketing() {
         )}
       </div>
 
-      <section id={SECTION_IDS.organicGrowth} className="scroll-mt-24" data-testid="marketing-section-organic-growth">
+      <div className="grid lg:grid-cols-2 gap-5 mb-8" data-testid="marketing-agent-boundary-grid">
+        <div className="surface rounded-3xl p-6" data-testid="marketing-growth-boundary-card">
+          <p className="text-xs uppercase tracking-[0.2em] text-[#3B82F6]">Growth Agent</p>
+          <h2 className="font-serif-lux text-2xl mt-2">Site, SEO e monitorização orgânica</h2>
+          <p className="text-sm text-muted-foreground mt-3">Analisa domínio, gere gateway interno do site, recomenda e publica conteúdo público, acompanha GA4 + GSC e nunca toca nas redes sociais.</p>
+        </div>
+        <div className="surface rounded-3xl p-6" data-testid="marketing-social-boundary-card">
+          <p className="text-xs uppercase tracking-[0.2em] text-[#A78BFA]">Social Media Agent</p>
+          <h2 className="font-serif-lux text-2xl mt-2">Redes sociais, calendário e publicação</h2>
+          <p className="text-sm text-muted-foreground mt-3">Trabalha só no calendário editorial, peças criativas, imagens, reels, agendamento, publicação e analytics sociais — sem alterar o site ou o SEO.</p>
+        </div>
+      </div>
+
+      <div className="mb-4" data-testid="marketing-growth-heading">
+        <p className="text-xs uppercase tracking-[0.2em] text-[#3B82F6]">Pista 1</p>
+        <h2 className="font-serif-lux text-3xl mt-2">Growth Agent · Site & SEO</h2>
+      </div>
+
+      <section id={SECTION_IDS.growthStrategy} className="scroll-mt-24" data-testid="marketing-section-growth-strategy">
         <OrganicGrowthAgentSection
           data={organicData}
           busy={organicBusy}
@@ -856,24 +917,37 @@ function Marketing() {
         />
       </section>
 
-      <SitePublishingGatewaySection
-        data={siteGateway}
-        busy={siteGatewayBusy}
-        onAuthorize={authorizeSitePublishing}
-        onRunNow={runSitePublishingNow}
-        onRollback={rollbackSiteEntry}
-        onRemove={removeSiteEntry}
-        onRefresh={loadSitePublishing}
-      />
+      <section id={SECTION_IDS.growthPublishing} className="scroll-mt-24" data-testid="marketing-section-growth-publishing">
+        <SitePublishingGatewaySection
+          data={siteGateway}
+          busy={siteGatewayBusy}
+          onAuthorize={authorizeSitePublishing}
+          onRunNow={runSitePublishingNow}
+          onRollback={rollbackSiteEntry}
+          onRemove={removeSiteEntry}
+          onRefresh={loadSitePublishing}
+        />
+      </section>
 
-      <GrowthAgentExecutiveSection
-        data={growthAgent}
-        busy={growthBusy}
-        onSync={syncGrowthAgent}
-        onRun={runGrowthAgent}
-      />
+      <section id={SECTION_IDS.growthMonitor} className="scroll-mt-24" data-testid="marketing-section-growth-monitor">
+        <GrowthAgentExecutiveSection
+          data={growthAgent}
+          busy={growthBusy}
+          onSync={syncGrowthAgent}
+          onRun={runGrowthAgent}
+        />
+      </section>
 
-      <section id={SECTION_IDS.contentCampaigns} className="scroll-mt-24" data-testid="marketing-section-content-campaigns">
+      <div className="mb-4 mt-10" data-testid="marketing-social-heading">
+        <p className="text-xs uppercase tracking-[0.2em] text-[#A78BFA]">Pista 2</p>
+        <h2 className="font-serif-lux text-3xl mt-2">Social Media Agent · Redes sociais</h2>
+      </div>
+
+      <section id={SECTION_IDS.socialAgent} className="scroll-mt-24" data-testid="marketing-section-social-agent">
+        <SocialMediaAgentSection data={socialAgent} busy={socialAgentBusy} onRun={runSocialMediaAgent} onRefresh={loadSocialMediaAgent} />
+      </section>
+
+      <section id={SECTION_IDS.socialConnection} className="scroll-mt-24" data-testid="marketing-section-social-connection">
         <MetaConnectionSection
           social={social}
           targets={targets}
@@ -886,14 +960,14 @@ function Marketing() {
           selectingPageId={selectingPageId}
         />
 
-        <div className="surface rounded-3xl p-6 md:p-7 mb-8" data-testid="mkt-logo-card">
+          <div className="surface rounded-3xl p-6 md:p-7 mb-8" data-testid="mkt-logo-card">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center overflow-hidden shrink-0">
                 {logo ? <img src={logo} alt="Logo" className="w-full h-full object-contain p-1.5" data-testid="mkt-logo-preview" /> : <ImageIcon className="w-6 h-6 text-muted-foreground" />}
               </div>
               <div>
-                <h2 className="font-serif-lux text-xl" data-testid="mkt-logo-title">Logo da empresa</h2>
+                  <h2 className="font-serif-lux text-xl" data-testid="mkt-logo-title">Logo e identidade visual social</h2>
                 <p className="text-sm text-muted-foreground mt-1 max-w-md" data-testid="mkt-logo-description">
                   {logo ? "O seu logo será sobreposto automaticamente em todas as imagens geradas." : "Carregue o seu logo para aparecer nas imagens geradas e nas publicações sociais."}
                 </p>
@@ -921,7 +995,7 @@ function Marketing() {
           </div>
           <h2 className="font-serif-lux text-2xl mb-2" data-testid="mkt-intro-title">O Diretor de Marketing está pronto</h2>
           <p className="text-muted-foreground max-w-2xl mx-auto mb-8" data-testid="mkt-intro-description">
-            Vou cruzar identidade da marca, CRM, memórias estratégicas e contexto ERP para criar campanhas, posts e um calendário editorial de 30 dias pronto a aprovar.
+            O Social Media Agent vai cruzar identidade da marca, CRM, memórias estratégicas e contexto ERP para criar campanhas, posts e um calendário editorial de 30 dias pronto a aprovar.
           </p>
           <Button data-testid="mkt-generate-btn" onClick={generate} disabled={gen} className="rounded-full bg-[#A78BFA] text-white hover:bg-[#9333EA] px-8 h-12 text-base">
             {gen ? <><Loader2 className="w-5 h-5 animate-spin mr-2" /> A criar conteúdos…</> : <><Play className="w-5 h-5 mr-2" /> Gerar conteúdos</>}
@@ -950,7 +1024,7 @@ function Marketing() {
           </div>
 
           {content.brand && (
-            <section id={SECTION_IDS.brandIdentity} className="scroll-mt-24" data-testid="marketing-section-brand-identity">
+            <section id={SECTION_IDS.socialBrandIdentity} className="scroll-mt-24" data-testid="marketing-section-social-brand-identity">
               <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-5 mb-8">
               <div className="surface rounded-3xl p-6 md:p-8" data-testid="mkt-brand">
                 <h2 className="font-serif-lux text-xl mb-2 flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#A78BFA]" /> Identidade da marca</h2>
@@ -1042,19 +1116,19 @@ function Marketing() {
             </div>
           )}
 
-          <section id={SECTION_IDS.multichannel} className="scroll-mt-24" data-testid="marketing-section-campaign-studio">
+          <section id={SECTION_IDS.socialCampaigns} className="scroll-mt-24" data-testid="marketing-section-social-campaign-studio">
             <CampaignStudioSection campaigns={campaigns} generating={campaignBusy} onGenerate={generateCampaign} />
           </section>
 
-          <section id={SECTION_IDS.executionQueue} className="scroll-mt-24" data-testid="marketing-section-execution-queue">
+          <section id={SECTION_IDS.socialExecution} className="scroll-mt-24" data-testid="marketing-section-social-execution-queue">
             <ExecutionQueueSection execution={execution} onCancelJob={cancelJob} onRescheduleOpen={openReschedule} />
           </section>
 
-          <section id={SECTION_IDS.analytics} className="scroll-mt-24" data-testid="marketing-section-analytics">
+          <section id={SECTION_IDS.socialAnalytics} className="scroll-mt-24" data-testid="marketing-section-social-analytics">
             <AnalyticsSection analytics={analytics} />
           </section>
 
-          <section id={SECTION_IDS.dailyBriefing} className="scroll-mt-24" data-testid="marketing-section-daily-briefing">
+          <section id={SECTION_IDS.socialBriefing} className="scroll-mt-24" data-testid="marketing-section-social-daily-briefing">
             <MarketingBriefingSection
               briefing={briefing}
               briefingBusy={briefingBusy}
@@ -1066,11 +1140,11 @@ function Marketing() {
             />
           </section>
 
-          <section id={SECTION_IDS.approval} className="scroll-mt-24" data-testid="marketing-section-approval-content">
+          <section id={SECTION_IDS.socialApproval} className="scroll-mt-24" data-testid="marketing-section-social-approval-content">
             <div className="flex items-end justify-between flex-wrap gap-4 mb-4">
             <div>
-              <h2 className="font-serif-lux text-2xl" data-testid="mkt-posts-title">Conteúdos prontos a aprovar</h2>
-              <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-posts-description">Aprovar → publicar/agendar. Cada peça já nasce ligada ao plano editorial de 30 dias.</p>
+              <h2 className="font-serif-lux text-2xl" data-testid="mkt-posts-title">Social Media Agent · Conteúdos prontos a aprovar</h2>
+              <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-posts-description">Aprovar → publicar/agendar. Cada peça já nasce ligada ao plano editorial de 30 dias e só alimenta o agente social.</p>
             </div>
             <WorkflowBadge status="approved" testId="mkt-workflow-hint" />
             </div>
@@ -1193,12 +1267,12 @@ function Marketing() {
           </section>
 
           {content.calendario?.length > 0 && (
-            <section id={SECTION_IDS.editorialCalendar} className="scroll-mt-24" data-testid="marketing-section-editorial-calendar">
+            <section id={SECTION_IDS.socialCalendar} className="scroll-mt-24" data-testid="marketing-section-social-editorial-calendar">
               <div className="surface rounded-3xl p-6 md:p-8" data-testid="mkt-calendar">
               <div className="flex items-end justify-between gap-4 flex-wrap mb-4">
                 <div>
-                  <h2 className="font-serif-lux text-xl flex items-center gap-2"><Calendar className="w-5 h-5 text-[#A78BFA]" /> Calendário editorial 30 dias</h2>
-                  <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-calendar-description">Planeamento operacional com ligação direta aos conteúdos aprovados.</p>
+                  <h2 className="font-serif-lux text-xl flex items-center gap-2"><Calendar className="w-5 h-5 text-[#A78BFA]" /> Social Media Agent · Calendário editorial 30 dias</h2>
+                  <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-calendar-description">Planeamento operacional das redes sociais com ligação direta aos conteúdos aprovados.</p>
                 </div>
                 <div className="text-xs text-muted-foreground" data-testid="mkt-calendar-count">{content.calendario.length} entradas</div>
               </div>
@@ -1225,7 +1299,7 @@ function Marketing() {
           )}
 
           <p className="text-[11px] text-muted-foreground mt-8" data-testid="mkt-footer-note">
-            Fluxo recomendado: <b>aprovar</b> → <b>agendar/publicar</b>. Sem ligação às redes, use <b>Gerar imagem</b> → <b>Guardar imagem</b> e <b>Copiar texto</b> para publicação manual.
+            Fluxo recomendado do Social Media Agent: <b>aprovar</b> → <b>agendar/publicar</b>. Sem ligação às redes, use <b>Gerar imagem</b> → <b>Guardar imagem</b> e <b>Copiar texto</b> para publicação manual.
           </p>
         </>
       )}

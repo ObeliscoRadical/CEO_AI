@@ -415,7 +415,8 @@ class TestOrganicGrowthAgent:
             assert len(approved_payload["reports"]["daily"]) >= 1
 
             queued_jobs = list(MONGO.social_jobs.find({"user_id": uid, "company_id": cid, "payload.autonomous_agent": "organic_growth"}))
-            assert len(queued_jobs) >= 1
+            assert len(queued_jobs) == 0
+            assert all(item["status"] in {"draft", "ready", "published", "blocked"} for item in approved_payload["actions"])
 
             paused = sess.post(f"{BASE}/api/marketing/organic-agent/pause", timeout=30)
             assert paused.status_code == 200, paused.text
@@ -441,6 +442,77 @@ class TestOrganicGrowthAgent:
             MONGO.marketing_organic_actions.delete_many({"user_id": uid, "company_id": cid})
             MONGO.marketing_organic_reports.delete_many({"user_id": uid, "company_id": cid})
             MONGO.social_jobs.delete_many({"user_id": uid, "company_id": cid, "payload.autonomous_agent": "organic_growth"})
+            MONGO.social_connections.delete_many({"user_id": uid, "company_id": cid})
+            if previous_social:
+                MONGO.social_connections.insert_many(previous_social)
+
+
+class TestSocialMediaAgent:
+    def test_social_media_agent_schedules_only_social_posts(self, sess):
+        companies = sess.get(f"{BASE}/api/companies", timeout=30)
+        assert companies.status_code == 200, companies.text
+        cid = companies.json().get("active_company_id")
+        uid = str(MONGO.users.find_one({"email": ADMIN_EMAIL})["_id"])
+        stamp = int(time.time())
+        previous_social = list(MONGO.social_connections.find({"user_id": uid, "company_id": cid}))
+
+        MONGO.social_jobs.delete_many({"user_id": uid, "company_id": cid, "payload.autonomous_agent": "social_media"})
+        MONGO.social_posts.delete_many({"user_id": uid, "company_id": cid})
+        MONGO.social_connections.delete_many({"user_id": uid, "company_id": cid})
+        MONGO.social_connections.insert_one({
+            "user_id": uid,
+            "company_id": cid,
+            "status": "connected",
+            "page_id": f"page-social-{stamp}",
+            "page_name": "Página Social Agent",
+            "page_token": f"token-social-{stamp}",
+            "ig_user_id": f"ig-social-{stamp}",
+            "ig_username": "social_agent_test",
+            "tasks": ["CREATE_CONTENT", "MANAGE"],
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        })
+
+        generated = sess.post(f"{BASE}/api/marketing/generate", timeout=180)
+        assert generated.status_code == 200, generated.text
+        posts = ((generated.json().get("content") or {}).get("content") or {}).get("posts") or []
+        assert posts, "expected generated posts for social automation"
+        post = posts[0]
+
+        try:
+            approved = sess.post(f"{BASE}/api/marketing/posts/{post['id']}/status", json={"status": "approved"}, timeout=30)
+            assert approved.status_code == 200, approved.text
+
+            run = sess.post(f"{BASE}/api/social/media-agent/run", timeout=60)
+            assert run.status_code == 200, run.text
+            data = run.json()
+            assert "boundary" in data and "summary" in data
+            assert "GA4" in data["boundary"]["never"]
+            assert data["summary"]["queued"] >= 1
+            assert data["summary"]["autonomous_queue"] >= 1
+
+            queued_job = MONGO.social_jobs.find_one({
+                "user_id": uid,
+                "company_id": cid,
+                "payload.autonomous_agent": "social_media",
+                "payload.post_id": post["id"],
+            })
+            assert queued_job is not None
+
+            refreshed = sess.get(f"{BASE}/api/marketing/content", timeout=30)
+            refreshed_posts = ((refreshed.json().get("content") or {}).get("content") or {}).get("posts") or []
+            refreshed_post = next(item for item in refreshed_posts if item["id"] == post["id"])
+            assert refreshed_post["status"] == "scheduled"
+            assert refreshed_post.get("scheduled_at")
+
+            status = sess.get(f"{BASE}/api/social/media-agent", timeout=30)
+            assert status.status_code == 200, status.text
+            status_data = status.json()
+            assert "calendário editorial" in status_data["boundary"]["owns"]
+            assert status_data["summary"]["autonomous_queue"] >= 1
+        finally:
+            sess.post(f"{BASE}/api/marketing/posts/{post['id']}/status", json={"status": "draft"}, timeout=30)
+            MONGO.social_jobs.delete_many({"user_id": uid, "company_id": cid, "payload.autonomous_agent": "social_media"})
+            MONGO.social_posts.delete_many({"user_id": uid, "company_id": cid})
             MONGO.social_connections.delete_many({"user_id": uid, "company_id": cid})
             if previous_social:
                 MONGO.social_connections.insert_many(previous_social)

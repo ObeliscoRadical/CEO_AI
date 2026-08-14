@@ -21,9 +21,9 @@ export const SitePublishingGatewaySection = ({ data, busy, onAuthorize, onRunNow
     <section className="surface rounded-3xl p-6 md:p-8 mb-8" data-testid="site-publishing-gateway-section">
       <div className="flex items-end justify-between gap-4 flex-wrap mb-6">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Publicação direta no site</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Growth Agent · publicação direta no site</p>
           <h2 className="font-serif-lux text-xl flex items-center gap-2 mt-2"><Globe className="w-5 h-5 text-[#3B82F6]" /> Content Publishing Gateway</h2>
-          <p className="text-sm text-muted-foreground mt-2 max-w-3xl" data-testid="site-publishing-description">Sem CMS externo: o agente passa a publicar no próprio site público através de MongoDB + API interna, com autorização única, logs completos e rollback.</p>
+          <p className="text-sm text-muted-foreground mt-2 max-w-3xl" data-testid="site-publishing-description">Sem CMS externo: o Growth Agent publica no próprio site público através de MongoDB + API interna, com autorização única, logs completos e rollback. Esta camada nunca interfere com redes sociais.</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {!settings.authorized ? (

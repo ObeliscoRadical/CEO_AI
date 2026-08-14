@@ -18,8 +18,8 @@ export const MarketingBriefingSection = ({ briefing, briefingBusy, emailSending,
     <div className="surface rounded-3xl p-6 md:p-8 mb-8" data-testid="mkt-briefing-section">
       <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
         <div>
-          <h2 className="font-serif-lux text-xl flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#A78BFA]" /> Briefing autónomo diário</h2>
-          <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-briefing-description">Resumo tático diário do Diretor de Marketing — disponível na app e por email.</p>
+          <h2 className="font-serif-lux text-xl flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#A78BFA]" /> Social Media Agent · Briefing diário</h2>
+          <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-briefing-description">Resumo tático diário das redes sociais — disponível na app e por email.</p>
         </div>
         <div className="flex items-center gap-3 rounded-full border border-white/10 px-4 py-2 bg-white/[0.03]" data-testid="mkt-briefing-toggle-wrap">
           <div>

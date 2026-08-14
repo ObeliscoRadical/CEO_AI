@@ -644,7 +644,7 @@ async def growth_agent_run(inp: GrowthRunIn, user: dict = Depends(premium_user))
     cid = await active_company_id(uid)
     status = await run_growth_agent_cycle(uid, cid, force=inp.force, use_ai=inp.use_ai)
     if status is None:
-        raise HTTPException(400, "A estratégia inicial do Crescimento Orgânico ainda não está em modo autónomo.")
+        raise HTTPException(400, "A estratégia inicial do Growth Agent ainda não está em modo autónomo.")
     return status
 
 

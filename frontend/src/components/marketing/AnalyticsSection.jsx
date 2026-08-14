@@ -30,8 +30,8 @@ export const AnalyticsSection = ({ analytics }) => {
     <div className="surface rounded-3xl p-6 md:p-8 mb-8" data-testid="mkt-analytics-section">
       <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
         <div>
-          <h2 className="font-serif-lux text-xl flex items-center gap-2"><BarChart3 className="w-5 h-5 text-[#3B82F6]" /> Analytics editoriais</h2>
-          <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-analytics-description">Painel de aprendizagem do marketing. As métricas estão <strong>MOCKED</strong> até ligar a Meta.</p>
+          <h2 className="font-serif-lux text-xl flex items-center gap-2"><BarChart3 className="w-5 h-5 text-[#3B82F6]" /> Social Media Agent · Analytics editoriais</h2>
+          <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-analytics-description">Painel de aprendizagem das redes sociais. As métricas estão <strong>MOCKED</strong> até ligar a Meta.</p>
         </div>
         {analytics.mocked && <span className="text-[11px] px-3 py-1.5 rounded-full border border-amber-400/20 bg-amber-500/10 text-amber-300" data-testid="mkt-analytics-mocked">Métricas <strong>MOCKED</strong></span>}
       </div>

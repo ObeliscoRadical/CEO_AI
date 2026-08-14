@@ -8,7 +8,7 @@ import json
 import sys
 
 # Configuration
-BACKEND_URL = "https://organic-growth-agent.preview.emergentagent.com/api"
+BACKEND_URL = "https://seo-marketing-hub-12.preview.emergentagent.com/api"
 ADMIN_EMAIL = "adminceoai@gmail.com"
 ADMIN_PASSWORD = "12345"
 

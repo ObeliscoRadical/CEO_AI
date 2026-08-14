@@ -56,9 +56,9 @@ export const GrowthAgentExecutiveSection = ({ data, busy, onSync, onRun }) => {
     <section className="surface rounded-3xl p-6 md:p-8 mb-8" data-testid="growth-agent-section">
       <div className="flex items-end justify-between gap-4 flex-wrap mb-6">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Growth autónomo</p>
-          <h2 className="font-serif-lux text-xl flex items-center gap-2 mt-2"><Bot className="w-5 h-5 text-[#10B981]" /> Monitorização SEO & Growth</h2>
-          <p className="text-sm text-muted-foreground mt-2 max-w-3xl" data-testid="growth-agent-description">O agente monitoriza continuamente páginas públicas, desempenho, oportunidades SEO, quedas de tráfego, conteúdos desatualizados e interligações internas — sempre respeitando a regra de nunca tocar no design nem na navegação.</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Growth Agent · observabilidade do site</p>
+          <h2 className="font-serif-lux text-xl flex items-center gap-2 mt-2"><Bot className="w-5 h-5 text-[#10B981]" /> SEO, GA4 e Google Search Console</h2>
+          <p className="text-sm text-muted-foreground mt-2 max-w-3xl" data-testid="growth-agent-description">Esta camada monitoriza continuamente páginas públicas, desempenho, oportunidades SEO, quedas de tráfego, conteúdos desatualizados e interligações internas — sempre respeitando a regra de nunca tocar nas redes sociais, no design ou na navegação.</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button onClick={onSync} disabled={!!busy} variant="outline" className="rounded-full border-white/15 hover:bg-white/5" data-testid="growth-agent-sync-btn">

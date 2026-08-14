@@ -464,6 +464,185 @@ async def _marketing_post_meta(uid: str, cid: Optional[str], post_id: Optional[s
     return {}
 
 
+def _social_caption(post: dict) -> str:
+    if not isinstance(post, dict):
+        return ""
+    return f"{post.get('legenda') or ''}\n\n{' '.join(post.get('hashtags') or [])}\n{post.get('cta') or ''}".strip()
+
+
+def _next_social_slot(base: Optional[datetime] = None, offset: int = 0) -> str:
+    anchor = base or datetime.now(timezone.utc)
+    slot = anchor + timedelta(hours=1 + (offset * 6))
+    minute = 0 if slot.minute < 30 else 30
+    slot = slot.replace(minute=minute, second=0, microsecond=0)
+    return slot.isoformat()
+
+
+def _calendar_run_at(content: dict, post_id: str, offset: int = 0) -> str:
+    now = datetime.now(timezone.utc)
+    for item in (content.get("calendario") or []):
+        if item.get("post_id") != post_id:
+            continue
+        try:
+            day = datetime.fromisoformat(f"{item.get('data')}T10:00:00+00:00")
+            if day > now:
+                return day.isoformat()
+        except Exception:
+            continue
+    return _next_social_slot(now, offset)
+
+
+async def _social_media_agent_payload(uid: str, cid: Optional[str]):
+    aid, sec = _cfg()
+    conn = await _find_connection(uid, cid)
+    social = _status_payload(conn, aid, sec)
+    content_doc = await db.marketing_content.find_one({"user_id": uid, "company_id": cid}, {"_id": 0, "content.posts": 1, "content.calendario": 1}) or {}
+    content = content_doc.get("content") or {}
+    posts = content.get("posts") or []
+    queued_rows = await db.social_jobs.find(
+        {"user_id": uid, "company_id": cid, "status": {"$in": ["queued", "processing"]}},
+        {"_id": 1, "payload.post_id": 1, "run_at": 1, "payload.autonomous_agent": 1, "created_at": 1},
+    ).sort("run_at", 1).to_list(50)
+    published_rows = await db.social_posts.find(
+        {"user_id": uid, "company_id": cid},
+        {"_id": 0, "post_id": 1, "created_at": 1},
+    ).sort("created_at", -1).to_list(100)
+
+    queued_post_ids = {((row.get("payload") or {}).get("post_id")) for row in queued_rows if (row.get("payload") or {}).get("post_id")}
+    published_post_ids = {row.get("post_id") for row in published_rows if row.get("post_id")}
+    approved_ready = [
+        post for post in posts
+        if post.get("status") == "approved" and post.get("id") not in queued_post_ids and post.get("id") not in published_post_ids
+    ]
+    autonomous_jobs = [row for row in queued_rows if (row.get("payload") or {}).get("autonomous_agent") == "social_media"]
+    last_activity = None
+    if queued_rows:
+        last_activity = queued_rows[-1].get("created_at") or queued_rows[-1].get("run_at")
+    elif published_rows:
+        last_activity = published_rows[0].get("created_at")
+
+    blockers = []
+    if not social.get("configured"):
+        blockers.append("A app Meta ainda não está configurada com credenciais reais.")
+    elif social.get("connection_state") == "pending_selection":
+        blockers.append("A ligação Meta foi autorizada, mas ainda falta escolher a Página certa.")
+    elif not social.get("connected"):
+        blockers.append("Ligue primeiro o Facebook/Instagram da empresa ativa.")
+    elif not social.get("publish_ready_facebook"):
+        blockers.append("A Página Meta ligada ainda não tem tasks de publicação suficientes.")
+    if not posts:
+        blockers.append("Ainda não existem conteúdos editoriais para o Social Media Agent operar.")
+    elif not approved_ready and not autonomous_jobs:
+        blockers.append("Não há conteúdos aprovados e livres para agendamento automático neste momento.")
+
+    return {
+        "boundary": {
+            "owns": [
+                "calendário editorial",
+                "legendas, formatos e imagem de publicação",
+                "fila de agendamento e publicação automática",
+                "analytics sociais e aprendizagem editorial",
+            ],
+            "never": [
+                "site público",
+                "SEO técnico",
+                "GA4",
+                "Google Search Console",
+                "copy estrutural do website",
+            ],
+        },
+        "summary": {
+            "approved_ready": len(approved_ready),
+            "queued": len(queued_rows),
+            "autonomous_queue": len(autonomous_jobs),
+            "published": len(published_rows),
+            "channels_ready": bool(social.get("publish_ready_facebook") or social.get("publish_ready_instagram")),
+            "metrics_mocked": bool(social.get("metrics_mocked", True)),
+        },
+        "status": {
+            "configured": social.get("configured"),
+            "connected": social.get("connected"),
+            "connection_state": social.get("connection_state"),
+            "page_name": social.get("page_name"),
+            "ig_username": social.get("ig_username"),
+            "last_activity_at": last_activity,
+        },
+        "blockers": blockers,
+        "recent_queue": [
+            {
+                "id": row.get("_id"),
+                "post_id": (row.get("payload") or {}).get("post_id"),
+                "run_at": row.get("run_at"),
+                "autonomous": (row.get("payload") or {}).get("autonomous_agent") == "social_media",
+            }
+            for row in queued_rows[:6]
+        ],
+    }
+
+
+async def run_social_media_agent_cycle(uid: str, cid: Optional[str]):
+    conn = await _find_connection(uid, cid)
+    if not (_conn_ready(conn) and _has_publish_task((conn or {}).get("tasks") or [])):
+        return await _social_media_agent_payload(uid, cid)
+
+    content_doc = await db.marketing_content.find_one({"user_id": uid, "company_id": cid}) or {}
+    content = content_doc.get("content") or {}
+    posts = content.get("posts") or []
+    if not posts:
+        return await _social_media_agent_payload(uid, cid)
+
+    queued_rows = await db.social_jobs.find(
+        {"user_id": uid, "company_id": cid, "status": {"$in": ["queued", "processing"]}},
+        {"_id": 0, "payload.post_id": 1},
+    ).to_list(100)
+    queued_post_ids = {((row.get("payload") or {}).get("post_id")) for row in queued_rows if (row.get("payload") or {}).get("post_id")}
+    published_rows = await db.social_posts.find({"user_id": uid, "company_id": cid}, {"_id": 0, "post_id": 1}).to_list(200)
+    published_post_ids = {row.get("post_id") for row in published_rows if row.get("post_id")}
+
+    approved_ready = [
+        post for post in posts
+        if post.get("status") == "approved" and post.get("id") not in queued_post_ids and post.get("id") not in published_post_ids
+    ]
+
+    for offset, post in enumerate(approved_ready[:3]):
+        payload = {
+            "caption": _social_caption(post),
+            "image_prompt": f"{post.get('titulo')}. {post.get('tema') or ''}",
+            "generate_image": not bool(post.get("image_url")),
+            "image_url": post.get("image_url") or None,
+            "instagram": bool(conn.get("ig_user_id")),
+            "facebook": True,
+            "post_id": post.get("id"),
+            "post_meta": {"title": post.get("titulo"), "theme": post.get("tema"), "format": post.get("formato")},
+            "autonomous_agent": "social_media",
+        }
+        run_at = _calendar_run_at(content, post.get("id"), offset=offset)
+        await db.social_jobs.insert_one({
+            "_id": str(uuid.uuid4()),
+            "user_id": uid,
+            "company_id": cid,
+            "payload": payload,
+            "run_at": run_at,
+            "status": "queued",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        await _sync_marketing_post(uid, cid, post.get("id"), "scheduled", scheduled_at=run_at)
+
+    return await _social_media_agent_payload(uid, cid)
+
+
+async def run_all_social_media_agent_cycles():
+    rows = await db.marketing_content.find(
+        {"content.posts": {"$elemMatch": {"status": "approved"}}},
+        {"_id": 0, "user_id": 1, "company_id": 1},
+    ).to_list(100)
+    for row in rows:
+        try:
+            await run_social_media_agent_cycle(row.get("user_id"), row.get("company_id"))
+        except Exception as e:
+            logger.error(f"run_all_social_media_agent_cycles error {row}: {e}")
+
+
 # ---------------------------------------------------------------- media pública (para o Instagram buscar a imagem)
 async def _store_public_image(uid: str, cid: Optional[str], data: bytes, ct: str = "image/png") -> str:
     mid = str(uuid.uuid4())
@@ -776,6 +955,18 @@ async def social_jobs(user: dict = Depends(premium_user)):
             "post_id": (j.get("payload") or {}).get("post_id"),
             "error": j.get("error")} for j in jobs]
     return {"jobs": out}
+
+
+@router.get("/social/media-agent")
+async def social_media_agent_status(user: dict = Depends(premium_user)):
+    cid = await active_company_id(user["id"])
+    return await _social_media_agent_payload(user["id"], cid)
+
+
+@router.post("/social/media-agent/run")
+async def social_media_agent_run(user: dict = Depends(premium_user)):
+    cid = await active_company_id(user["id"])
+    return await run_social_media_agent_cycle(user["id"], cid)
 
 
 @router.delete("/social/jobs/{jid}")

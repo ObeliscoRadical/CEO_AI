@@ -41,8 +41,8 @@ export const CampaignStudioSection = ({ campaigns, generating, onGenerate }) => 
     <div className="surface rounded-3xl p-6 md:p-8 mb-8" data-testid="mkt-campaign-studio">
       <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
         <div>
-          <h2 className="font-serif-lux text-xl flex items-center gap-2"><Layers3 className="w-5 h-5 text-[#A78BFA]" /> Campanhas multicanal</h2>
-          <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-campaign-description">Crie campanhas por objetivo — awareness, leads ou reativação — já alinhadas com CRM, memórias e contexto financeiro.</p>
+          <h2 className="font-serif-lux text-xl flex items-center gap-2"><Layers3 className="w-5 h-5 text-[#A78BFA]" /> Social Media Agent · Campanhas</h2>
+          <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-campaign-description">Crie campanhas para redes sociais por objetivo — awareness, leads ou reativação — já alinhadas com CRM, memórias e contexto financeiro.</p>
         </div>
         <span className="text-xs text-muted-foreground" data-testid="mkt-campaign-count">{(campaigns || []).length} campanhas guardadas</span>
       </div>

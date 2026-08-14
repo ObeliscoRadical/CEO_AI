@@ -47,7 +47,7 @@ export const MetaConnectionSection = ({
       <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
         <div className="space-y-3 max-w-3xl">
           <div className="flex items-center gap-3 flex-wrap">
-            <h2 className="font-serif-lux text-xl" data-testid="mkt-social-title">Ligação Meta · Facebook + Instagram</h2>
+            <h2 className="font-serif-lux text-xl" data-testid="mkt-social-title">Social Media Agent · Meta / Facebook / Instagram</h2>
             <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] ${meta.tone}`} data-testid="mkt-meta-state">
               {meta.label}
             </span>

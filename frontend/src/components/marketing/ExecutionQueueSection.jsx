@@ -18,8 +18,8 @@ export const ExecutionQueueSection = ({ execution, onCancelJob, onRescheduleOpen
     <div className="surface rounded-3xl p-6 md:p-8 mb-8" data-testid="mkt-execution-section">
       <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
         <div>
-          <h2 className="font-serif-lux text-xl flex items-center gap-2"><CalendarClock className="w-5 h-5 text-[#A78BFA]" /> Fila de execução</h2>
-          <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-execution-description">Centro de publicação com fila viva, histórico recente e re-agendamento por post.</p>
+          <h2 className="font-serif-lux text-xl flex items-center gap-2"><CalendarClock className="w-5 h-5 text-[#A78BFA]" /> Social Media Agent · Fila de execução</h2>
+          <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-execution-description">Centro operacional de publicação social com fila viva, histórico recente e re-agendamento por post.</p>
         </div>
         <div className="flex gap-2 flex-wrap" data-testid="mkt-execution-summary">
           <MetricPill label="Em fila" value={summary.queued || 0} testId="mkt-queue-summary-queued" />

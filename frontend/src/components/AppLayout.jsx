@@ -16,15 +16,16 @@ import { CEOTour } from "@/components/CEOTour";
 import { toast } from "sonner";
 
 const MARKETING_SUBNAV = [
-  { to: "/marketing#marketing-content-campaigns", hash: "#marketing-content-campaigns", label: "Conteúdo de Campanhas (Meta e Social)", testid: "nav-marketing-content" },
-  { to: "/marketing#marketing-campaign-studio", hash: "#marketing-campaign-studio", label: "Campanha Multicanal", testid: "nav-marketing-multicanal" },
-  { to: "/marketing#marketing-brand-identity", hash: "#marketing-brand-identity", label: "Identidade da Marca", testid: "nav-marketing-brand" },
-  { to: "/marketing#marketing-execution-queue", hash: "#marketing-execution-queue", label: "Fila de Execução", testid: "nav-marketing-queue" },
-  { to: "/marketing#marketing-analytics-editorial", hash: "#marketing-analytics-editorial", label: "Analytics Editoriais", testid: "nav-marketing-analytics" },
-  { to: "/marketing#marketing-daily-briefing", hash: "#marketing-daily-briefing", label: "Briefing Automático Diário", testid: "nav-marketing-briefing" },
-  { to: "/marketing#marketing-approval-content", hash: "#marketing-approval-content", label: "Conteúdos para Aprovação", testid: "nav-marketing-approval" },
-  { to: "/marketing#marketing-editorial-calendar", hash: "#marketing-editorial-calendar", label: "Calendário Editorial (30 dias)", testid: "nav-marketing-calendar" },
-  { to: "/marketing#marketing-organic-growth", hash: "#marketing-organic-growth", label: "Crescimento Orgânico", testid: "nav-marketing-organic", badge: "Novo" },
+  { to: "/marketing#marketing-growth-site-strategy", hash: "#marketing-growth-site-strategy", label: "Growth Agent · Estratégia do Site", testid: "nav-marketing-growth-strategy" },
+  { to: "/marketing#marketing-growth-site-publishing", hash: "#marketing-growth-site-publishing", label: "Growth Agent · Gateway do Site", testid: "nav-marketing-growth-publishing" },
+  { to: "/marketing#marketing-growth-seo-monitor", hash: "#marketing-growth-seo-monitor", label: "Growth Agent · SEO / GA4 / GSC", testid: "nav-marketing-growth-monitor" },
+  { to: "/marketing#marketing-social-agent", hash: "#marketing-social-agent", label: "Social Media Agent · Automação", testid: "nav-marketing-social-agent", badge: "Novo" },
+  { to: "/marketing#marketing-social-connection", hash: "#marketing-social-connection", label: "Social Media Agent · Meta", testid: "nav-marketing-social-meta" },
+  { to: "/marketing#marketing-social-brand-identity", hash: "#marketing-social-brand-identity", label: "Social Media Agent · Marca & Conteúdo", testid: "nav-marketing-social-brand" },
+  { to: "/marketing#marketing-social-campaigns", hash: "#marketing-social-campaigns", label: "Social Media Agent · Campanhas", testid: "nav-marketing-social-campaigns" },
+  { to: "/marketing#marketing-social-approval", hash: "#marketing-social-approval", label: "Social Media Agent · Aprovação & Calendário", testid: "nav-marketing-social-approval" },
+  { to: "/marketing#marketing-social-execution", hash: "#marketing-social-execution", label: "Social Media Agent · Fila & Analytics", testid: "nav-marketing-social-execution" },
+  { to: "/marketing#marketing-social-briefing", hash: "#marketing-social-briefing", label: "Social Media Agent · Briefing", testid: "nav-marketing-social-briefing" },
 ];
 
 const NAV = [

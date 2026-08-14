@@ -1,5 +1,44 @@
 # CEO AI — O Executivo Digital
 
+## CEO AI V2 — Separação definitiva: Growth Agent vs Social Media Agent (2026-08-14)
+- ✅ O módulo **Marketing** foi reestruturado em duas esteiras autónomas e independentes:
+  - **Growth Agent** → cuida apenas de **site público, SEO, GA4, Google Search Console, gateway interno de publicação, recomendações e conteúdo do site**.
+  - **Social Media Agent** → cuida apenas de **calendário editorial, peças sociais, imagens, reels, legendas, fila de publicação e analytics sociais**.
+- ✅ **Regra de separação aplicada no backend**:
+  - `backend/routers/marketing_autonomous.py` deixou de criar `social_jobs` e deixou de executar publicação social.
+  - o ciclo autónomo do Growth Agent agora cria ações exclusivas de site/SEO e, quando autorizado, publica no site através do **Content Publishing Gateway**.
+  - `backend/routers/social.py` ganhou uma camada própria do **Social Media Agent** com:
+    - `GET /api/social/media-agent`
+    - `POST /api/social/media-agent/run`
+    - scheduler `run_all_social_media_agent_cycles` (30/30 min)
+  - a publicação automática passou a pertencer totalmente ao **Social Media Agent**.
+- ✅ **Interface atualizada** sem quebrar o produto:
+  - `Marketing.jsx` agora mostra duas pistas explícitas: **Growth Agent · Site & SEO** e **Social Media Agent · Redes sociais**.
+  - `AppLayout.jsx` passou a expor submenu separado por responsabilidade:
+    - Growth Agent · Estratégia do Site
+    - Growth Agent · Gateway do Site
+    - Growth Agent · SEO / GA4 / GSC
+    - Social Media Agent · Automação / Meta / Marca & Conteúdo / Campanhas / Aprovação / Fila / Briefing
+  - novo componente `SocialMediaAgentSection.jsx` com boundary card (owns / never), estado operacional e run manual.
+  - painéis existentes foram reetiquetados para deixar claro o território de cada agente.
+- ✅ **Arquitetura final validada**:
+  - Growth Agent **nunca** agenda/publica em Facebook ou Instagram.
+  - Social Media Agent **nunca** toca no site, SEO técnico, GA4, GSC ou copy estrutural do website.
+  - ambos podem partilhar contexto editorial/estratégico, mas não executam funções um do outro.
+- ✅ **Testes concluídos**:
+  - `pytest -n 0 backend/tests/test_phase3_marketing.py -k 'OrganicGrowthAgent or SocialMediaAgent or SitePublishingGateway or GrowthAgent'` → **4/4 PASS**.
+  - `testing_agent` iteration_43 → **backend 100% / frontend 100% PASS**.
+  - `auto_frontend_testing_agent` → separação visual e sidebar validadas.
+  - `deep_testing_backend_v2` → separação funcional backend validada.
+- ⚠️ Integrações ainda com bloqueios externos conhecidos:
+  - **Meta publishing real continua MOCKED/BLOCKED** enquanto `META_APP_ID` e `META_APP_SECRET` estiverem vazios.
+  - no relatório do testing agent desta iteração, **GSC/GA4** apareceram com `SERVICE_DISABLED` no ambiente de teste do agente; validar novamente apenas se o utilizador reportar regressão real, porque o último handoff tinha este sync corrigido no preview anterior.
+- 📌 Próximas prioridades atualizadas:
+  - **P0**: credenciais Meta reais (`META_APP_ID` + `META_APP_SECRET`) para destravar publicação social live.
+  - **P1**: homepage parcialmente gerida pelo Site Publishing Gateway sem mexer no layout.
+  - **P1**: alinhamento canónico / sitemap / base URL ao domínio `www`.
+  - **P2**: geração automática de criativos e scoring de campanhas por objetivo/canal.
+
 ## CEO AI V2 — Correção da propriedade Google Search Console do Growth Agent (2026-08-13)
 - ✅ Confirmado no código e no runtime que o Growth Agent estava a tentar aceder à propriedade errada: `https://obeliscoradical.pt/` (sem `www`).
 - ✅ Corrigido em `backend/.env`:
