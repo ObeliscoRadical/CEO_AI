@@ -1,0 +1,65 @@
+{
+  "summary": "Verified Meta credentials configuration fix. All 4 backend tests passed confirming META_APP_ID and META_APP_SECRET are now properly recognized at runtime. The /api/social/status and /api/social/diagnostics endpoints correctly return configured=true and missing_config=[]. The remaining 'degraded' connection state is expected - it indicates the old Meta token/page connection needs to be re-established via OAuth reconnect, which is a separate issue from the credentials configuration.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_meta_credentials.py",
+    "/app/test_reports/pytest/iter44_meta_credentials.xml"
+  ],
+  "action_items": [
+    "User needs to reconnect Meta via OAuth flow to establish a fresh token/page connection (the 'degraded' state is due to old token, not missing credentials)"
+  ],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_meta_credentials.py"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "N/A - backend only test"
+  },
+  "test_credentials": "Admin: adminceoai@gmail.com / 12345",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Meta credentials (META_APP_ID, META_APP_SECRET, META_CONFIG_ID, META_GRAPH_VERSION) are now properly configured in the preview environment. The /api/social/status returns configured=true and missing_config=[]. The connection_state='degraded' is because the existing social connection has an old/invalid token that needs OAuth reconnection - this is NOT a credentials issue.",
+  "verification_results": {
+    "credentials_configured": {
+      "META_APP_ID": "2623447624739815 - PRESENT",
+      "META_APP_SECRET": "PRESENT (hidden)",
+      "META_CONFIG_ID": "1032274772743161 - PRESENT",
+      "META_GRAPH_VERSION": "v25.0 - PRESENT"
+    },
+    "api_responses": {
+      "/api/social/status": {
+        "configured": true,
+        "missing_config": [],
+        "config_id_present": true,
+        "connection_state": "degraded",
+        "connected": false
+      },
+      "/api/social/diagnostics": {
+        "configured": true,
+        "missing_config": [],
+        "meta_app_credentials_check": "ok=true, detail='Prontas para OAuth.'",
+        "meta_config_id_check": "ok=true, detail='Config ID presente.'"
+      },
+      "/api/social/connect": {
+        "auth_url": "Generated successfully with META_APP_ID and META_CONFIG_ID"
+      }
+    },
+    "remaining_issue": "connection_state='degraded' - Old Meta token/page needs reconnection via OAuth. This is expected and NOT related to credentials configuration."
+  },
+  "tests_executed": [
+    "test_social_status_shows_configured_true - PASSED",
+    "test_social_diagnostics_confirms_credentials - PASSED",
+    "test_social_requirements_shows_no_missing_credentials - PASSED",
+    "test_social_connect_returns_auth_url - PASSED"
+  ]
+}

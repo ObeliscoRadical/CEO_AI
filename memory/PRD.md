@@ -1,5 +1,22 @@
 # CEO AI — O Executivo Digital
 
+## CEO AI V2 — Meta credentials ativadas no PREVIEW sem alterar código (2026-08-16)
+- ✅ Atualizadas **apenas no preview** as variáveis de ambiente Meta no `backend/.env`, sem qualquer alteração de código:
+  - `META_APP_ID=2623447624739815`
+  - `META_APP_SECRET=<fornecido pelo utilizador>`
+  - `META_CONFIG_ID=1032274772743161`
+  - `META_GRAPH_VERSION=v25.0`
+- ✅ Backend do preview reiniciado para carregar os secrets novos.
+- ✅ Validação concluída por teste formal (`testing_agent` iteration_44):
+  - `/api/social/status` → `configured=true`
+  - `missing_config=[]`
+  - `/api/social/connect` já gera `auth_url`
+- ℹ️ Estado restante no preview:
+  - a integração Meta já está **configurada**
+  - a ligação social existente ficou em estado **degraded** porque o token/página antigos precisam de **reconnect OAuth**
+  - isto é uma etapa operacional separada e **não** um problema de credenciais da app
+- ✅ Sem mudanças de código nesta intervenção; apenas configuração de ambiente + restart + validação.
+
 ## CEO AI V2 — Separação definitiva: Growth Agent vs Social Media Agent (2026-08-14)
 - ✅ O módulo **Marketing** foi reestruturado em duas esteiras autónomas e independentes:
   - **Growth Agent** → cuida apenas de **site público, SEO, GA4, Google Search Console, gateway interno de publicação, recomendações e conteúdo do site**.
