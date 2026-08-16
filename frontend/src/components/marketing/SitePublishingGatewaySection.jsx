@@ -1,5 +1,6 @@
 import { Globe, Loader2, RefreshCw, RotateCcw, ShieldCheck, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SiteChangeHistorySection } from "@/components/marketing/SiteChangeHistorySection";
 
 const StatCard = ({ label, value, helper, testId }) => (
   <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4" data-testid={testId}>
@@ -16,6 +17,7 @@ export const SitePublishingGatewaySection = ({ data, busy, onAuthorize, onRunNow
   const entries = data?.entries || [];
   const logs = data?.logs || [];
   const analytics = data?.analytics || {};
+  const changeHistory = data?.change_history || null;
 
   return (
     <section className="surface rounded-[22px] p-5 md:p-6 mb-5" data-testid="site-publishing-gateway-section">
@@ -86,6 +88,8 @@ export const SitePublishingGatewaySection = ({ data, busy, onAuthorize, onRunNow
           </div>
         </div>
       </div>
+
+      <SiteChangeHistorySection changeHistory={changeHistory} busy={busy} onRollback={onRollback} />
 
       <div className="grid xl:grid-cols-[1.02fr_0.98fr] gap-4">
         <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="site-publishing-entries-card">

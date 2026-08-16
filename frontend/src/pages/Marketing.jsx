@@ -880,10 +880,10 @@ function Marketing() {
     }
   };
 
-  const rollbackSiteEntry = async (entryId) => {
+  const rollbackSiteEntry = async (entryId, versionId = null) => {
     setSiteGatewayBusy(`rollback-${entryId}`);
     try {
-      const { data } = await api.post(`/marketing/site-publishing/content/${entryId}/rollback`, {});
+      const { data } = await api.post(`/marketing/site-publishing/content/${entryId}/rollback`, { version_id: versionId });
       setSiteGateway(data.status);
       await loadGrowthAgent();
       toast.success("Rollback concluído.");

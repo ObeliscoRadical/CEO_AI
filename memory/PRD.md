@@ -54,6 +54,25 @@ Concluída neste fork.
 - títulos e resumos principais ficaram mais curtos
 - os blocos internos ficaram mais compactos, com leitura mais densa e mais orientada a dashboard
 
+### 0.1 Painel visual de Alterações do Site
+Concluído neste fork.
+
+- dentro de **Agente · Site > Gateway** existe agora um painel visual **Alterações do Site**
+- o painel mostra:
+  - timeline visual de alterações
+  - cards com **before / after**
+  - **diff visual rico** por campo
+  - motivo da alteração
+  - data/hora
+  - tipo de alteração
+  - botão de rollback quando existe versão anterior elegível
+- filtros já incluídos na primeira versão:
+  - por **página**
+  - por **tipo**
+  - por **data**
+- a origem dos dados vem do histórico real do gateway (`site_publication_logs` + `site_content_versions`)
+- o endpoint `GET /api/marketing/site-publishing/status` agora devolve `change_history`
+
 ### 1. Separação de agentes
 Concluída.
 
@@ -113,6 +132,7 @@ Foi implementado:
 - `POST /api/social/publish`
 - `POST /api/social/schedule`
 - `GET /api/marketing/analytics`
+- `GET /api/marketing/site-publishing/status`
 
 ## Dados / coleções relevantes
 - `social_connections`
@@ -142,10 +162,13 @@ Mesmo com permissões ativadas na app Meta, o token/oauth em produção pode ain
 ## Ficheiros de referência
 - `/app/backend/routers/social.py`
 - `/app/backend/routers/marketing.py`
+- `/app/backend/routers/site_publishing.py`
 - `/app/frontend/src/pages/Marketing.jsx`
 - `/app/frontend/src/components/marketing/MetaConnectionSection.jsx`
+- `/app/frontend/src/components/marketing/SiteChangeHistorySection.jsx`
 - `/app/backend/tests/test_meta_metrics_readiness.py`
 - `/app/backend/tests/test_meta_insights_api.py`
+- `/app/backend/tests/test_site_change_history.py`
 
 ## Credenciais de teste
 Ver `/app/memory/test_credentials.md`
@@ -157,6 +180,7 @@ Ver `/app/memory/test_credentials.md`
 - `testing_agent` → `/app/test_reports/iteration_46.json` **PASS**
 - reorganização do Marketing validada em `/app/test_reports/iteration_47.json` → **PASS**
 - simplificação visual compacta do Marketing validada em `/app/test_reports/iteration_48.json` → **PASS**
+- painel visual de Alterações do Site validado em `/app/test_reports/iteration_49.json` → **PASS**
 
 ## Próximas prioridades
 - **P0:** validar em produção após redeploy se o estado Meta deixa de ficar preso em mocked quando o token tiver insights reais

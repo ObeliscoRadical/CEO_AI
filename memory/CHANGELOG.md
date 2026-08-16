@@ -1,5 +1,25 @@
 # CHANGELOG — CEO AI
 
+## 2026-08-16 — Painel visual de Alterações do Site
+- `backend/routers/site_publishing.py`
+  - adicionado `change_history` ao payload de `GET /api/marketing/site-publishing/status`
+  - builder de histórico visual com:
+    - summary
+    - filtros por página / tipo / data
+    - before_preview / after_preview
+    - diff_items por campo
+    - `rollback_version_id` para reverter exatamente para a versão anterior da alteração
+- `frontend/src/components/marketing/SiteChangeHistorySection.jsx`
+  - novo painel visual dentro de **Agente · Site > Gateway**
+  - timeline de alterações, filtros, cards before/after, diff rico e botão de rollback
+- `frontend/src/components/marketing/SitePublishingGatewaySection.jsx`
+  - integração do novo painel dentro do Gateway
+- `frontend/src/pages/Marketing.jsx`
+  - rollback do gateway passou a aceitar `version_id` opcional
+- testes:
+  - `backend/tests/test_site_change_history.py`
+  - validação end-to-end em `/app/test_reports/iteration_49.json`
+
 ## 2026-08-16 — Simplificação visual interna do Marketing
 - `frontend/src/pages/Marketing.jsx`
   - página passou para uma leitura mais compacta e densa

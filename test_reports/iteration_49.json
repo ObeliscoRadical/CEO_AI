@@ -1,0 +1,82 @@
+{
+  "summary": "Verified Site Change History panel implementation within Agente · Site > Gateway. All features working: summary grid (2 alterações, 1 update, 1 create), filters (page/type/date), timeline cards with before/after previews, rich diff visual, and rollback button. Backend API returns change_history correctly. Marketing page structure intact.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_site_change_history.py",
+    "/app/test_reports/iteration_49.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (unit tests pass, API returns change_history with summary, filters, items)",
+    "frontend": "100% (all testids found, filters work, cards display correctly)"
+  },
+  "test_credentials": "Admin: adminceoai@gmail.com / 12345",
+  "seed_data_creation": "Main agent created 2 test entries (1 create + 1 update) for 'Painel Visual Alteracoes Site' article",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Site Change History panel verified within Gateway section. Panel shows timeline of site changes with before/after previews, rich diff visual, and rollback capability. Filters by page/type/date work correctly. Backend returns change_history in GET /api/marketing/site-publishing/status.",
+  "features_verified": {
+    "backend_unit_tests": {
+      "test_change_history_builds_filters_and_rich_diff": "PASS",
+      "test_change_history_handles_create_without_previous_snapshot": "PASS"
+    },
+    "backend_api": {
+      "change_history_in_response": "PASS - change_history present in GET /api/marketing/site-publishing/status",
+      "summary": "PASS - {total: 2, create: 1, update: 1, delete: 0, rollback: 0}",
+      "filters": "PASS - pages, types, dates arrays populated",
+      "items": "PASS - 2 items with before_preview, after_preview, diff_items, rollback_version_id"
+    },
+    "frontend_ui": {
+      "site_changes_section": "PASS - data-testid='site-changes-section' found",
+      "summary_grid": "PASS - 4 stat cards (Alterações, Updates, Criações, Rollbacks)",
+      "page_filter": "PASS - data-testid='site-changes-page-filter'",
+      "type_filter": "PASS - data-testid='site-changes-type-filter'",
+      "date_filter": "PASS - data-testid='site-changes-date-filter'",
+      "clear_filters": "PASS - data-testid='site-changes-clear-filters'",
+      "changes_list": "PASS - data-testid='site-changes-list'",
+      "change_card_0": "PASS - First card with action='ATUALIZAÇÃO', title='Painel Visual Alteracoes Site'",
+      "change_card_1": "PASS - Second card with action='CRIAÇÃO'",
+      "before_preview": "PASS - Before preview card displayed",
+      "after_preview": "PASS - After preview card displayed",
+      "diff_visual": "PASS - 8 diff items showing field changes",
+      "rollback_button": "PASS - 'Reverter para antes' button found"
+    },
+    "filter_functionality": {
+      "filter_by_update": "PASS - Shows 1 card when filtered by 'update'",
+      "clear_filters": "PASS - Shows 2 cards after clearing filters"
+    },
+    "marketing_page_integrity": {
+      "page_title": "PASS - 'Marketing organizado por agente'",
+      "site_boundary_card": "PASS",
+      "social_boundary_card": "PASS",
+      "site_workspace": "PASS",
+      "social_workspace": "PASS",
+      "strategy_section": "PASS",
+      "publishing_section": "PASS",
+      "monitor_section": "PASS",
+      "social_agent_section": "PASS",
+      "social_connection_section": "PASS",
+      "no_errors": "PASS - No error messages on page"
+    }
+  },
+  "mocked_apis": {
+    "meta_insights": "MOCKED - Preview environment has degraded Meta connection. This is expected behavior."
+  },
+  "tests_executed": {
+    "backend_unit_tests": 2,
+    "backend_api_tests": 1,
+    "frontend_ui_tests": 25,
+    "total_passed": 28,
+    "total_failed": 0
+  }
+}

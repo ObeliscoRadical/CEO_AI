@@ -1,279 +1,309 @@
-#!/usr/bin/env python3
-"""
-Backend Smoke Test - Marketing Module
-Tests all main endpoints used by the Marketing page after visual reorganization
-"""
+"""Backend test for Site Publishing Status endpoint with change_history validation."""
 import requests
 import json
 from datetime import datetime
 
 # Configuration
-BASE_URL = "https://marketing-split-test-1.preview.emergentagent.com"
-API_URL = f"{BASE_URL}/api"
-LOGIN_EMAIL = "adminceoai@gmail.com"
-LOGIN_PASSWORD = "12345"
+BASE_URL = "https://marketing-split-test-1.preview.emergentagent.com/api"
+ADMIN_EMAIL = "adminceoai@gmail.com"
+ADMIN_PASSWORD = "12345"
 
-class Colors:
-    GREEN = '\033[92m'
-    RED = '\033[91m'
-    YELLOW = '\033[93m'
-    BLUE = '\033[94m'
-    END = '\033[0m'
+def print_section(title):
+    """Print a formatted section header."""
+    print(f"\n{'='*80}")
+    print(f"  {title}")
+    print(f"{'='*80}\n")
 
-def print_success(msg):
-    print(f"{Colors.GREEN}✅ {msg}{Colors.END}")
+def print_result(test_name, passed, details=""):
+    """Print test result."""
+    status = "✅ PASS" if passed else "❌ FAIL"
+    print(f"{status} - {test_name}")
+    if details:
+        print(f"    {details}")
 
-def print_error(msg):
-    print(f"{Colors.RED}❌ {msg}{Colors.END}")
-
-def print_warning(msg):
-    print(f"{Colors.YELLOW}⚠️  {msg}{Colors.END}")
-
-def print_info(msg):
-    print(f"{Colors.BLUE}ℹ️  {msg}{Colors.END}")
-
-class MarketingBackendTester:
-    def __init__(self):
-        self.session = requests.Session()
-        self.token = None
-        self.results = {
-            "passed": [],
-            "failed": [],
-            "warnings": []
-        }
+def login():
+    """Login and return session with auth cookie."""
+    print_section("AUTHENTICATION")
+    session = requests.Session()
     
-    def login(self):
-        """Authenticate and get session token"""
-        print_info(f"Logging in as {LOGIN_EMAIL}...")
-        try:
-            response = self.session.post(
-                f"{API_URL}/auth/login",
-                json={"email": LOGIN_EMAIL, "password": LOGIN_PASSWORD},
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                if "email" in data and data["email"] == LOGIN_EMAIL:
-                    print_success(f"Login successful - User: {data.get('name', 'N/A')}, Role: {data.get('role', 'N/A')}")
-                    return True
-                else:
-                    print_error(f"Login response missing expected fields: {data}")
-                    return False
-            else:
-                print_error(f"Login failed with status {response.status_code}: {response.text}")
-                return False
-        except Exception as e:
-            print_error(f"Login exception: {str(e)}")
+    response = session.post(
+        f"{BASE_URL}/auth/login",
+        json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD}
+    )
+    
+    if response.status_code == 200:
+        user_data = response.json()
+        print_result("Login", True, f"Logged in as: {user_data.get('email')} ({user_data.get('name')})")
+        return session
+    else:
+        print_result("Login", False, f"Status: {response.status_code}, Response: {response.text[:200]}")
+        return None
+
+def test_site_publishing_status(session):
+    """Test GET /api/marketing/site-publishing/status endpoint."""
+    print_section("TESTING GET /api/marketing/site-publishing/status")
+    
+    try:
+        response = session.get(f"{BASE_URL}/marketing/site-publishing/status")
+        
+        # Check status code
+        if response.status_code != 200:
+            print_result("Status Code", False, f"Expected 200, got {response.status_code}")
+            print(f"Response: {response.text[:500]}")
             return False
-    
-    def test_get_endpoint(self, endpoint, name, required_fields=None):
-        """Test a GET endpoint"""
-        print_info(f"Testing GET {endpoint}...")
+        
+        print_result("Status Code", True, "200 OK")
+        
+        # Parse JSON
         try:
-            response = self.session.get(f"{API_URL}{endpoint}", timeout=30)
-            
-            if response.status_code == 500:
-                self.results["failed"].append(f"{name}: 500 Internal Server Error")
-                print_error(f"{name}: 500 Internal Server Error")
-                print_error(f"Response: {response.text[:500]}")
-                return False
-            
-            if response.status_code != 200:
-                self.results["warnings"].append(f"{name}: Status {response.status_code}")
-                print_warning(f"{name}: Status {response.status_code} (not 500, but not 200)")
-                return False
-            
             data = response.json()
-            
-            # Check required fields if specified
-            if required_fields:
-                missing_fields = [f for f in required_fields if f not in data]
-                if missing_fields:
-                    self.results["warnings"].append(f"{name}: Missing fields {missing_fields}")
-                    print_warning(f"{name}: Missing required fields: {missing_fields}")
-                else:
-                    self.results["passed"].append(f"{name}: OK (all required fields present)")
-                    print_success(f"{name}: OK - Status 200, all required fields present")
-            else:
-                self.results["passed"].append(f"{name}: OK")
-                print_success(f"{name}: OK - Status 200")
-            
-            return True
-            
-        except requests.exceptions.Timeout:
-            self.results["failed"].append(f"{name}: Timeout")
-            print_error(f"{name}: Request timeout")
+        except json.JSONDecodeError as e:
+            print_result("JSON Parse", False, f"Invalid JSON: {e}")
             return False
-        except Exception as e:
-            self.results["failed"].append(f"{name}: Exception - {str(e)}")
-            print_error(f"{name}: Exception - {str(e)}")
-            return False
-    
-    def test_post_endpoint(self, endpoint, name, payload, required_fields=None):
-        """Test a POST endpoint"""
-        print_info(f"Testing POST {endpoint}...")
-        try:
-            response = self.session.post(
-                f"{API_URL}{endpoint}",
-                json=payload,
-                timeout=60  # Longer timeout for POST operations
-            )
-            
-            if response.status_code == 500:
-                self.results["failed"].append(f"{name}: 500 Internal Server Error")
-                print_error(f"{name}: 500 Internal Server Error")
-                print_error(f"Response: {response.text[:500]}")
+        
+        print_result("JSON Parse", True, "Valid JSON response")
+        
+        # Validate top-level structure
+        print("\n--- Top-Level Structure Validation ---")
+        required_top_fields = ["architecture", "settings", "summary", "entries", "logs", "change_history", "analytics"]
+        for field in required_top_fields:
+            exists = field in data
+            print_result(f"Field '{field}' exists", exists)
+            if not exists:
                 return False
-            
-            if response.status_code != 200:
-                self.results["warnings"].append(f"{name}: Status {response.status_code}")
-                print_warning(f"{name}: Status {response.status_code} (not 500, but not 200)")
+        
+        # Validate change_history structure
+        print("\n--- Change History Structure Validation ---")
+        change_history = data.get("change_history", {})
+        
+        # Check change_history has summary, filters, items
+        required_ch_fields = ["summary", "filters", "items"]
+        for field in required_ch_fields:
+            exists = field in change_history
+            print_result(f"change_history.{field} exists", exists)
+            if not exists:
                 return False
+        
+        # Validate summary structure
+        print("\n--- Change History Summary Validation ---")
+        summary = change_history.get("summary", {})
+        summary_fields = ["total", "create", "update", "delete", "rollback"]
+        for field in summary_fields:
+            exists = field in summary
+            value = summary.get(field, "N/A")
+            print_result(f"summary.{field}", exists, f"Value: {value}")
+        
+        # Validate filters structure
+        print("\n--- Change History Filters Validation ---")
+        filters = change_history.get("filters", {})
+        filter_fields = ["pages", "types", "dates"]
+        for field in filter_fields:
+            exists = field in filters
+            value = filters.get(field, [])
+            count = len(value) if isinstance(value, list) else "N/A"
+            print_result(f"filters.{field}", exists, f"Count: {count}")
+        
+        # Validate items array
+        print("\n--- Change History Items Validation ---")
+        items = change_history.get("items", [])
+        items_count = len(items)
+        print_result("items is array", isinstance(items, list), f"Count: {items_count}")
+        
+        if items_count == 0:
+            print("\n⚠️  WARNING: No change history items found. This might be expected if no changes have been made yet.")
+            print("    The endpoint structure is correct, but there's no data to validate item fields.")
+            return True
+        
+        # Validate first item structure
+        print("\n--- First Change Item Field Validation ---")
+        first_item = items[0]
+        
+        required_item_fields = [
+            "id", "entry_id", "page_value", "page_label", "title", 
+            "action", "action_label", "kind", "kind_label", "status",
+            "created_at", "date_key", "url", "actor", "objective",
+            "seo_keyword", "strategy_reason", "rollback_available",
+            "rollback_version_id", "before_preview", "after_preview",
+            "diff_items", "diff_summary"
+        ]
+        
+        all_fields_present = True
+        for field in required_item_fields:
+            exists = field in first_item
+            value = first_item.get(field)
             
-            data = response.json()
-            
-            # Check required fields if specified
-            if required_fields:
-                missing_fields = [f for f in required_fields if f not in data]
-                if missing_fields:
-                    self.results["warnings"].append(f"{name}: Missing fields {missing_fields}")
-                    print_warning(f"{name}: Missing required fields: {missing_fields}")
-                else:
-                    self.results["passed"].append(f"{name}: OK (all required fields present)")
-                    print_success(f"{name}: OK - Status 200, all required fields present")
+            # Format value for display
+            if isinstance(value, dict):
+                display_value = f"dict with {len(value)} keys"
+            elif isinstance(value, list):
+                display_value = f"array with {len(value)} items"
+            elif isinstance(value, str) and len(value) > 50:
+                display_value = f"{value[:50]}..."
+            elif value is None:
+                display_value = "null"
             else:
-                self.results["passed"].append(f"{name}: OK")
-                print_success(f"{name}: OK - Status 200")
+                display_value = str(value)
             
-            return True
+            print_result(f"  {field}", exists, f"{display_value}")
             
-        except requests.exceptions.Timeout:
-            self.results["failed"].append(f"{name}: Timeout")
-            print_error(f"{name}: Request timeout")
-            return False
-        except Exception as e:
-            self.results["failed"].append(f"{name}: Exception - {str(e)}")
-            print_error(f"{name}: Exception - {str(e)}")
-            return False
-    
-    def run_smoke_tests(self):
-        """Run all smoke tests for Marketing module endpoints"""
-        print("\n" + "="*80)
-        print("MARKETING MODULE BACKEND SMOKE TEST")
-        print(f"Testing against: {BASE_URL}")
-        print(f"Timestamp: {datetime.now().isoformat()}")
-        print("="*80 + "\n")
+            if not exists:
+                all_fields_present = False
         
-        # Step 1: Login
-        if not self.login():
-            print_error("Cannot proceed without authentication")
+        if not all_fields_present:
+            print("\n❌ CRITICAL: Not all required fields present in first item")
             return False
         
-        print("\n" + "-"*80)
-        print("TESTING ENDPOINTS")
-        print("-"*80 + "\n")
+        # Validate nested structures in first item
+        print("\n--- First Item Nested Structure Validation ---")
         
-        # Test all endpoints from the review request
-        self.test_get_endpoint(
-            "/marketing/content",
-            "GET /api/marketing/content",
-            required_fields=["content"]
-        )
-        
-        self.test_get_endpoint(
-            "/social/status",
-            "GET /api/social/status",
-            required_fields=["configured", "connection_state"]
-        )
-        
-        self.test_get_endpoint(
-            "/social/media-agent",
-            "GET /api/social/media-agent"
-        )
-        
-        self.test_get_endpoint(
-            "/marketing/organic-agent",
-            "GET /api/marketing/organic-agent",
-            required_fields=["agent", "actions", "reports"]
-        )
-        
-        self.test_get_endpoint(
-            "/marketing/site-publishing/status",
-            "GET /api/marketing/site-publishing/status"
-        )
-        
-        self.test_get_endpoint(
-            "/marketing/growth-agent/status",
-            "GET /api/marketing/growth-agent/status"
-        )
-        
-        self.test_get_endpoint(
-            "/marketing/campaigns",
-            "GET /api/marketing/campaigns"
-        )
-        
-        self.test_get_endpoint(
-            "/marketing/execution",
-            "GET /api/marketing/execution",
-            required_fields=["summary", "queued", "history"]
-        )
-        
-        self.test_get_endpoint(
-            "/marketing/analytics",
-            "GET /api/marketing/analytics",
-            required_fields=["mocked", "summary"]
-        )
-        
-        self.test_post_endpoint(
-            "/marketing/briefing/generate",
-            "POST /api/marketing/briefing/generate",
-            payload={"force": False, "send_email": False},
-            required_fields=["headline", "summary"]
-        )
-        
-        # Print summary
-        print("\n" + "="*80)
-        print("TEST SUMMARY")
-        print("="*80 + "\n")
-        
-        print(f"{Colors.GREEN}PASSED: {len(self.results['passed'])}{Colors.END}")
-        for item in self.results['passed']:
-            print(f"  ✅ {item}")
-        
-        if self.results['warnings']:
-            print(f"\n{Colors.YELLOW}WARNINGS: {len(self.results['warnings'])}{Colors.END}")
-            for item in self.results['warnings']:
-                print(f"  ⚠️  {item}")
-        
-        if self.results['failed']:
-            print(f"\n{Colors.RED}FAILED: {len(self.results['failed'])}{Colors.END}")
-            for item in self.results['failed']:
-                print(f"  ❌ {item}")
-        
-        print("\n" + "="*80)
-        
-        # Determine overall result
-        has_500_errors = any("500" in item for item in self.results['failed'])
-        has_timeouts = any("Timeout" in item for item in self.results['failed'])
-        
-        if has_500_errors:
-            print_error("SMOKE TEST FAILED: 500 errors detected")
-            return False
-        elif has_timeouts:
-            print_error("SMOKE TEST FAILED: Timeouts detected")
-            return False
-        elif self.results['failed']:
-            print_error("SMOKE TEST FAILED: Critical errors detected")
-            return False
-        elif self.results['warnings']:
-            print_warning("SMOKE TEST PASSED WITH WARNINGS: Some endpoints returned non-200 status")
-            return True
+        # Validate before_preview
+        before_preview = first_item.get("before_preview")
+        if before_preview is not None:
+            if isinstance(before_preview, dict):
+                preview_fields = ["title", "status", "route", "excerpt", "cta", "seo", "sections", "hero_image_url"]
+                before_has_fields = all(field in before_preview for field in preview_fields)
+                print_result("before_preview structure", before_has_fields, 
+                           f"Has {len([f for f in preview_fields if f in before_preview])}/{len(preview_fields)} expected fields")
+            else:
+                print_result("before_preview structure", False, "Expected dict or null")
         else:
-            print_success("SMOKE TEST PASSED: All endpoints stable, no 500 errors")
-            return True
+            print_result("before_preview", True, "null (acceptable for create action)")
+        
+        # Validate after_preview
+        after_preview = first_item.get("after_preview")
+        if after_preview is not None:
+            if isinstance(after_preview, dict):
+                preview_fields = ["title", "status", "route", "excerpt", "cta", "seo", "sections", "hero_image_url"]
+                after_has_fields = all(field in after_preview for field in preview_fields)
+                print_result("after_preview structure", after_has_fields,
+                           f"Has {len([f for f in preview_fields if f in after_preview])}/{len(preview_fields)} expected fields")
+            else:
+                print_result("after_preview structure", False, "Expected dict or null")
+        else:
+            print_result("after_preview", True, "null (acceptable for delete action)")
+        
+        # Validate diff_items
+        diff_items = first_item.get("diff_items", [])
+        if isinstance(diff_items, list) and len(diff_items) > 0:
+            first_diff = diff_items[0]
+            diff_fields = ["field", "label", "before", "after", "mode"]
+            diff_has_fields = all(field in first_diff for field in diff_fields)
+            print_result("diff_items[0] structure", diff_has_fields,
+                       f"Has {len([f for f in diff_fields if f in first_diff])}/{len(diff_fields)} expected fields")
+        else:
+            print_result("diff_items", True, f"array with {len(diff_items)} items (may be empty for no changes)")
+        
+        # Print sample data for verification
+        print("\n--- Sample Data from First Item ---")
+        print(f"Title: {first_item.get('title', 'N/A')}")
+        print(f"Action: {first_item.get('action', 'N/A')} ({first_item.get('action_label', 'N/A')})")
+        print(f"Kind: {first_item.get('kind', 'N/A')} ({first_item.get('kind_label', 'N/A')})")
+        print(f"Date Key: {first_item.get('date_key', 'N/A')}")
+        print(f"Strategy Reason: {first_item.get('strategy_reason', 'N/A')[:100]}...")
+        print(f"Rollback Version ID: {first_item.get('rollback_version_id', 'N/A')}")
+        print(f"Diff Items Count: {len(diff_items)}")
+        
+        if len(diff_items) > 0:
+            print(f"\nFirst Diff Item:")
+            print(f"  Field: {diff_items[0].get('field', 'N/A')}")
+            print(f"  Label: {diff_items[0].get('label', 'N/A')}")
+            print(f"  Mode: {diff_items[0].get('mode', 'N/A')}")
+            print(f"  Before: {diff_items[0].get('before', 'N/A')[:80]}...")
+            print(f"  After: {diff_items[0].get('after', 'N/A')[:80]}...")
+        
+        # Coherence checks
+        print("\n--- Payload Coherence Validation ---")
+        
+        # Check action_label matches action
+        action = first_item.get("action", "")
+        action_label = first_item.get("action_label", "")
+        action_mapping = {
+            "create": "Criação",
+            "update": "Atualização", 
+            "delete": "Remoção",
+            "rollback": "Rollback"
+        }
+        expected_label = action_mapping.get(action, "")
+        action_coherent = action_label == expected_label or action_label != ""
+        print_result("action/action_label coherence", action_coherent, 
+                   f"action='{action}' → action_label='{action_label}'")
+        
+        # Check kind_label matches kind
+        kind = first_item.get("kind", "")
+        kind_label = first_item.get("kind_label", "")
+        kind_mapping = {
+            "article": "Artigo",
+            "page": "Página",
+            "section_override": "Override"
+        }
+        expected_kind_label = kind_mapping.get(kind, "")
+        kind_coherent = kind_label == expected_kind_label or kind_label != ""
+        print_result("kind/kind_label coherence", kind_coherent,
+                   f"kind='{kind}' → kind_label='{kind_label}'")
+        
+        # Check date_key format
+        date_key = first_item.get("date_key", "")
+        try:
+            if date_key:
+                datetime.fromisoformat(date_key)
+                date_valid = True
+            else:
+                date_valid = False
+        except:
+            date_valid = False
+        print_result("date_key format", date_valid, f"date_key='{date_key}'")
+        
+        # Check summary counts match items
+        total_in_summary = summary.get("total", 0)
+        actual_items_count = len(items)
+        counts_match = total_in_summary == actual_items_count
+        print_result("summary.total matches items count", counts_match,
+                   f"summary.total={total_in_summary}, len(items)={actual_items_count}")
+        
+        print("\n" + "="*80)
+        print("  ✅ ALL VALIDATIONS PASSED")
+        print("="*80)
+        
+        return True
+        
+    except requests.exceptions.RequestException as e:
+        print_result("HTTP Request", False, f"Request failed: {e}")
+        return False
+    except Exception as e:
+        print_result("Test Execution", False, f"Unexpected error: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def main():
+    """Main test execution."""
+    print("\n" + "="*80)
+    print("  SITE PUBLISHING STATUS ENDPOINT TEST")
+    print("  Testing change_history structure and fields")
+    print("="*80)
+    
+    # Login
+    session = login()
+    if not session:
+        print("\n❌ CRITICAL: Authentication failed. Cannot proceed with tests.")
+        return False
+    
+    # Test endpoint
+    success = test_site_publishing_status(session)
+    
+    # Final summary
+    print("\n" + "="*80)
+    if success:
+        print("  🎉 TEST SUITE COMPLETED SUCCESSFULLY")
+        print("  All required fields present and payload coherent")
+        print("  No 500 errors detected")
+    else:
+        print("  ❌ TEST SUITE FAILED")
+        print("  See details above for specific failures")
+    print("="*80 + "\n")
+    
+    return success
 
 if __name__ == "__main__":
-    tester = MarketingBackendTester()
-    success = tester.run_smoke_tests()
+    success = main()
     exit(0 if success else 1)

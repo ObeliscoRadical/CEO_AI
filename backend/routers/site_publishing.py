@@ -139,6 +139,202 @@ def _snapshot(doc: dict) -> dict:
     return base
 
 
+def _preview_text(value: str, limit: int = 180) -> str:
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit - 1].rstrip()}…"
+
+
+def _snapshot_route(snapshot: Optional[dict]) -> str:
+    if not snapshot:
+        return ""
+    if snapshot.get("public_url"):
+        return snapshot.get("public_url")
+    return _site_url_for(snapshot.get("kind") or "", snapshot.get("slug") or "", snapshot.get("slot_key") or "")
+
+
+def _section_signature(sections) -> str:
+    chunks = []
+    for section in sections or []:
+        if not isinstance(section, dict):
+            continue
+        heading = _short(section.get("heading"), "Secção")
+        paragraph = _preview_text(" ".join(_str_list(section.get("paragraphs"), 2)), 100)
+        bullets = ", ".join(_str_list(section.get("bullets"), 3))
+        detail = " · ".join(part for part in [paragraph, bullets] if part)
+        chunks.append(f"{heading}: {detail}" if detail else heading)
+    return " | ".join(chunks[:3])
+
+
+def _links_signature(links) -> str:
+    chunks = []
+    for item in links or []:
+        if not isinstance(item, dict):
+            continue
+        title = _short(item.get("title"), item.get("url") or "Ligação")
+        chunks.append(title)
+    return ", ".join(chunks[:4])
+
+
+def _snapshot_field_text(snapshot: Optional[dict], field: str) -> str:
+    snap = snapshot or {}
+    if field == "sections":
+        return _section_signature(snap.get("sections") or [])
+    if field == "related_links":
+        return _links_signature(snap.get("related_links") or [])
+    if field == "hero_image_url":
+        return "Imagem hero ativa" if snap.get("hero_image_url") else ""
+    return _preview_text(snap.get(field) or "", 220)
+
+
+def _snapshot_preview(snapshot: Optional[dict]) -> Optional[dict]:
+    if not snapshot:
+        return None
+    return {
+        "title": _short(snapshot.get("title"), snapshot.get("slot_key") or "Sem título"),
+        "status": _short(snapshot.get("status"), "—"),
+        "route": _snapshot_route(snapshot),
+        "excerpt": _preview_text(snapshot.get("excerpt") or snapshot.get("intro") or snapshot.get("slot_value") or "", 240),
+        "cta": _preview_text(" · ".join(part for part in [snapshot.get("cta_label"), snapshot.get("cta_url")] if part), 140),
+        "seo": _preview_text(" · ".join(part for part in [snapshot.get("seo_keyword"), snapshot.get("seo_title")] if part), 170),
+        "sections": [_short(section.get("heading"), "Secção") for section in (snapshot.get("sections") or [])[:3] if isinstance(section, dict)],
+        "hero_image_url": snapshot.get("hero_image_url") or "",
+    }
+
+
+def _change_diff_items(previous_snapshot: Optional[dict], new_snapshot: Optional[dict]) -> list[dict]:
+    fields = [
+        ("title", "Título"),
+        ("status", "Estado"),
+        ("excerpt", "Resumo"),
+        ("intro", "Introdução"),
+        ("sections", "Estrutura"),
+        ("cta_label", "CTA"),
+        ("cta_url", "URL do CTA"),
+        ("seo_keyword", "Keyword SEO"),
+        ("seo_title", "Título SEO"),
+        ("seo_description", "Descrição SEO"),
+        ("related_links", "Links relacionados"),
+        ("hero_image_url", "Imagem hero"),
+        ("slot_value", "Texto do slot"),
+        ("strategy_reason", "Motivo"),
+    ]
+    items = []
+    for field, label in fields:
+        before = _snapshot_field_text(previous_snapshot, field)
+        after = _snapshot_field_text(new_snapshot, field)
+        if before == after or (not before and not after):
+            continue
+        mode = "changed"
+        if not before and after:
+            mode = "added"
+        elif before and not after:
+            mode = "removed"
+        items.append({
+            "field": field,
+            "label": label,
+            "before": before or "—",
+            "after": after or "—",
+            "mode": mode,
+        })
+    return items
+
+
+def _action_label(action: str) -> str:
+    return {
+        "create": "Criação",
+        "update": "Atualização",
+        "delete": "Remoção",
+        "rollback": "Rollback",
+        "publish": "Publicação",
+    }.get((action or "").strip().lower(), _short(action, "Alteração"))
+
+
+def _kind_label(kind: str) -> str:
+    return {
+        "article": "Artigo",
+        "page": "Página",
+        "section_override": "Override",
+    }.get((kind or "").strip().lower(), _short(kind, "Conteúdo"))
+
+
+def _date_key(value: str) -> str:
+    try:
+        return datetime.fromisoformat(str(value or "").replace("Z", "+00:00")).date().isoformat()
+    except Exception:
+        return ""
+
+
+def _build_site_change_history(logs: list[dict], version_lookup: dict[str, dict[int, str]]) -> dict:
+    items = []
+    action_counts = {"create": 0, "update": 0, "delete": 0, "rollback": 0}
+    page_options = {}
+    date_options = set()
+    for row in logs or []:
+        previous_snapshot = row.get("previous_content") if isinstance(row.get("previous_content"), dict) else None
+        new_snapshot = row.get("new_content") if isinstance(row.get("new_content"), dict) else None
+        diff_items = _change_diff_items(previous_snapshot, new_snapshot)
+        entry_id = row.get("entry_id") or (new_snapshot or {}).get("id") or (previous_snapshot or {}).get("id") or ""
+        action = (row.get("action") or "update").strip().lower()
+        action_counts[action] = action_counts.get(action, 0) + 1
+        date_value = _date_key(row.get("created_at") or "")
+        if date_value:
+            date_options.add(date_value)
+        page_value = entry_id or row.get("url") or row.get("entry_title") or "unknown"
+        page_label = row.get("entry_title") or (new_snapshot or {}).get("title") or (previous_snapshot or {}).get("title") or row.get("url") or "Alteração sem título"
+        page_options[page_value] = page_label
+        previous_version = int(((previous_snapshot or {}).get("current_version") or 0) or 0)
+        rollback_version_id = version_lookup.get(entry_id, {}).get(previous_version) if previous_version else None
+        item = {
+            "id": row.get("id") or row.get("_id") or str(uuid.uuid4()),
+            "entry_id": entry_id,
+            "page_value": page_value,
+            "page_label": page_label,
+            "title": _short(page_label, "Alteração do site"),
+            "action": action,
+            "action_label": _action_label(action),
+            "kind": row.get("kind") or (new_snapshot or {}).get("kind") or (previous_snapshot or {}).get("kind") or "",
+            "kind_label": _kind_label(row.get("kind") or (new_snapshot or {}).get("kind") or (previous_snapshot or {}).get("kind") or ""),
+            "status": row.get("status") or "ok",
+            "created_at": row.get("created_at"),
+            "date_key": date_value,
+            "url": row.get("url") or _snapshot_route(new_snapshot) or _snapshot_route(previous_snapshot),
+            "actor": row.get("actor") or "gateway",
+            "objective": row.get("objective") or (new_snapshot or {}).get("objective") or (previous_snapshot or {}).get("objective") or "",
+            "seo_keyword": row.get("seo_keyword") or (new_snapshot or {}).get("seo_keyword") or (previous_snapshot or {}).get("seo_keyword") or "",
+            "strategy_reason": row.get("strategy_reason") or (new_snapshot or {}).get("strategy_reason") or (previous_snapshot or {}).get("strategy_reason") or row.get("error") or "",
+            "rollback_available": bool(row.get("rollback_available")),
+            "rollback_version_id": rollback_version_id,
+            "before_preview": _snapshot_preview(previous_snapshot),
+            "after_preview": _snapshot_preview(new_snapshot),
+            "diff_items": diff_items[:10],
+            "diff_summary": [item["label"] for item in diff_items[:5]],
+        }
+        items.append(item)
+    items.sort(key=lambda item: item.get("created_at") or "", reverse=True)
+    return {
+        "summary": {
+            "total": len(items),
+            "create": action_counts.get("create", 0),
+            "update": action_counts.get("update", 0),
+            "delete": action_counts.get("delete", 0),
+            "rollback": action_counts.get("rollback", 0),
+        },
+        "filters": {
+            "pages": [{"value": key, "label": value} for key, value in sorted(page_options.items(), key=lambda item: item[1].lower())],
+            "types": [
+                {"value": "create", "label": "Criação"},
+                {"value": "update", "label": "Atualização"},
+                {"value": "delete", "label": "Remoção"},
+                {"value": "rollback", "label": "Rollback"},
+            ],
+            "dates": sorted(date_options, reverse=True),
+        },
+        "items": items,
+    }
+
+
 def _clean_related_links(items) -> list[dict]:
     cleaned = []
     for item in items or []:
@@ -473,6 +669,15 @@ async def get_site_publishing_status(uid: str, cid: str) -> dict:
     settings = await _get_settings(uid, cid)
     entries = await db.site_content_entries.find({"user_id": uid, "company_id": cid}).sort("updated_at", -1).to_list(50)
     logs = await db.site_publication_logs.find({"user_id": uid, "company_id": cid}).sort("created_at", -1).to_list(30)
+    entry_ids = [row.get("entry_id") for row in logs if row.get("entry_id")]
+    versions = await db.site_content_versions.find(
+        {"user_id": uid, "company_id": cid, "entry_id": {"$in": entry_ids}},
+        {"_id": 1, "entry_id": 1, "version_number": 1},
+    ).to_list(200)
+    version_lookup = {}
+    for version in versions:
+        entry_versions = version_lookup.setdefault(version.get("entry_id"), {})
+        entry_versions[int(version.get("version_number") or 0)] = str(version.get("_id"))
     published = [row for row in entries if row.get("status") == "published"]
     campaign_map = {}
     keywords = []
@@ -506,6 +711,7 @@ async def get_site_publishing_status(uid: str, cid: str) -> dict:
         },
         "entries": [_serialize_entry(row) for row in entries],
         "logs": [_serialize_entry(row) for row in logs],
+        "change_history": _build_site_change_history([_serialize_entry(row) for row in logs], version_lookup),
         "analytics": {
             "campaign_comparison": campaign_comparison,
             "editorial_scores": [
