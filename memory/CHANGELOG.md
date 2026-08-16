@@ -1,5 +1,16 @@
 # CHANGELOG — CEO AI
 
+## 2026-08-16 — Comparação inline reforçada no painel de Alterações do Site
+- `frontend/src/components/marketing/SiteChangeHistorySection.jsx`
+  - adicionado diff inline palavra-a-palavra com algoritmo LCS
+  - novo bloco visual por alteração com:
+    - contagem de `+ adições`
+    - contagem de `- remoções`
+    - texto removido com destaque/strikethrough no **Antes**
+    - texto adicionado com destaque no **Depois**
+  - mantém-se o diff clássico por campo, agora com uma camada visual mais forte
+- validação final: `/app/test_reports/iteration_50.json` PASS
+
 ## 2026-08-16 — Painel visual de Alterações do Site
 - `backend/routers/site_publishing.py`
   - adicionado `change_history` ao payload de `GET /api/marketing/site-publishing/status`

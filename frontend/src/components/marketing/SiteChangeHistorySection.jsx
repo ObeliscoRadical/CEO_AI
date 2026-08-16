@@ -16,6 +16,124 @@ const DIFF_STYLES = {
   changed: "text-sky-200 border-sky-400/15 bg-sky-500/8",
 };
 
+const tokenizeDiffText = (value) => String(value || "").trim().split(/\s+/).filter(Boolean);
+
+const buildInlineDiff = (beforeValue, afterValue) => {
+  const beforeWords = tokenizeDiffText(beforeValue);
+  const afterWords = tokenizeDiffText(afterValue);
+
+  if (beforeWords.length === 0 && afterWords.length === 0) {
+    return { operations: [], counts: { added: 0, removed: 0, changed: 0 } };
+  }
+
+  const matrix = Array.from({ length: beforeWords.length + 1 }, () => Array(afterWords.length + 1).fill(0));
+  for (let row = 1; row <= beforeWords.length; row += 1) {
+    for (let col = 1; col <= afterWords.length; col += 1) {
+      if (beforeWords[row - 1] === afterWords[col - 1]) matrix[row][col] = matrix[row - 1][col - 1] + 1;
+      else matrix[row][col] = Math.max(matrix[row - 1][col], matrix[row][col - 1]);
+    }
+  }
+
+  const operations = [];
+  let row = beforeWords.length;
+  let col = afterWords.length;
+
+  while (row > 0 && col > 0) {
+    if (beforeWords[row - 1] === afterWords[col - 1]) {
+      operations.push({ type: "same", text: beforeWords[row - 1] });
+      row -= 1;
+      col -= 1;
+    } else if (matrix[row - 1][col] >= matrix[row][col - 1]) {
+      operations.push({ type: "removed", text: beforeWords[row - 1] });
+      row -= 1;
+    } else {
+      operations.push({ type: "added", text: afterWords[col - 1] });
+      col -= 1;
+    }
+  }
+
+  while (row > 0) {
+    operations.push({ type: "removed", text: beforeWords[row - 1] });
+    row -= 1;
+  }
+  while (col > 0) {
+    operations.push({ type: "added", text: afterWords[col - 1] });
+    col -= 1;
+  }
+
+  operations.reverse();
+
+  const counts = operations.reduce((acc, operation) => {
+    if (operation.type === "added") acc.added += 1;
+    if (operation.type === "removed") acc.removed += 1;
+    return acc;
+  }, { added: 0, removed: 0 });
+
+  return {
+    operations,
+    counts: {
+      ...counts,
+      changed: counts.added + counts.removed,
+    },
+  };
+};
+
+const InlineDiffText = ({ operations, side, testId }) => {
+  const visibleOperations = operations.filter((operation) => operation.type === "same" || (side === "before" ? operation.type === "removed" : operation.type === "added"));
+
+  return (
+    <div className="rounded-[14px] border border-white/8 bg-black/20 p-3 leading-6" data-testid={testId}>
+      {visibleOperations.length === 0 ? (
+        <span className="text-muted-foreground">—</span>
+      ) : visibleOperations.map((operation, index) => {
+        const tokenClass = operation.type === "same"
+          ? "text-slate-200/92"
+          : side === "before"
+            ? "text-rose-200 bg-rose-500/18 line-through decoration-rose-300/80 rounded px-1 py-0.5"
+            : "text-emerald-100 bg-emerald-500/18 rounded px-1 py-0.5";
+
+        return (
+          <span key={`${side}-${operation.text}-${index}`} className={tokenClass} data-testid={`${testId}-token-${index}`}>
+            {index > 0 ? " " : ""}
+            {operation.text}
+          </span>
+        );
+      })}
+    </div>
+  );
+};
+
+const InlineDiffPanel = ({ diff, testIdPrefix }) => {
+  const { operations, counts } = useMemo(() => buildInlineDiff(diff.before, diff.after), [diff.after, diff.before]);
+
+  return (
+    <div className="space-y-3" data-testid={`${testIdPrefix}-inline-panel`}>
+      <div className="flex items-center gap-2 flex-wrap" data-testid={`${testIdPrefix}-inline-summary`}>
+        <span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          Destaque inline
+        </span>
+        <span className="rounded-full border border-emerald-400/18 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200" data-testid={`${testIdPrefix}-added-count`}>
+          +{counts.added} adições
+        </span>
+        <span className="rounded-full border border-rose-400/18 bg-rose-500/10 px-2.5 py-1 text-[11px] text-rose-200" data-testid={`${testIdPrefix}-removed-count`}>
+          -{counts.removed} remoções
+        </span>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-3 text-sm" data-testid={`${testIdPrefix}-inline-grid`}>
+        <div data-testid={`${testIdPrefix}-inline-before-wrap`}>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-2">Antes · com texto removido</p>
+          <InlineDiffText operations={operations} side="before" testId={`${testIdPrefix}-inline-before`} />
+        </div>
+        <div data-testid={`${testIdPrefix}-inline-after-wrap`}>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-2">Depois · com texto adicionado</p>
+          <InlineDiffText operations={operations} side="after" testId={`${testIdPrefix}-inline-after`} />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const StatCard = ({ label, value, testId }) => (
   <div className="rounded-[18px] border border-white/10 bg-white/[0.03] p-4" data-testid={testId}>
     <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
@@ -210,6 +328,10 @@ export const SiteChangeHistorySection = ({ changeHistory, busy, onRollback }) =>
                               <p className="text-[11px] uppercase tracking-[0.18em] opacity-70 mb-1">Depois</p>
                               <p>{diff.after}</p>
                             </div>
+                          </div>
+
+                          <div className="mt-3" data-testid={`site-change-inline-diff-${index}-${diffIndex}`}>
+                            <InlineDiffPanel diff={diff} testIdPrefix={`site-change-inline-diff-${index}-${diffIndex}`} />
                           </div>
                         </div>
                       ))}

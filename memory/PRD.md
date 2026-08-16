@@ -72,6 +72,11 @@ Concluído neste fork.
   - por **data**
 - a origem dos dados vem do histórico real do gateway (`site_publication_logs` + `site_content_versions`)
 - o endpoint `GET /api/marketing/site-publishing/status` agora devolve `change_history`
+- o diff visual foi reforçado com **comparação inline palavra-a-palavra**:
+  - contagem de adições e remoções
+  - texto removido destacado no bloco **Antes**
+  - texto adicionado destacado no bloco **Depois**
+  - convivência com o diff clássico por campo, sem perder a leitura executiva
 
 ### 1. Separação de agentes
 Concluída.
@@ -181,6 +186,7 @@ Ver `/app/memory/test_credentials.md`
 - reorganização do Marketing validada em `/app/test_reports/iteration_47.json` → **PASS**
 - simplificação visual compacta do Marketing validada em `/app/test_reports/iteration_48.json` → **PASS**
 - painel visual de Alterações do Site validado em `/app/test_reports/iteration_49.json` → **PASS**
+- comparação inline do diff visual validada em `/app/test_reports/iteration_50.json` → **PASS**
 
 ## Próximas prioridades
 - **P0:** validar em produção após redeploy se o estado Meta deixa de ficar preso em mocked quando o token tiver insights reais
