@@ -27,24 +27,24 @@ export const AnalyticsSection = ({ analytics }) => {
   const topPosts = analytics.top_posts || [];
 
   return (
-    <div className="surface rounded-3xl p-6 md:p-8 mb-8" data-testid="mkt-analytics-section">
-      <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
+    <div className="surface rounded-[22px] p-5 md:p-6 mb-5" data-testid="mkt-analytics-section">
+      <div className="flex items-end justify-between gap-4 flex-wrap mb-4">
         <div>
-          <h2 className="font-serif-lux text-xl flex items-center gap-2"><BarChart3 className="w-5 h-5 text-[#3B82F6]" /> Social Media Agent · Analytics editoriais</h2>
+          <h2 className="font-serif-lux text-lg flex items-center gap-2"><BarChart3 className="w-5 h-5 text-[#3B82F6]" /> Analytics</h2>
           <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-analytics-description">{analytics.mocked ? <>Painel de aprendizagem das redes sociais. As métricas estão <strong>MOCKED</strong> até a Meta validar permissões de insights.</> : <>Painel de aprendizagem das redes sociais com sinais reais da Meta sempre que disponíveis.</>}</p>
         </div>
         {analytics.mocked ? <span className="text-[11px] px-3 py-1.5 rounded-full border border-amber-400/20 bg-amber-500/10 text-amber-300" data-testid="mkt-analytics-mocked">Métricas <strong>MOCKED</strong></span> : <span className="text-[11px] px-3 py-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/10 text-emerald-300" data-testid="mkt-analytics-live">Métricas reais</span>}
       </div>
 
-      <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+      <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-5">
         <SummaryCard label="Posts publicados" value={summary.published_posts || 0} testId="mkt-analytics-published" />
         <SummaryCard label="Reach total" value={summary.reach || 0} testId="mkt-analytics-reach" />
         <SummaryCard label="Impressões" value={summary.impressions || 0} testId="mkt-analytics-impressions" />
         <SummaryCard label="Engagement médio" value={`${summary.avg_engagement_rate || 0}%`} testId="mkt-analytics-engagement" />
       </div>
 
-      <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-5 mb-6">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="mkt-analytics-breakdown">
+      <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-4 mb-5">
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="mkt-analytics-breakdown">
           <div className="flex items-center gap-2 mb-4"><TrendingUp className="w-4 h-4 text-[#A78BFA]" /><h3 className="font-medium">Melhores formatos e dias</h3></div>
           <div className="space-y-5">
             <div>
@@ -66,7 +66,7 @@ export const AnalyticsSection = ({ analytics }) => {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="mkt-analytics-learning-loop">
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="mkt-analytics-learning-loop">
           <div className="flex items-center gap-2 mb-4"><Lightbulb className="w-4 h-4 text-[#F59E0B]" /><h3 className="font-medium">Loop de aprendizagem</h3></div>
           <div className="grid md:grid-cols-2 gap-4">
             <div>
@@ -85,7 +85,7 @@ export const AnalyticsSection = ({ analytics }) => {
         </div>
       </div>
 
-      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="mkt-top-posts">
+      <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="mkt-top-posts">
         <h3 className="font-medium mb-4">Top conteúdos recentes</h3>
         {topPosts.length === 0 ? (
           <p className="text-sm text-muted-foreground">Ainda não existem publicações para ranking.</p>

@@ -1,5 +1,26 @@
 # CHANGELOG — CEO AI
 
+## 2026-08-16 — Simplificação visual interna do Marketing
+- `frontend/src/pages/Marketing.jsx`
+  - página passou para uma leitura mais compacta e densa
+  - adicionadas sequências visuais claras por agente (`OrderStrip`)
+  - títulos principais encurtados
+  - resumos mais curtos e orientados à função
+- componentes de Marketing compactados visualmente:
+  - `OrganicGrowthAgentSection.jsx`
+  - `SitePublishingGatewaySection.jsx`
+  - `GrowthAgentExecutiveSection.jsx`
+  - `SocialMediaAgentSection.jsx`
+  - `MetaConnectionSection.jsx`
+  - `CampaignStudioSection.jsx`
+  - `ExecutionQueueSection.jsx`
+  - `AnalyticsSection.jsx`
+  - `MarketingBriefingSection.jsx`
+- ordem reforçada:
+  - Site: Estratégia → Gateway → SEO/GA4/GSC
+  - Redes Sociais: Automação → Meta → Marca & Conteúdo → Campanhas → Aprovação & Calendário → Operação & Resultados
+- validação final: `/app/test_reports/iteration_48.json` PASS
+
 ## 2026-08-16 — Reorganização do módulo Marketing por agente
 - `frontend/src/components/AppLayout.jsx`
   - submenu de Marketing simplificado para apenas 2 entradas:

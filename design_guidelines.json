@@ -1,6 +1,6 @@
 {
   "theme": "dark",
-  "concept": "Executive Cybernetic Clarity",
+  "concept": "Functional Density and Soft Utility",
   "colors": {
     "background": "#05050A",
     "background_radial_glow": "radial-gradient(circle at 50% 0%, rgba(59,130,246,0.12), transparent 60%)",
@@ -17,114 +17,62 @@
     "border_highlight": "rgba(255, 255, 255, 0.15)"
   },
   "typography": {
-    "font_family_primary": "Inter, sans-serif",
-    "font_family_display": "Outfit, sans-serif",
-    "watermark_heading": "absolute -top-12 -left-8 text-[8rem] md:text-[14rem] font-black uppercase text-white/[0.015] tracking-tighter select-none z-0 pointer-events-none whitespace-nowrap overflow-hidden",
-    "page_title": "text-4xl sm:text-5xl font-bold tracking-tight text-white relative z-10",
+    "font_family_primary": "IBM Plex Sans, sans-serif",
+    "font_family_display": "Manrope, sans-serif",
+    "page_title": "text-4xl sm:text-5xl font-bold tracking-tight text-white relative z-10 font-display",
     "page_subtitle": "text-sm font-medium text-slate-400 uppercase tracking-widest relative z-10 mt-2",
-    "card_title": "text-sm font-medium text-slate-400 uppercase tracking-wider mb-2",
+    "block_title": "text-2xl sm:text-3xl font-bold tracking-tight text-white mb-6",
+    "card_title": "text-lg font-semibold text-white tracking-tight mb-2",
+    "card_description": "text-sm text-slate-400 leading-relaxed",
     "metric_value": "text-3xl font-bold text-white tracking-tight"
-  },
-  "components": {
-    "sidebar": {
-      "layout": "w-20 h-screen fixed left-0 top-0 flex flex-col items-center py-6 border-r border-white/[0.08] bg-[#05050A]/90 backdrop-blur-xl z-50",
-      "logo_area": "flex flex-col items-center gap-2 mb-12",
-      "logo_icon": "w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 shadow-[0_0_20px_rgba(59,130,246,0.3)] flex items-center justify-center text-white",
-      "logo_text": "text-[10px] font-bold tracking-widest text-white/80 uppercase",
-      "nav_item": "w-12 h-12 rounded-xl flex items-center justify-center text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all duration-300 mb-2 relative group",
-      "nav_item_active": "text-blue-500 bg-blue-500/10 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1 before:bg-blue-500 before:rounded-r-full"
-    },
-    "glass_card": {
-      "base": "bg-white/[0.02] backdrop-blur-2xl border border-white/[0.08] rounded-2xl shadow-xl overflow-hidden relative",
-      "hover": "hover:bg-white/[0.04] hover:border-white/[0.15] transition-all duration-300",
-      "positive_pill": "px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium flex items-center gap-1 shrink-0"
-    },
-    "alerts_card": {
-      "base": "p-5 bg-white/[0.02] border border-white/[0.05] rounded-xl flex items-start gap-4 hover:bg-white/[0.04] transition-colors",
-      "status_dot_emerald": "w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] mt-1.5 shrink-0",
-      "status_dot_amber": "w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)] mt-1.5 shrink-0",
-      "status_dot_red": "w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] mt-1.5 shrink-0"
-    },
-    "chat_screen": {
-      "ceo_reply": "bg-white/[0.03] border-l-2 border-blue-500 p-5 rounded-2xl rounded-tl-none shadow-lg max-w-[85%] text-slate-300 text-sm leading-relaxed",
-      "user_reply": "bg-blue-600 text-white p-5 rounded-2xl rounded-tr-none shadow-lg max-w-[85%] text-sm leading-relaxed self-end flex-shrink-0"
-    },
-    "reports_screen": {
-      "card_blue": "bg-white/[0.02] border border-white/[0.08] border-t-2 border-t-blue-500 rounded-xl p-6",
-      "card_emerald": "bg-white/[0.02] border border-white/[0.08] border-t-2 border-t-emerald-500 rounded-xl p-6",
-      "card_neutral": "bg-white/[0.02] border border-white/[0.08] border-t-2 border-t-slate-500 rounded-xl p-6",
-      "button_download": "mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] text-white text-sm font-medium transition-colors border border-white/[0.05]"
-    },
-    "charts": {
-      "area_gradient": {
-        "id": "colorBlue",
-        "start_color": "#3B82F6",
-        "start_opacity": 0.25,
-        "end_color": "#3B82F6",
-        "end_opacity": 0
-      },
-      "lines": {
-        "primary": "#3B82F6",
-        "success": "#10B981"
-      },
-      "grid": {
-        "stroke": "rgba(255,255,255,0.05)",
-        "strokeDasharray": "3 3"
-      },
-      "tooltip": "bg-[#05050A]/90 backdrop-blur-md border border-white/[0.1] rounded-lg shadow-xl p-3 text-white"
-    }
   },
   "layouts": {
     "main_container": "pl-20 min-h-screen bg-[#05050A] relative overflow-hidden",
     "content_wrapper": "max-w-7xl mx-auto p-8 pt-12 relative z-10",
-    "bento_grid": "grid grid-cols-1 lg:grid-cols-12 gap-6",
-    "bento_main": "lg:col-span-8 space-y-6",
-    "bento_side": "lg:col-span-4 space-y-6"
+    "marketing_grid": "grid grid-cols-1 xl:grid-cols-2 gap-8",
+    "marketing_block": "flex flex-col gap-4 p-8 bg-white/[0.02] backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-xl relative",
+    "agent_subgrid": "grid grid-cols-1 md:grid-cols-2 gap-4",
+    "agent_item": "p-5 bg-white/[0.02] border border-white/[0.05] rounded-lg hover:bg-white/[0.04] transition-all hover:-translate-y-0.5"
+  },
+  "components": {
+    "sidebar": {
+      "layout": "w-20 h-screen fixed left-0 top-0 flex flex-col items-center py-6 border-r border-white/[0.08] bg-[#05050A]/90 backdrop-blur-xl z-50",
+      "nav_group": "w-full flex flex-col items-center gap-2 mt-8",
+      "nav_item": "w-12 h-12 rounded-lg flex items-center justify-center text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all duration-300 relative group cursor-pointer",
+      "nav_item_active": "text-blue-500 bg-blue-500/10 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1 before:bg-blue-500 before:rounded-r-full"
+    },
+    "glass_card": {
+      "base": "bg-white/[0.02] backdrop-blur-2xl border border-white/[0.08] rounded-lg shadow-xl overflow-hidden relative",
+      "hover": "hover:bg-white/[0.04] hover:border-white/[0.15] transition-all duration-300"
+    }
   },
   "motion": {
-    "hover_lift": "hover:-translate-y-1 transition-transform duration-300",
-    "stagger_children": "transition-all duration-500 ease-out",
-    "page_enter": "animate-in fade-in slide-in-from-bottom-4 duration-700"
+    "hover_lift": "hover:-translate-y-0.5 transition-transform duration-200",
+    "stagger_children": "transition-all duration-300 ease-out",
+    "page_enter": "animate-in fade-in slide-in-from-bottom-4 duration-500"
+  },
+  "accessibility": {
+    "focus_ring": "focus:ring-2 focus:ring-blue-500 focus:outline-none focus:ring-offset-2 focus:ring-offset-[#05050A]",
+    "contrast_ratio": "Ensure text-to-background contrast ratio is at least 4.5:1. Do not use fully transparent backgrounds where text needs to be readable."
+  },
+  "media": {
+    "image_handling": "Images should have max-h-[80vh] md:max-h-none. Overlays must not exceed bg-black/50 opacity."
   },
   "css_variables_update": {
-    "instructions": "Update index.css / globals.css with the following tailwind-compatible CSS variables for the dark high-tech theme",
+    "instructions": "Ensure global CSS uses border-radius of max 8px (0.5rem) for a more dense, dashboard-appropriate layout.",
     "variables": {
-      "--background": "240 33% 3%",
-      "--foreground": "0 0% 100%",
-      "--card": "240 33% 4%",
-      "--card-foreground": "0 0% 100%",
-      "--popover": "240 33% 4%",
-      "--popover-foreground": "0 0% 100%",
-      "--primary": "217.2 91.2% 59.8%",
-      "--primary-foreground": "0 0% 100%",
-      "--secondary": "240 4% 16%",
-      "--secondary-foreground": "0 0% 100%",
-      "--muted": "240 4% 16%",
-      "--muted-foreground": "240 5% 64.9%",
-      "--accent": "240 4% 16%",
-      "--accent-foreground": "0 0% 100%",
-      "--destructive": "0 84.2% 60.2%",
-      "--destructive-foreground": "0 0% 100%",
-      "--border": "0 0% 100% / 0.08",
-      "--input": "0 0% 100% / 0.08",
-      "--ring": "217.2 91.2% 59.8%",
-      "--radius": "1rem"
-    },
-    "surface_utility_update": ".surface { @apply bg-white/[0.02] backdrop-blur-2xl border border-white/[0.08] shadow-xl rounded-2xl; }"
+      "--radius": "0.5rem"
+    }
   },
   "instructions_to_main_agent": [
-    "Do not break any existing testids or routes. Maintain all existing Portuguese text.",
-    "Replace the current gold color scheme globally with the new blue/emerald high-tech palette.",
-    "Update the app layout to use a left icon-rail sidebar (w-20, icons only, small 3D cube logo) instead of a top nav or wide sidebar.",
-    "Add a radial blue glow behind the main content area in the global layout.",
-    "Implement the HUGE ghosted/translucent watermark heading behind page titles using the 'watermark_heading' class specifications.",
-    "Update Recharts components: use the defined `<defs>` gradients and line colors (Blue and Emerald). Add confidence shaded bands to forecast charts.",
-    "Redesign the Alert cards on the right to use simple left-aligned colored dots (emerald/amber/red) instead of heavy backgrounds, maintaining glassy surface logic.",
-    "For the Chat UI, apply the specific `border-l-2 border-blue-500` accent for the CEO reply and solid `bg-blue-600` for the user reply.",
-    "For the Reports screen, use the 'reports_screen' card definitions with the top accent border lines (blue/emerald/slate).",
-    "Update the global `.surface` utility to match the glassy `bg-white/[0.02] border-white/[0.08]` spec and ensure all cards use it.",
-    "Ensure all interactive elements have hover states (e.g. bg-white/[0.04]) and subtle transitions.",
-    "Make sure background is extremely dark, near-black (#05050A)."
+    "RESTRUCTURE NAVIGATION: In the sidebar and main navigation routes, remove all 10 old marketing subcategories. Keep ONLY two categories under Marketing: 'Agente · Site' and 'Agente · Redes Sociais'.",
+    "RESTRUCTURE /MARKETING PAGE: The marketing landing page should be visually split into 2 main blocks. Block 1: 'Agente · Site'. Block 2: 'Agente · Redes Sociais'.",
+    "CONTENT ALLOCATION - AGENTE SITE: Place the following 3 categories strictly inside the 'Agente · Site' block, in this exact order: 'Estratégia' → 'Gateway' → 'SEO/GA4/GSC'.",
+    "CONTENT ALLOCATION - AGENTE REDES SOCIAIS: Place the following 6 categories strictly inside the 'Agente · Redes Sociais' block, in this exact order: 'Automação' → 'Meta' → 'Marca & Conteúdo' → 'Campanhas' → 'Aprovação & Calendário' → 'Operação & Resultados'.",
+    "COMPACT BLOCKS: Make the internal sections within each agent more compact. Use shorter titles and summaries. Avoid excessive padding; use dense layouts suitable for an admin dashboard.",
+    "Do not break any existing testids or routes. If subpages exist, link them correctly from inside the new dense bento blocks.",
+    "Ensure the layout doesn't use massive, spaced-out cards but rather a cohesive 'bento grid' approach where 'Agente · Site' and 'Agente · Redes Sociais' are the primary visual containers.",
+    "Do not use generic center alignment. Keep dense tabular/data content left-aligned."
   ],
   "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
     "You tend to converge toward generic, 'on distribution' outputs. Avoid this: make creative, distinctive frontends that surprise and delight.",
@@ -137,7 +85,7 @@
     "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style.",
     "NEVER use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯 etc for icons.",
     "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
-    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Use 2-3x more spacing than feels comfortable, EXCEPT for data-dense tables/dashboards where compact B-mode grids are required.",
     "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
     "All interactive and key informational elements MUST include a data-testid attribute to facilitate robust automated testing."
   ]

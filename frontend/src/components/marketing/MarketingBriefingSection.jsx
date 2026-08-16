@@ -15,11 +15,11 @@ export const MarketingBriefingSection = ({ briefing, briefingBusy, emailSending,
   if (!briefing) return null;
 
   return (
-    <div className="surface rounded-3xl p-6 md:p-8 mb-8" data-testid="mkt-briefing-section">
-      <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
+    <div className="surface rounded-[22px] p-5 md:p-6 mb-5" data-testid="mkt-briefing-section">
+      <div className="flex items-end justify-between gap-4 flex-wrap mb-4">
         <div>
-          <h2 className="font-serif-lux text-xl flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#A78BFA]" /> Social Media Agent · Briefing diário</h2>
-          <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-briefing-description">Resumo tático diário das redes sociais — disponível na app e por email.</p>
+          <h2 className="font-serif-lux text-lg flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#A78BFA]" /> Briefing diário</h2>
+          <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-briefing-description">Resumo tático das redes sociais, na app e por email.</p>
         </div>
         <div className="flex items-center gap-3 rounded-full border border-white/10 px-4 py-2 bg-white/[0.03]" data-testid="mkt-briefing-toggle-wrap">
           <div>
@@ -30,7 +30,7 @@ export const MarketingBriefingSection = ({ briefing, briefingBusy, emailSending,
         </div>
       </div>
 
-      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 mb-5" data-testid="mkt-briefing-card">
+      <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4 mb-4" data-testid="mkt-briefing-card">
         <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
           <div>
             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{briefing.company_name}</p>
@@ -41,7 +41,7 @@ export const MarketingBriefingSection = ({ briefing, briefingBusy, emailSending,
         <p className="text-sm text-muted-foreground leading-6" data-testid="mkt-briefing-summary">{briefing.summary}</p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-5 mb-5">
+      <div className="grid md:grid-cols-2 gap-4 mb-4">
         <BriefList title="O que está a resultar" items={briefing.wins} testIdPrefix="mkt-briefing-win" />
         <BriefList title="Riscos / atenção" items={briefing.risks} testIdPrefix="mkt-briefing-risk" />
         <BriefList title="Ações para hoje" items={briefing.actions} testIdPrefix="mkt-briefing-action" />

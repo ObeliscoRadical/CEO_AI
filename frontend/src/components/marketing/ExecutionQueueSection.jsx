@@ -15,11 +15,11 @@ export const ExecutionQueueSection = ({ execution, onCancelJob, onRescheduleOpen
   const summary = execution.summary || { queued: 0, published: 0, failed: 0 };
 
   return (
-    <div className="surface rounded-3xl p-6 md:p-8 mb-8" data-testid="mkt-execution-section">
-      <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
+    <div className="surface rounded-[22px] p-5 md:p-6 mb-5" data-testid="mkt-execution-section">
+      <div className="flex items-end justify-between gap-4 flex-wrap mb-4">
         <div>
-          <h2 className="font-serif-lux text-xl flex items-center gap-2"><CalendarClock className="w-5 h-5 text-[#A78BFA]" /> Social Media Agent · Fila de execução</h2>
-          <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-execution-description">Centro operacional de publicação social com fila viva, histórico recente e re-agendamento por post.</p>
+          <h2 className="font-serif-lux text-lg flex items-center gap-2"><CalendarClock className="w-5 h-5 text-[#A78BFA]" /> Operação & resultados</h2>
+          <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-execution-description">Fila, histórico e re-agendamento da operação social.</p>
         </div>
         <div className="flex gap-2 flex-wrap" data-testid="mkt-execution-summary">
           <MetricPill label="Em fila" value={summary.queued || 0} testId="mkt-queue-summary-queued" />
@@ -28,8 +28,8 @@ export const ExecutionQueueSection = ({ execution, onCancelJob, onRescheduleOpen
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-5">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="mkt-queue-list">
+      <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-4">
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="mkt-queue-list">
           <div className="flex items-center gap-2 mb-4"><Clock className="w-4 h-4 text-amber-300" /><h3 className="font-medium">Agendamentos ativos</h3></div>
           {queued.length === 0 ? (
             <p className="text-sm text-muted-foreground" data-testid="mkt-queue-empty">Ainda não há peças em fila.</p>
@@ -60,7 +60,7 @@ export const ExecutionQueueSection = ({ execution, onCancelJob, onRescheduleOpen
           )}
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="mkt-history-list">
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="mkt-history-list">
           <div className="flex items-center gap-2 mb-4"><Send className="w-4 h-4 text-[#3B82F6]" /><h3 className="font-medium">Histórico recente</h3></div>
           {history.length === 0 ? (
             <p className="text-sm text-muted-foreground" data-testid="mkt-history-empty">Ainda não há histórico de publicação.</p>

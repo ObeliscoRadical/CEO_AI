@@ -48,6 +48,11 @@ Concluída neste fork.
   - **Agente · Site** → agrega as 3 frentes do Growth Agent
   - **Agente · Redes Sociais** → agrega as 6 frentes sociais
 - nenhuma funcionalidade foi removida; apenas reorganizada por agente
+- a ordem interna ficou simplificada e explícita:
+  - **Agente · Site** → Estratégia → Gateway → SEO/GA4/GSC
+  - **Agente · Redes Sociais** → Automação → Meta → Marca & Conteúdo → Campanhas → Aprovação & Calendário → Operação & Resultados
+- títulos e resumos principais ficaram mais curtos
+- os blocos internos ficaram mais compactos, com leitura mais densa e mais orientada a dashboard
 
 ### 1. Separação de agentes
 Concluída.
@@ -151,6 +156,7 @@ Ver `/app/memory/test_credentials.md`
 - `deep_testing_backend_v2` → **PASS**
 - `testing_agent` → `/app/test_reports/iteration_46.json` **PASS**
 - reorganização do Marketing validada em `/app/test_reports/iteration_47.json` → **PASS**
+- simplificação visual compacta do Marketing validada em `/app/test_reports/iteration_48.json` → **PASS**
 
 ## Próximas prioridades
 - **P0:** validar em produção após redeploy se o estado Meta deixa de ficar preso em mocked quando o token tiver insights reais

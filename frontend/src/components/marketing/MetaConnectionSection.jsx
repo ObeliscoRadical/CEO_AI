@@ -55,11 +55,11 @@ export const MetaConnectionSection = ({
         : "O fluxo já está preparado; falta apenas introduzir as credenciais da app Meta para o ativar.";
 
   return (
-    <div className="surface rounded-3xl p-6 md:p-7 mb-8" data-testid="mkt-social">
-      <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
+    <div className="surface rounded-[22px] p-5 md:p-6 mb-5" data-testid="mkt-social">
+      <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
         <div className="space-y-3 max-w-3xl">
           <div className="flex items-center gap-3 flex-wrap">
-            <h2 className="font-serif-lux text-xl" data-testid="mkt-social-title">Social Media Agent · Meta / Facebook / Instagram</h2>
+            <h2 className="font-serif-lux text-lg" data-testid="mkt-social-title">Meta · Facebook · Instagram</h2>
             <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] ${meta.tone}`} data-testid="mkt-meta-state">
               {meta.label}
             </span>
@@ -109,8 +109,8 @@ export const MetaConnectionSection = ({
         </div>
       )}
 
-      <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-5 mb-5">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="mkt-meta-checks-card">
+      <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-4 mb-4">
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="mkt-meta-checks-card">
           <div className="flex items-center gap-2 mb-4">
             <ShieldCheck className="w-4 h-4 text-[#A78BFA]" />
             <h3 className="font-medium">Checklist da ligação</h3>
@@ -128,7 +128,7 @@ export const MetaConnectionSection = ({
           </div>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="mkt-meta-status-card">
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="mkt-meta-status-card">
           <div className="flex items-center gap-2 mb-4">
             <Facebook className="w-4 h-4 text-[#3B82F6]" />
             <h3 className="font-medium">Estado operacional</h3>
@@ -167,7 +167,7 @@ export const MetaConnectionSection = ({
       </div>
 
       {data.pending_selection && data.available_pages?.length > 0 && (
-        <div className="rounded-3xl border border-[#A78BFA]/20 bg-[#A78BFA]/8 p-5" data-testid="mkt-meta-page-selection">
+        <div className="rounded-[20px] border border-[#A78BFA]/20 bg-[#A78BFA]/8 p-4" data-testid="mkt-meta-page-selection">
           <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
             <div>
               <h3 className="font-medium">Escolher Página ativa</h3>

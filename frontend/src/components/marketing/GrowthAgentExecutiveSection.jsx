@@ -53,12 +53,12 @@ export const GrowthAgentExecutiveSection = ({ data, busy, onSync, onRun }) => {
   }), [data]);
 
   return (
-    <section className="surface rounded-3xl p-6 md:p-8 mb-8" data-testid="growth-agent-section">
-      <div className="flex items-end justify-between gap-4 flex-wrap mb-6">
+    <section className="surface rounded-[22px] p-5 md:p-6 mb-5" data-testid="growth-agent-section">
+      <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Growth Agent · observabilidade do site</p>
-          <h2 className="font-serif-lux text-xl flex items-center gap-2 mt-2"><Bot className="w-5 h-5 text-[#10B981]" /> SEO, GA4 e Google Search Console</h2>
-          <p className="text-sm text-muted-foreground mt-2 max-w-3xl" data-testid="growth-agent-description">Esta camada monitoriza continuamente páginas públicas, desempenho, oportunidades SEO, quedas de tráfego, conteúdos desatualizados e interligações internas — sempre respeitando a regra de nunca tocar nas redes sociais, no design ou na navegação.</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Agente · Site</p>
+          <h2 className="font-serif-lux text-lg flex items-center gap-2 mt-2"><Bot className="w-5 h-5 text-[#10B981]" /> SEO · GA4 · GSC</h2>
+          <p className="text-sm text-muted-foreground mt-2 max-w-3xl" data-testid="growth-agent-description">Monitorização contínua de páginas, tráfego, oportunidades SEO e sinais de queda.</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button onClick={onSync} disabled={!!busy} variant="outline" className="rounded-full border-white/15 hover:bg-white/5" data-testid="growth-agent-sync-btn">
@@ -70,7 +70,7 @@ export const GrowthAgentExecutiveSection = ({ data, busy, onSync, onRun }) => {
         </div>
       </div>
 
-      <div className="rounded-3xl border border-emerald-400/20 bg-emerald-500/10 p-5 mb-6" data-testid="growth-agent-hard-rule-card">
+      <div className="rounded-[20px] border border-emerald-400/20 bg-emerald-500/10 p-4 mb-5" data-testid="growth-agent-hard-rule-card">
         <div className="flex items-start gap-3">
           <ShieldCheck className="w-5 h-5 text-emerald-300 mt-0.5" />
           <div>
@@ -80,7 +80,7 @@ export const GrowthAgentExecutiveSection = ({ data, busy, onSync, onRun }) => {
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-6" data-testid="growth-agent-stats-grid">
+      <div className="grid sm:grid-cols-2 xl:grid-cols-5 gap-3 mb-5" data-testid="growth-agent-stats-grid">
         <StatCard label="Páginas monitorizadas" value={data?.summary?.pages_monitored || 0} helper="Públicas e geridas pelo gateway" testId="growth-agent-stat-pages" />
         <StatCard label="Quedas de tráfego" value={data?.summary?.drop_alerts || 0} helper="URLs com deterioração relevante" testId="growth-agent-stat-drops" />
         <StatCard label="Oportunidades SEO" value={data?.summary?.seo_opportunities || 0} helper="CTR/posição/impressões a melhorar" testId="growth-agent-stat-opportunities" />
@@ -89,14 +89,14 @@ export const GrowthAgentExecutiveSection = ({ data, busy, onSync, onRun }) => {
       </div>
 
       {(data?.blockers || []).length > 0 && (
-        <div className="rounded-3xl border border-amber-400/20 bg-amber-500/10 p-5 mb-6" data-testid="growth-agent-blockers-card">
+        <div className="rounded-[20px] border border-amber-400/20 bg-amber-500/10 p-4 mb-5" data-testid="growth-agent-blockers-card">
           <div className="flex items-center gap-2 mb-3"><AlertTriangle className="w-4 h-4 text-amber-300" /><h3 className="font-medium">Bloqueios ou dados em falta</h3></div>
           <ul className="space-y-2 text-sm text-amber-50">{data.blockers.map((item, index) => <li key={`${item}-${index}`} data-testid={`growth-agent-blocker-${index}`}>• {item}</li>)}</ul>
         </div>
       )}
 
-      <div className="grid xl:grid-cols-[0.9fr_1.1fr] gap-5 mb-6">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="growth-agent-google-card">
+      <div className="grid xl:grid-cols-[0.9fr_1.1fr] gap-4 mb-5">
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="growth-agent-google-card">
           <div className="flex items-center gap-2 mb-4"><Search className="w-4 h-4 text-[#3B82F6]" /><h3 className="font-medium">Estado das fontes Google</h3></div>
           <div className="space-y-4 text-sm text-muted-foreground">
             <div data-testid="growth-agent-google-gsc"><span className="text-foreground">Search Console:</span> {data?.sync_run?.source_status?.gsc?.ok ? "ativo" : "pendente/erro"}</div>
@@ -107,7 +107,7 @@ export const GrowthAgentExecutiveSection = ({ data, busy, onSync, onRun }) => {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="growth-agent-clusters-card">
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="growth-agent-clusters-card">
           <div className="flex items-center gap-2 mb-4"><Sparkles className="w-4 h-4 text-[#A78BFA]" /><h3 className="font-medium">Clusters de keywords</h3></div>
           {(data?.keyword_clusters || []).length === 0 ? <p className="text-sm text-muted-foreground" data-testid="growth-agent-clusters-empty">Sem clusters suficientes ainda.</p> : (
             <div className="space-y-3">
@@ -126,8 +126,8 @@ export const GrowthAgentExecutiveSection = ({ data, busy, onSync, onRun }) => {
         </div>
       </div>
 
-      <div className="grid xl:grid-cols-[1.06fr_0.94fr] gap-5 mb-6">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="growth-agent-landing-pages-card">
+      <div className="grid xl:grid-cols-[1.06fr_0.94fr] gap-4 mb-5">
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="growth-agent-landing-pages-card">
           <div className="flex items-center gap-2 mb-4"><BarChart3 className="w-4 h-4 text-[#F59E0B]" /><h3 className="font-medium">Comparação por URL / landing page</h3></div>
           {(data?.landing_pages || []).length === 0 ? <p className="text-sm text-muted-foreground">Ainda sem páginas monitorizadas.</p> : (
             <div className="space-y-3">
@@ -150,7 +150,7 @@ export const GrowthAgentExecutiveSection = ({ data, busy, onSync, onRun }) => {
           )}
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="growth-agent-actions-card">
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="growth-agent-actions-card">
           <div className="flex items-center gap-2 mb-4"><Activity className="w-4 h-4 text-[#10B981]" /><h3 className="font-medium">Feed executivo automático</h3></div>
           {(data?.actions || []).length === 0 ? <p className="text-sm text-muted-foreground" data-testid="growth-agent-actions-empty">O agente ainda não registou ações nesta camada.</p> : (
             <div className="space-y-3">
@@ -169,7 +169,7 @@ export const GrowthAgentExecutiveSection = ({ data, busy, onSync, onRun }) => {
         </div>
       </div>
 
-      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="growth-agent-reports-card">
+      <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="growth-agent-reports-card">
         <div className="flex items-center gap-2 mb-4"><Bot className="w-4 h-4 text-[#3B82F6]" /><h3 className="font-medium">Relatórios executivos automáticos</h3></div>
         <Tabs defaultValue="daily" data-testid="growth-agent-reports-tabs">
           <TabsList className="bg-white/[0.04] rounded-full p-1 mb-4">

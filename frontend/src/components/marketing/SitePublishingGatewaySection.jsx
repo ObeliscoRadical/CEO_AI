@@ -18,12 +18,12 @@ export const SitePublishingGatewaySection = ({ data, busy, onAuthorize, onRunNow
   const analytics = data?.analytics || {};
 
   return (
-    <section className="surface rounded-3xl p-6 md:p-8 mb-8" data-testid="site-publishing-gateway-section">
-      <div className="flex items-end justify-between gap-4 flex-wrap mb-6">
+    <section className="surface rounded-[22px] p-5 md:p-6 mb-5" data-testid="site-publishing-gateway-section">
+      <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Growth Agent · publicação direta no site</p>
-          <h2 className="font-serif-lux text-xl flex items-center gap-2 mt-2"><Globe className="w-5 h-5 text-[#3B82F6]" /> Content Publishing Gateway</h2>
-          <p className="text-sm text-muted-foreground mt-2 max-w-3xl" data-testid="site-publishing-description">Sem CMS externo: o Growth Agent publica no próprio site público através de MongoDB + API interna, com autorização única, logs completos e rollback. Esta camada nunca interfere com redes sociais.</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Agente · Site</p>
+          <h2 className="font-serif-lux text-lg flex items-center gap-2 mt-2"><Globe className="w-5 h-5 text-[#3B82F6]" /> Gateway</h2>
+          <p className="text-sm text-muted-foreground mt-2 max-w-3xl" data-testid="site-publishing-description">Publicação direta no site, sem CMS externo, com logs e rollback.</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {!settings.authorized ? (
@@ -41,15 +41,15 @@ export const SitePublishingGatewaySection = ({ data, busy, onAuthorize, onRunNow
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6" data-testid="site-publishing-stats-grid">
+      <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-5" data-testid="site-publishing-stats-grid">
         <StatCard label="Autorização" value={settings.authorized ? "Ativa" : "Pendente"} helper={settings.authorization_note} testId="site-publishing-stat-authorized" />
         <StatCard label="Entradas publicadas" value={summary.published_entries || 0} helper="Artigos, páginas e overrides ativos" testId="site-publishing-stat-published" />
         <StatCard label="Falhas monitorizadas" value={summary.failures || 0} helper="Registadas no log interno" testId="site-publishing-stat-failures" />
         <StatCard label="Rollbacks" value={summary.rollbacks || 0} helper="Reversões executadas com histórico" testId="site-publishing-stat-rollbacks" />
       </div>
 
-      <div className="grid xl:grid-cols-[0.92fr_1.08fr] gap-5 mb-6">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="site-publishing-architecture-card">
+      <div className="grid xl:grid-cols-[0.92fr_1.08fr] gap-4 mb-5">
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="site-publishing-architecture-card">
           <div className="flex items-center gap-2 mb-4"><Sparkles className="w-4 h-4 text-[#A78BFA]" /><h3 className="font-medium">Arquitetura real encontrada</h3></div>
           <div className="space-y-4 text-sm text-muted-foreground">
             <p data-testid="site-publishing-frontend-summary"><span className="text-foreground">Frontend:</span> {architecture.frontend?.stack}. Conteúdo público atual: {architecture.frontend?.public_content_storage_today}</p>
@@ -59,8 +59,8 @@ export const SitePublishingGatewaySection = ({ data, busy, onAuthorize, onRunNow
           </div>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="site-publishing-analytics-card">
-          <h3 className="font-medium mb-4">P2 já ativo no gateway</h3>
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="site-publishing-analytics-card">
+          <h3 className="font-medium mb-4">Aprendizagem do gateway</h3>
           <div className="space-y-4 text-sm text-muted-foreground">
             <div data-testid="site-publishing-campaign-comparison-block">
               <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">Analytics comparativos por campanha</p>
@@ -87,8 +87,8 @@ export const SitePublishingGatewaySection = ({ data, busy, onAuthorize, onRunNow
         </div>
       </div>
 
-      <div className="grid xl:grid-cols-[1.02fr_0.98fr] gap-5">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="site-publishing-entries-card">
+      <div className="grid xl:grid-cols-[1.02fr_0.98fr] gap-4">
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="site-publishing-entries-card">
           <h3 className="font-medium mb-4">Publicações e páginas geridas</h3>
           {entries.length === 0 ? <p className="text-sm text-muted-foreground" data-testid="site-publishing-entries-empty">Ainda não existem conteúdos públicos no gateway.</p> : (
             <div className="space-y-3">
@@ -117,8 +117,8 @@ export const SitePublishingGatewaySection = ({ data, busy, onAuthorize, onRunNow
           )}
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="site-publishing-logs-card">
-          <h3 className="font-medium mb-4">Log completo para auditoria e rollback</h3>
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="site-publishing-logs-card">
+          <h3 className="font-medium mb-4">Log e rollback</h3>
           {logs.length === 0 ? <p className="text-sm text-muted-foreground" data-testid="site-publishing-logs-empty">Sem eventos registados ainda.</p> : (
             <div className="space-y-3">
               {logs.slice(0, 6).map((log, index) => (

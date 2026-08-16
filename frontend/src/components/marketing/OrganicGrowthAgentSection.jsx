@@ -97,18 +97,18 @@ export const OrganicGrowthAgentSection = ({ data, busy, onCreateStrategy, onAppr
   };
 
   return (
-    <div className="surface rounded-3xl p-6 md:p-8 mb-8" data-testid="mkt-organic-agent">
-      <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
+    <div className="surface rounded-[22px] p-5 md:p-6 mb-5" data-testid="mkt-organic-agent">
+      <div className="flex items-end justify-between gap-4 flex-wrap mb-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Growth Agent · território exclusivo</p>
-          <h2 className="font-serif-lux text-xl flex items-center gap-2 mt-2"><Bot className="w-5 h-5 text-[#3B82F6]" /> Estratégia autónoma do site</h2>
-          <p className="text-sm text-muted-foreground mt-2 max-w-3xl" data-testid="mkt-organic-description">Este agente pede o domínio, analisa o site, cruza metas dos Diretores Financeiro e Comercial, propõe a estratégia de 90 dias e, após aprovação inicial, entra em modo autónomo para criar, publicar, medir e otimizar apenas o site e o SEO.</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Agente · Site</p>
+          <h2 className="font-serif-lux text-lg flex items-center gap-2 mt-2"><Bot className="w-5 h-5 text-[#3B82F6]" /> Estratégia</h2>
+          <p className="text-sm text-muted-foreground mt-2 max-w-3xl" data-testid="mkt-organic-description">Define objetivo, lê o site e prepara o plano de 90 dias antes de entrar em modo autónomo.</p>
         </div>
         {agent && <StatusBadge status={agent.status} />}
       </div>
 
-      <div className="grid xl:grid-cols-[0.9fr_1.1fr] gap-5 mb-6">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="mkt-organic-setup-card">
+      <div className="grid xl:grid-cols-[0.9fr_1.1fr] gap-4 mb-5">
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="mkt-organic-setup-card">
           <div className="space-y-4">
             <div>
               <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground" data-testid="mkt-organic-domain-label">Domínio do site</label>
@@ -131,7 +131,7 @@ export const OrganicGrowthAgentSection = ({ data, busy, onCreateStrategy, onAppr
           </div>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="mkt-organic-controls-card">
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="mkt-organic-controls-card">
           <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
             <div>
               <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Painel operacional</p>
@@ -171,7 +171,7 @@ export const OrganicGrowthAgentSection = ({ data, busy, onCreateStrategy, onAppr
       </div>
 
       {agent?.metrics && (
-        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6" data-testid="mkt-organic-metrics-grid">
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-5" data-testid="mkt-organic-metrics-grid">
           <MetricCard label="Tráfego" value={agent.metrics.traffic || 0} helper={agent.metrics.traffic_label} testId="mkt-organic-metric-traffic" />
           <MetricCard label="Leads" value={agent.metrics.leads || 0} helper="Novos leads CRM nos últimos 30 dias" testId="mkt-organic-metric-leads" />
           <MetricCard label="Conversão" value={`${agent.metrics.conversion_rate || 0}%`} helper="Leads / tráfego do site" testId="mkt-organic-metric-conversion" />
@@ -180,15 +180,15 @@ export const OrganicGrowthAgentSection = ({ data, busy, onCreateStrategy, onAppr
       )}
 
       {agent?.blockers?.length > 0 && (
-        <div className="rounded-3xl border border-amber-400/20 bg-amber-500/10 p-5 mb-6" data-testid="mkt-organic-blockers-card">
+        <div className="rounded-[20px] border border-amber-400/20 bg-amber-500/10 p-4 mb-5" data-testid="mkt-organic-blockers-card">
           <div className="flex items-center gap-2 mb-3"><AlertTriangle className="w-4 h-4 text-amber-300" /><h3 className="font-medium">Bloqueios do site e SEO</h3></div>
           <BulletList items={agent.blockers} testIdPrefix="mkt-organic-blocker" />
         </div>
       )}
 
       {agent && (
-        <div className="grid xl:grid-cols-[0.92fr_1.08fr] gap-5 mb-6">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="mkt-organic-site-analysis">
+        <div className="grid xl:grid-cols-[0.92fr_1.08fr] gap-4 mb-5">
+          <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="mkt-organic-site-analysis">
             <div className="flex items-center gap-2 mb-4"><Compass className="w-4 h-4 text-[#A78BFA]" /><h3 className="font-medium">Leitura do site</h3></div>
             <p className="text-sm text-muted-foreground leading-6 mb-4" data-testid="mkt-organic-site-summary">{agent.site_analysis?.website_summary}</p>
             <div className="space-y-4 text-sm">
@@ -215,7 +215,7 @@ export const OrganicGrowthAgentSection = ({ data, busy, onCreateStrategy, onAppr
           </div>
 
           <div className="space-y-5">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="mkt-organic-director-alignment">
+            <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="mkt-organic-director-alignment">
               <div className="flex items-center gap-2 mb-4"><Sparkles className="w-4 h-4 text-[#3B82F6]" /><h3 className="font-medium">Alinhamento obrigatório com os Diretores</h3></div>
               <div className="grid md:grid-cols-2 gap-4">
                 {[
@@ -232,7 +232,7 @@ export const OrganicGrowthAgentSection = ({ data, busy, onCreateStrategy, onAppr
               </div>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="mkt-organic-strategy-card">
+            <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="mkt-organic-strategy-card">
               <div className="flex items-center gap-2 mb-4"><Target className="w-4 h-4 text-[#10B981]" /><h3 className="font-medium">Estratégia de 90 dias</h3></div>
               <p className="text-sm text-muted-foreground leading-6 mb-4" data-testid="mkt-organic-strategy-thesis">{agent.strategy?.thesis}</p>
               <div className="rounded-2xl border border-white/8 bg-black/10 p-4 mb-4" data-testid="mkt-organic-strategy-north-star">
@@ -264,8 +264,8 @@ export const OrganicGrowthAgentSection = ({ data, busy, onCreateStrategy, onAppr
       )}
 
       {agent && (
-        <div className="grid xl:grid-cols-[1fr_1fr] gap-5">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="mkt-organic-actions-card">
+        <div className="grid xl:grid-cols-[1fr_1fr] gap-4">
+          <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="mkt-organic-actions-card">
             <div className="flex items-center gap-2 mb-4"><TrendingUp className="w-4 h-4 text-[#A78BFA]" /><h3 className="font-medium">Ações autónomas no site</h3></div>
             {(data?.actions || []).length === 0 ? (
               <p className="text-sm text-muted-foreground" data-testid="mkt-organic-actions-empty">Depois da aprovação inicial, o Growth Agent começará a criar atualizações do site, publicá-las pelo gateway e reajustá-las aqui.</p>
@@ -287,7 +287,7 @@ export const OrganicGrowthAgentSection = ({ data, busy, onCreateStrategy, onAppr
             )}
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="mkt-organic-reports-card">
+          <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="mkt-organic-reports-card">
             <div className="flex items-center gap-2 mb-4"><FileText className="w-4 h-4 text-[#F59E0B]" /><h3 className="font-medium">Relatórios automáticos</h3></div>
             <Tabs defaultValue="daily" data-testid="mkt-organic-reports-tabs">
               <TabsList className="bg-white/[0.04] rounded-full p-1 mb-4">
@@ -304,7 +304,7 @@ export const OrganicGrowthAgentSection = ({ data, busy, onCreateStrategy, onAppr
       )}
 
       {!agent && (
-        <div className="rounded-3xl border border-dashed border-white/15 bg-white/[0.02] p-8 mt-2 text-center" data-testid="mkt-organic-empty-state">
+        <div className="rounded-[20px] border border-dashed border-white/15 bg-white/[0.02] p-6 mt-2" data-testid="mkt-organic-empty-state">
           <BarChart3 className="w-8 h-8 text-[#A78BFA] mx-auto mb-3" />
           <p className="font-medium">Primeira execução: peça o domínio e aprove a estratégia inicial</p>
           <p className="text-sm text-muted-foreground mt-2 max-w-2xl mx-auto">Depois disso, o agente entra em modo autónomo, gera ações para o site, publica através do gateway, mede sinais de tráfego/leads/conversão e só interrompe para decisões estratégicas reais.</p>

@@ -38,17 +38,17 @@ export const CampaignStudioSection = ({ campaigns, generating, onGenerate }) => 
   };
 
   return (
-    <div className="surface rounded-3xl p-6 md:p-8 mb-8" data-testid="mkt-campaign-studio">
-      <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
+    <div className="surface rounded-[22px] p-5 md:p-6 mb-5" data-testid="mkt-campaign-studio">
+      <div className="flex items-end justify-between gap-4 flex-wrap mb-4">
         <div>
-          <h2 className="font-serif-lux text-xl flex items-center gap-2"><Layers3 className="w-5 h-5 text-[#A78BFA]" /> Social Media Agent · Campanhas</h2>
-          <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-campaign-description">Crie campanhas para redes sociais por objetivo — awareness, leads ou reativação — já alinhadas com CRM, memórias e contexto financeiro.</p>
+          <h2 className="font-serif-lux text-lg flex items-center gap-2"><Layers3 className="w-5 h-5 text-[#A78BFA]" /> Campanhas</h2>
+          <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-campaign-description">Crie campanhas sociais por objetivo, já alinhadas com contexto comercial.</p>
         </div>
         <span className="text-xs text-muted-foreground" data-testid="mkt-campaign-count">{(campaigns || []).length} campanhas guardadas</span>
       </div>
 
-      <div className="grid xl:grid-cols-[0.85fr_1.15fr] gap-5">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid="mkt-campaign-form">
+      <div className="grid xl:grid-cols-[0.85fr_1.15fr] gap-4">
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid="mkt-campaign-form">
           <div className="space-y-4">
             <div>
               <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground" data-testid="mkt-campaign-objective-label">Objetivo</label>
@@ -100,7 +100,7 @@ export const CampaignStudioSection = ({ campaigns, generating, onGenerate }) => 
             </div>
           ) : (
             campaigns.map((campaign, index) => (
-              <div key={campaign.id || index} className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid={`mkt-campaign-card-${index}`}>
+              <div key={campaign.id || index} className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid={`mkt-campaign-card-${index}`}>
                 <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
                   <div>
                     <p className="text-xs uppercase tracking-[0.18em] text-[#A78BFA]" data-testid={`mkt-campaign-objective-label-${index}`}>{campaign.objective_label}</p>

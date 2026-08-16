@@ -142,32 +142,48 @@ const AgentAreaLink = ({ id, label, testId, tone = "site" }) => {
   );
 };
 
+const OrderStrip = ({ items = [], tone = "site", testId }) => {
+  const theme = tone === "site"
+    ? "border-[#3B82F6]/16 bg-[#3B82F6]/10 text-[#BFDBFE]"
+    : "border-[#A78BFA]/16 bg-[#A78BFA]/10 text-[#E9D5FF]";
+
+  return (
+    <div className="flex flex-wrap gap-2 mt-4" data-testid={testId}>
+      {items.map((item, index) => (
+        <span key={`${item}-${index}`} className={`rounded-full border px-3 py-1.5 text-[11px] tracking-[0.08em] ${theme}`}>
+          {index + 1}. {item}
+        </span>
+      ))}
+    </div>
+  );
+};
+
 const AgentWorkspace = ({ rootId, testId, tone = "site", eyebrow, title, description, countLabel, areas, children }) => {
   const theme = tone === "site"
     ? {
-        shell: "border-[#3B82F6]/14 bg-[linear-gradient(180deg,rgba(59,130,246,0.09),rgba(8,15,28,0.3))]",
+        shell: "border-[#3B82F6]/14 bg-[#07111E]/88 backdrop-blur-xl shadow-[0_18px_50px_rgba(2,6,23,0.28)]",
         eyebrow: "text-[#93C5FD]",
       }
     : {
-        shell: "border-[#A78BFA]/14 bg-[linear-gradient(180deg,rgba(167,139,250,0.08),rgba(18,10,34,0.28))]",
+        shell: "border-[#A78BFA]/14 bg-[#120D1F]/88 backdrop-blur-xl shadow-[0_18px_50px_rgba(2,6,23,0.28)]",
         eyebrow: "text-[#DDD6FE]",
       };
 
   return (
     <section id={rootId} className="scroll-mt-24 mb-10" data-testid={testId}>
-      <div className={`rounded-[32px] border p-6 md:p-8 ${theme.shell}`}>
-        <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
-          <div className="max-w-3xl">
+      <div className={`rounded-[24px] border p-5 md:p-6 ${theme.shell}`}>
+        <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
+          <div className="max-w-3xl space-y-2">
             <p className={`text-xs uppercase tracking-[0.22em] ${theme.eyebrow}`}>{eyebrow}</p>
-            <h2 className="font-serif-lux text-3xl mt-3">{title}</h2>
-            <p className="text-sm md:text-base text-muted-foreground mt-3">{description}</p>
+            <h2 className="font-serif-lux text-[28px] leading-tight">{title}</h2>
+            <p className="text-sm text-muted-foreground max-w-2xl">{description}</p>
           </div>
-          <div className="rounded-full border border-white/10 bg-black/10 px-4 py-2 text-xs uppercase tracking-[0.18em] text-muted-foreground" data-testid={`${testId}-count`}>
+          <div className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground" data-testid={`${testId}-count`}>
             {countLabel}
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-8" data-testid={`${testId}-areas`}>
+        <div className="flex flex-wrap gap-2 mb-6" data-testid={`${testId}-areas`}>
           {areas.map((area) => (
             <AgentAreaLink key={area.id} id={area.id} label={area.label} testId={area.testId} tone={tone} />
           ))}
@@ -947,16 +963,16 @@ function Marketing() {
   const socialAgentAreas = content ? SOCIAL_AGENT_AREAS : SOCIAL_AGENT_STARTER_AREAS;
 
   return (
-    <div className="px-6 md:px-16 py-14 md:py-20 max-w-[1200px] mx-auto" data-testid="marketing-page">
-      <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground mb-3">Conselho Executivo · Diretor de Marketing</p>
-      <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
+    <div className="px-6 md:px-12 py-12 md:py-14 max-w-[1240px] mx-auto" data-testid="marketing-page">
+      <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground mb-3">Conselho Executivo · Marketing</p>
+      <div className="flex items-end justify-between flex-wrap gap-4 mb-6">
         <div className="space-y-2 max-w-3xl">
-          <h1 className="font-serif-lux text-4xl md:text-5xl text-[#A78BFA] flex items-center gap-3" data-testid="marketing-page-title">
+          <h1 className="font-serif-lux text-4xl md:text-5xl text-[#A78BFA] flex items-center gap-3 leading-tight" data-testid="marketing-page-title">
             <Megaphone className="w-8 h-8" />
-            Marketing · Agente · Site + Agente · Redes Sociais
+            Marketing organizado por agente
           </h1>
-          <p className="text-sm md:text-base text-muted-foreground" data-testid="marketing-page-subtitle">
-            O Marketing está agora organizado em duas frentes claras: <strong>Agente · Site</strong> para tudo o que mexe com Growth, site e SEO, e <strong>Agente · Redes Sociais</strong> para tudo o que mexe com Facebook, Instagram, conteúdos, calendário, publicação e resultados sociais.
+          <p className="text-sm md:text-base text-muted-foreground max-w-2xl" data-testid="marketing-page-subtitle">
+            Duas frentes claras, sem mistura: <strong>Agente · Site</strong> para Growth, site e SEO; <strong>Agente · Redes Sociais</strong> para Facebook, Instagram, conteúdos, calendário e resultados.
           </p>
           {updated && <p className="text-xs text-muted-foreground" data-testid="mkt-updated-at">Atualizado em {new Date(updated).toLocaleString("pt-PT")}</p>}
         </div>
@@ -974,16 +990,18 @@ function Marketing() {
         )}
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-5 mb-8" data-testid="marketing-agent-boundary-grid">
-        <a href={`#${SECTION_IDS.siteAgent}`} className="surface rounded-3xl p-6 transition-colors hover:bg-white/[0.04]" data-testid="marketing-growth-boundary-card">
+      <div className="grid lg:grid-cols-2 gap-4 mb-8" data-testid="marketing-agent-boundary-grid">
+        <a href={`#${SECTION_IDS.siteAgent}`} className="surface rounded-[22px] p-5 transition-colors hover:bg-white/[0.04]" data-testid="marketing-growth-boundary-card">
           <p className="text-xs uppercase tracking-[0.2em] text-[#3B82F6]">Agente · Site</p>
-          <h2 className="font-serif-lux text-2xl mt-2">Tudo do Growth Agent num só bloco</h2>
-          <p className="text-sm text-muted-foreground mt-3">Aqui ficam juntas as 3 frentes do site: estratégia, gateway de publicação e monitorização SEO/GA4/GSC — sem misturar redes sociais.</p>
+          <h2 className="font-serif-lux text-[26px] mt-2 leading-tight">Estratégia, publicação e monitorização</h2>
+          <p className="text-sm text-muted-foreground mt-2">As 3 frentes do Growth ficam juntas num único espaço do site.</p>
+          <OrderStrip items={["Estratégia", "Gateway", "SEO/GA4/GSC"]} tone="site" testId="marketing-site-order-strip" />
         </a>
-        <a href={`#${SECTION_IDS.socialAgentRoot}`} className="surface rounded-3xl p-6 transition-colors hover:bg-white/[0.04]" data-testid="marketing-social-boundary-card">
+        <a href={`#${SECTION_IDS.socialAgentRoot}`} className="surface rounded-[22px] p-5 transition-colors hover:bg-white/[0.04]" data-testid="marketing-social-boundary-card">
           <p className="text-xs uppercase tracking-[0.2em] text-[#A78BFA]">Agente · Redes Sociais</p>
-          <h2 className="font-serif-lux text-2xl mt-2">Facebook, Instagram e operação social</h2>
-          <p className="text-sm text-muted-foreground mt-3">Aqui ficam juntas as 6 frentes sociais: automação, Meta, marca & conteúdo, campanhas, aprovação & calendário, e operação & resultados.</p>
+          <h2 className="font-serif-lux text-[26px] mt-2 leading-tight">Operação social do conteúdo ao resultado</h2>
+          <p className="text-sm text-muted-foreground mt-2">As 6 frentes sociais ficam agrupadas num fluxo único e claro.</p>
+          <OrderStrip items={["Automação", "Meta", "Marca & Conteúdo", "Campanhas", "Aprovação & Calendário", "Operação & Resultados"]} tone="social" testId="marketing-social-order-strip" />
         </a>
       </div>
 
@@ -992,8 +1010,8 @@ function Marketing() {
         testId="marketing-site-workspace"
         tone="site"
         eyebrow="Agente · Site"
-        title="Growth Agent separado e focado só no site"
-        description="Mantive todas as funções do Growth Agent, mas agora agrupadas num único espaço do site: estratégia, publicação e monitorização. Nada aqui mexe com Facebook ou Instagram."
+        title="Agente do site"
+        description="Tudo o que é Growth do site, em ordem clara: estratégia, gateway e SEO/GA4/GSC."
         countLabel="3 frentes do site"
         areas={SITE_AGENT_AREAS}
       >
@@ -1037,8 +1055,8 @@ function Marketing() {
         testId="marketing-social-workspace"
         tone="social"
         eyebrow="Agente · Redes Sociais"
-        title="Social Media Agent separado para Facebook e Instagram"
-        description="Mantive toda a operação social, mas agora agrupada num único espaço: automação, Meta, conteúdo, campanhas, aprovação, calendário, fila, analytics e briefing."
+        title="Agente de redes sociais"
+        description="Toda a operação social em sequência: automação, Meta, conteúdo, campanhas, aprovação e resultados."
         countLabel={content ? "6 frentes sociais" : "social pronto a ativar"}
         areas={socialAgentAreas}
       >
@@ -1059,16 +1077,16 @@ function Marketing() {
           selectingPageId={selectingPageId}
         />
 
-          <div className="surface rounded-3xl p-6 md:p-7 mb-8" data-testid="mkt-logo-card">
+          <div className="surface rounded-[22px] p-5 md:p-6 mb-6" data-testid="mkt-logo-card">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center overflow-hidden shrink-0">
                 {logo ? <img src={logo} alt="Logo" className="w-full h-full object-contain p-1.5" data-testid="mkt-logo-preview" /> : <ImageIcon className="w-6 h-6 text-muted-foreground" />}
               </div>
               <div>
-                  <h2 className="font-serif-lux text-xl" data-testid="mkt-logo-title">Logo e identidade visual social</h2>
+                  <h2 className="font-serif-lux text-lg" data-testid="mkt-logo-title">Logo social</h2>
                 <p className="text-sm text-muted-foreground mt-1 max-w-md" data-testid="mkt-logo-description">
-                  {logo ? "O seu logo será sobreposto automaticamente em todas as imagens geradas." : "Carregue o seu logo para aparecer nas imagens geradas e nas publicações sociais."}
+                  {logo ? "O logo entra automaticamente nas imagens geradas." : "Carregue o logo para aparecer nas imagens e publicações sociais."}
                 </p>
               </div>
             </div>
@@ -1089,32 +1107,32 @@ function Marketing() {
 
       {!content ? (
         <section id={SECTION_IDS.socialGetStarted} className="scroll-mt-24" data-testid="marketing-section-social-get-started">
-          <div className="surface rounded-3xl p-8 md:p-12 text-center" data-testid="mkt-intro">
-            <div className="w-14 h-14 rounded-2xl bg-[#A78BFA]/18 flex items-center justify-center mx-auto mb-6">
+          <div className="surface rounded-[22px] p-6 md:p-7" data-testid="mkt-intro">
+            <div className="w-12 h-12 rounded-2xl bg-[#A78BFA]/18 flex items-center justify-center mb-4">
               <Megaphone className="w-7 h-7 text-[#A78BFA]" />
             </div>
-            <h2 className="font-serif-lux text-2xl mb-2" data-testid="mkt-intro-title">O Diretor de Marketing está pronto</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto mb-8" data-testid="mkt-intro-description">
-              O Social Media Agent vai cruzar identidade da marca, CRM, memórias estratégicas e contexto ERP para criar campanhas, posts e um calendário editorial de 30 dias pronto a aprovar.
+            <h2 className="font-serif-lux text-[24px] mb-2" data-testid="mkt-intro-title">Arrancar o agente social</h2>
+            <p className="text-sm text-muted-foreground max-w-2xl mb-6" data-testid="mkt-intro-description">
+              O agente cruza identidade, CRM, memórias e contexto do negócio para gerar campanhas, posts e um calendário pronto a aprovar.
             </p>
-            <Button data-testid="mkt-generate-btn" onClick={generate} disabled={gen} className="rounded-full bg-[#A78BFA] text-white hover:bg-[#9333EA] px-8 h-12 text-base">
+            <Button data-testid="mkt-generate-btn" onClick={generate} disabled={gen} className="rounded-full bg-[#A78BFA] text-white hover:bg-[#9333EA] px-6 h-11 text-sm">
               {gen ? <><Loader2 className="w-5 h-5 animate-spin mr-2" /> A criar conteúdos…</> : <><Play className="w-5 h-5 mr-2" /> Gerar conteúdos</>}
             </Button>
           </div>
         </section>
       ) : (
         <>
-          <div className="grid md:grid-cols-3 gap-4 mb-8" data-testid="mkt-workflow-summary">
+          <div className="grid md:grid-cols-3 gap-3 mb-6" data-testid="mkt-workflow-summary">
             {[
               { key: "draft", label: "Rascunhos", value: workflow.draft, icon: ShieldCheck },
               { key: "approved", label: "Aprovados", value: workflow.approved, icon: BadgeCheck },
               { key: "scheduled", label: "Agendados", value: workflow.scheduled, icon: Clock },
             ].map(({ key, label, value, icon: Icon }) => (
-              <div key={key} className="surface rounded-3xl p-5" data-testid={`mkt-workflow-${key}`}>
+              <div key={key} className="surface rounded-[20px] p-4" data-testid={`mkt-workflow-${key}`}>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
-                    <p className="text-3xl font-semibold mt-3" data-testid={`mkt-workflow-${key}-value`}>{value || 0}</p>
+                    <p className="text-2xl font-semibold mt-2" data-testid={`mkt-workflow-${key}-value`}>{value || 0}</p>
                   </div>
                   <div className="w-11 h-11 rounded-2xl bg-white/5 flex items-center justify-center">
                     <Icon className="w-5 h-5 text-[#A78BFA]" />
@@ -1126,9 +1144,9 @@ function Marketing() {
 
           {content.brand && (
             <section id={SECTION_IDS.socialBrandIdentity} className="scroll-mt-24" data-testid="marketing-section-social-brand-identity">
-              <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-5 mb-8">
-              <div className="surface rounded-3xl p-6 md:p-8" data-testid="mkt-brand">
-                <h2 className="font-serif-lux text-xl mb-2 flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#A78BFA]" /> Identidade da marca</h2>
+              <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-4 mb-6">
+              <div className="surface rounded-[22px] p-5 md:p-6" data-testid="mkt-brand">
+                <h2 className="font-serif-lux text-lg mb-2 flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#A78BFA]" /> Marca</h2>
                 <p className="text-muted-foreground mb-4" data-testid="mkt-brand-tone">{content.brand.tom}</p>
                 <div className="space-y-5">
                   <div>
@@ -1152,8 +1170,8 @@ function Marketing() {
                 </div>
               </div>
 
-              <div className="surface rounded-3xl p-6 md:p-8" data-testid="mkt-brand-brain">
-                <h2 className="font-serif-lux text-xl mb-2 flex items-center gap-2"><BrainCircuit className="w-5 h-5 text-[#3B82F6]" /> Brand Brain</h2>
+              <div className="surface rounded-[22px] p-5 md:p-6" data-testid="mkt-brand-brain">
+                <h2 className="font-serif-lux text-lg mb-2 flex items-center gap-2"><BrainCircuit className="w-5 h-5 text-[#3B82F6]" /> Brand Brain</h2>
                 <p className="text-sm text-muted-foreground mb-5" data-testid="mkt-brand-brain-positioning">{brandBrain.positioning || "Sem posicionamento disponível."}</p>
                 <div className="grid grid-cols-2 gap-3 mb-5" data-testid="mkt-brand-brain-sources">
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
@@ -1189,17 +1207,17 @@ function Marketing() {
           )}
 
           {content.biblioteca?.length > 0 && (
-            <div className="surface rounded-3xl p-6 md:p-8 mb-8" data-testid="mkt-library">
+            <div className="surface rounded-[22px] p-5 md:p-6 mb-6" data-testid="mkt-library">
               <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
                 <div>
-                  <h2 className="font-serif-lux text-xl flex items-center gap-2"><Library className="w-5 h-5 text-[#3B82F6]" /> Biblioteca de conteúdos</h2>
-                  <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-library-description">Ângulos reutilizáveis para manter consistência editorial durante os próximos 30 dias.</p>
+                  <h2 className="font-serif-lux text-lg flex items-center gap-2"><Library className="w-5 h-5 text-[#3B82F6]" /> Biblioteca</h2>
+                  <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-library-description">Ângulos reutilizáveis para manter consistência editorial.</p>
                 </div>
                 <div className="text-xs text-muted-foreground" data-testid="mkt-library-count">{content.biblioteca.length} ângulos ativos</div>
               </div>
               <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {content.biblioteca.map((item, index) => (
-                  <div key={item.id || index} className="rounded-3xl border border-white/10 bg-white/[0.03] p-5" data-testid={`mkt-library-${index}`}>
+                  <div key={item.id || index} className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4" data-testid={`mkt-library-${index}`}>
                     <div className="flex items-center justify-between gap-3 mb-3">
                       <p className="font-medium text-base" data-testid={`mkt-library-title-${index}`}>{item.titulo}</p>
                       <Target className="w-4 h-4 text-[#A78BFA] shrink-0" />
@@ -1244,15 +1262,15 @@ function Marketing() {
           <section id={SECTION_IDS.socialApproval} className="scroll-mt-24" data-testid="marketing-section-social-approval-content">
             <div className="flex items-end justify-between flex-wrap gap-4 mb-4">
             <div>
-              <h2 className="font-serif-lux text-2xl" data-testid="mkt-posts-title">Social Media Agent · Conteúdos prontos a aprovar</h2>
-              <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-posts-description">Aprovar → publicar/agendar. Cada peça já nasce ligada ao plano editorial de 30 dias e só alimenta o agente social.</p>
+              <h2 className="font-serif-lux text-[24px]" data-testid="mkt-posts-title">Conteúdos para aprovação</h2>
+              <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-posts-description">Aprovar, publicar ou agendar — sempre dentro do agente social.</p>
             </div>
             <WorkflowBadge status="approved" testId="mkt-workflow-hint" />
             </div>
 
-            <div className="grid md:grid-cols-2 gap-5 mb-10" data-testid="mkt-posts">
+            <div className="grid md:grid-cols-2 gap-4 mb-8" data-testid="mkt-posts">
               {(content.posts || []).map((post, index) => (
-                <motion.div key={post.id || index} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }} className="surface rounded-3xl p-6 flex flex-col" data-testid={`mkt-post-${index}`}>
+                <motion.div key={post.id || index} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }} className="surface rounded-[22px] p-5 flex flex-col" data-testid={`mkt-post-${index}`}>
                 {post.image_url ? (
                   <img src={post.image_url} alt={post.titulo} className="w-full aspect-square object-cover rounded-2xl mb-4" data-testid={`mkt-img-${index}`} />
                 ) : (
@@ -1369,11 +1387,11 @@ function Marketing() {
 
           {content.calendario?.length > 0 && (
             <section id={SECTION_IDS.socialCalendar} className="scroll-mt-24" data-testid="marketing-section-social-editorial-calendar">
-              <div className="surface rounded-3xl p-6 md:p-8" data-testid="mkt-calendar">
+              <div className="surface rounded-[22px] p-5 md:p-6" data-testid="mkt-calendar">
               <div className="flex items-end justify-between gap-4 flex-wrap mb-4">
                 <div>
-                  <h2 className="font-serif-lux text-xl flex items-center gap-2"><Calendar className="w-5 h-5 text-[#A78BFA]" /> Social Media Agent · Calendário editorial 30 dias</h2>
-                  <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-calendar-description">Planeamento operacional das redes sociais com ligação direta aos conteúdos aprovados.</p>
+                  <h2 className="font-serif-lux text-lg flex items-center gap-2"><Calendar className="w-5 h-5 text-[#A78BFA]" /> Calendário editorial</h2>
+                  <p className="text-sm text-muted-foreground mt-2" data-testid="mkt-calendar-description">Planeamento social ligado aos conteúdos aprovados.</p>
                 </div>
                 <div className="text-xs text-muted-foreground" data-testid="mkt-calendar-count">{content.calendario.length} entradas</div>
               </div>
