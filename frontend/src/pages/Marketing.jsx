@@ -47,9 +47,12 @@ const STATUS_META = {
 };
 
 const SECTION_IDS = {
+  siteAgent: "marketing-agent-site",
+  socialAgentRoot: "marketing-agent-social",
   growthStrategy: "marketing-growth-site-strategy",
   growthPublishing: "marketing-growth-site-publishing",
   growthMonitor: "marketing-growth-seo-monitor",
+  socialGetStarted: "marketing-social-get-started",
   socialAgent: "marketing-social-agent",
   socialConnection: "marketing-social-connection",
   socialBrandIdentity: "marketing-social-brand-identity",
@@ -60,6 +63,27 @@ const SECTION_IDS = {
   socialApproval: "marketing-social-approval",
   socialCalendar: "marketing-social-calendar",
 };
+
+const SITE_AGENT_AREAS = [
+  { id: SECTION_IDS.growthStrategy, label: "Estratégia do Site", testId: "marketing-site-area-strategy" },
+  { id: SECTION_IDS.growthPublishing, label: "Gateway do Site", testId: "marketing-site-area-publishing" },
+  { id: SECTION_IDS.growthMonitor, label: "SEO · GA4 · GSC", testId: "marketing-site-area-monitor" },
+];
+
+const SOCIAL_AGENT_AREAS = [
+  { id: SECTION_IDS.socialAgent, label: "Automação", testId: "marketing-social-area-agent" },
+  { id: SECTION_IDS.socialConnection, label: "Meta", testId: "marketing-social-area-meta" },
+  { id: SECTION_IDS.socialBrandIdentity, label: "Marca & Conteúdo", testId: "marketing-social-area-brand" },
+  { id: SECTION_IDS.socialCampaigns, label: "Campanhas", testId: "marketing-social-area-campaigns" },
+  { id: SECTION_IDS.socialApproval, label: "Aprovação & Calendário", testId: "marketing-social-area-approval" },
+  { id: SECTION_IDS.socialExecution, label: "Operação & Resultados", testId: "marketing-social-area-operations" },
+];
+
+const SOCIAL_AGENT_STARTER_AREAS = [
+  { id: SECTION_IDS.socialAgent, label: "Automação", testId: "marketing-social-starter-agent" },
+  { id: SECTION_IDS.socialConnection, label: "Meta", testId: "marketing-social-starter-meta" },
+  { id: SECTION_IDS.socialGetStarted, label: "Gerar Conteúdos", testId: "marketing-social-starter-content" },
+];
 
 const captionOf = (post) => `${post.legenda || ""}\n\n${(post.hashtags || []).join(" ")}\n${post.cta || ""}`.trim();
 
@@ -101,6 +125,59 @@ const TargetToggle = ({ channel, Icon, label, enabled, onToggle, testId }) => (
     {label}
   </button>
 );
+
+const AgentAreaLink = ({ id, label, testId, tone = "site" }) => {
+  const theme = tone === "site"
+    ? "border-[#3B82F6]/20 bg-[#3B82F6]/10 text-[#BFDBFE] hover:bg-[#3B82F6]/16"
+    : "border-[#A78BFA]/20 bg-[#A78BFA]/10 text-[#E9D5FF] hover:bg-[#A78BFA]/16";
+
+  return (
+    <a
+      href={`#${id}`}
+      data-testid={testId}
+      className={`rounded-full border px-3.5 py-2 text-xs font-medium tracking-[0.08em] transition-colors ${theme}`}
+    >
+      {label}
+    </a>
+  );
+};
+
+const AgentWorkspace = ({ rootId, testId, tone = "site", eyebrow, title, description, countLabel, areas, children }) => {
+  const theme = tone === "site"
+    ? {
+        shell: "border-[#3B82F6]/14 bg-[linear-gradient(180deg,rgba(59,130,246,0.09),rgba(8,15,28,0.3))]",
+        eyebrow: "text-[#93C5FD]",
+      }
+    : {
+        shell: "border-[#A78BFA]/14 bg-[linear-gradient(180deg,rgba(167,139,250,0.08),rgba(18,10,34,0.28))]",
+        eyebrow: "text-[#DDD6FE]",
+      };
+
+  return (
+    <section id={rootId} className="scroll-mt-24 mb-10" data-testid={testId}>
+      <div className={`rounded-[32px] border p-6 md:p-8 ${theme.shell}`}>
+        <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
+          <div className="max-w-3xl">
+            <p className={`text-xs uppercase tracking-[0.22em] ${theme.eyebrow}`}>{eyebrow}</p>
+            <h2 className="font-serif-lux text-3xl mt-3">{title}</h2>
+            <p className="text-sm md:text-base text-muted-foreground mt-3">{description}</p>
+          </div>
+          <div className="rounded-full border border-white/10 bg-black/10 px-4 py-2 text-xs uppercase tracking-[0.18em] text-muted-foreground" data-testid={`${testId}-count`}>
+            {countLabel}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mb-8" data-testid={`${testId}-areas`}>
+          {areas.map((area) => (
+            <AgentAreaLink key={area.id} id={area.id} label={area.label} testId={area.testId} tone={tone} />
+          ))}
+        </div>
+
+        {children}
+      </div>
+    </section>
+  );
+};
 
 function Marketing() {
   const location = useLocation();
@@ -867,6 +944,7 @@ function Marketing() {
   }
 
   const brandBrain = content?.brand_brain || {};
+  const socialAgentAreas = content ? SOCIAL_AGENT_AREAS : SOCIAL_AGENT_STARTER_AREAS;
 
   return (
     <div className="px-6 md:px-16 py-14 md:py-20 max-w-[1200px] mx-auto" data-testid="marketing-page">
@@ -875,10 +953,10 @@ function Marketing() {
         <div className="space-y-2 max-w-3xl">
           <h1 className="font-serif-lux text-4xl md:text-5xl text-[#A78BFA] flex items-center gap-3" data-testid="marketing-page-title">
             <Megaphone className="w-8 h-8" />
-            Marketing · Growth Agent + Social Media Agent
+            Marketing · Agente · Site + Agente · Redes Sociais
           </h1>
           <p className="text-sm md:text-base text-muted-foreground" data-testid="marketing-page-subtitle">
-            Duas esteiras autónomas e separadas: o Growth Agent trata exclusivamente do site, SEO, GA4, GSC e conteúdo público; o Social Media Agent trata exclusivamente de redes sociais, calendário editorial, imagens, reels, legendas e publicação.
+            O Marketing está agora organizado em duas frentes claras: <strong>Agente · Site</strong> para tudo o que mexe com Growth, site e SEO, e <strong>Agente · Redes Sociais</strong> para tudo o que mexe com Facebook, Instagram, conteúdos, calendário, publicação e resultados sociais.
           </p>
           {updated && <p className="text-xs text-muted-foreground" data-testid="mkt-updated-at">Atualizado em {new Date(updated).toLocaleString("pt-PT")}</p>}
         </div>
@@ -897,62 +975,73 @@ function Marketing() {
       </div>
 
       <div className="grid lg:grid-cols-2 gap-5 mb-8" data-testid="marketing-agent-boundary-grid">
-        <div className="surface rounded-3xl p-6" data-testid="marketing-growth-boundary-card">
-          <p className="text-xs uppercase tracking-[0.2em] text-[#3B82F6]">Growth Agent</p>
-          <h2 className="font-serif-lux text-2xl mt-2">Site, SEO e monitorização orgânica</h2>
-          <p className="text-sm text-muted-foreground mt-3">Analisa domínio, gere gateway interno do site, recomenda e publica conteúdo público, acompanha GA4 + GSC e nunca toca nas redes sociais.</p>
-        </div>
-        <div className="surface rounded-3xl p-6" data-testid="marketing-social-boundary-card">
-          <p className="text-xs uppercase tracking-[0.2em] text-[#A78BFA]">Social Media Agent</p>
-          <h2 className="font-serif-lux text-2xl mt-2">Redes sociais, calendário e publicação</h2>
-          <p className="text-sm text-muted-foreground mt-3">Trabalha só no calendário editorial, peças criativas, imagens, reels, agendamento, publicação e analytics sociais — sem alterar o site ou o SEO.</p>
-        </div>
+        <a href={`#${SECTION_IDS.siteAgent}`} className="surface rounded-3xl p-6 transition-colors hover:bg-white/[0.04]" data-testid="marketing-growth-boundary-card">
+          <p className="text-xs uppercase tracking-[0.2em] text-[#3B82F6]">Agente · Site</p>
+          <h2 className="font-serif-lux text-2xl mt-2">Tudo do Growth Agent num só bloco</h2>
+          <p className="text-sm text-muted-foreground mt-3">Aqui ficam juntas as 3 frentes do site: estratégia, gateway de publicação e monitorização SEO/GA4/GSC — sem misturar redes sociais.</p>
+        </a>
+        <a href={`#${SECTION_IDS.socialAgentRoot}`} className="surface rounded-3xl p-6 transition-colors hover:bg-white/[0.04]" data-testid="marketing-social-boundary-card">
+          <p className="text-xs uppercase tracking-[0.2em] text-[#A78BFA]">Agente · Redes Sociais</p>
+          <h2 className="font-serif-lux text-2xl mt-2">Facebook, Instagram e operação social</h2>
+          <p className="text-sm text-muted-foreground mt-3">Aqui ficam juntas as 6 frentes sociais: automação, Meta, marca & conteúdo, campanhas, aprovação & calendário, e operação & resultados.</p>
+        </a>
       </div>
 
-      <div className="mb-4" data-testid="marketing-growth-heading">
-        <p className="text-xs uppercase tracking-[0.2em] text-[#3B82F6]">Pista 1</p>
-        <h2 className="font-serif-lux text-3xl mt-2">Growth Agent · Site & SEO</h2>
-      </div>
+      <AgentWorkspace
+        rootId={SECTION_IDS.siteAgent}
+        testId="marketing-site-workspace"
+        tone="site"
+        eyebrow="Agente · Site"
+        title="Growth Agent separado e focado só no site"
+        description="Mantive todas as funções do Growth Agent, mas agora agrupadas num único espaço do site: estratégia, publicação e monitorização. Nada aqui mexe com Facebook ou Instagram."
+        countLabel="3 frentes do site"
+        areas={SITE_AGENT_AREAS}
+      >
+        <section id={SECTION_IDS.growthStrategy} className="scroll-mt-24" data-testid="marketing-section-growth-strategy">
+          <OrganicGrowthAgentSection
+            data={organicData}
+            busy={organicBusy}
+            onCreateStrategy={createOrganicStrategy}
+            onApprove={approveOrganicStrategy}
+            onPause={pauseOrganicAgent}
+            onResume={resumeOrganicAgent}
+            onReanalyze={reanalyzeOrganicAgent}
+            onUpdateObjective={updateOrganicObjective}
+          />
+        </section>
 
-      <section id={SECTION_IDS.growthStrategy} className="scroll-mt-24" data-testid="marketing-section-growth-strategy">
-        <OrganicGrowthAgentSection
-          data={organicData}
-          busy={organicBusy}
-          onCreateStrategy={createOrganicStrategy}
-          onApprove={approveOrganicStrategy}
-          onPause={pauseOrganicAgent}
-          onResume={resumeOrganicAgent}
-          onReanalyze={reanalyzeOrganicAgent}
-          onUpdateObjective={updateOrganicObjective}
-        />
-      </section>
+        <section id={SECTION_IDS.growthPublishing} className="scroll-mt-24" data-testid="marketing-section-growth-publishing">
+          <SitePublishingGatewaySection
+            data={siteGateway}
+            busy={siteGatewayBusy}
+            onAuthorize={authorizeSitePublishing}
+            onRunNow={runSitePublishingNow}
+            onRollback={rollbackSiteEntry}
+            onRemove={removeSiteEntry}
+            onRefresh={loadSitePublishing}
+          />
+        </section>
 
-      <section id={SECTION_IDS.growthPublishing} className="scroll-mt-24" data-testid="marketing-section-growth-publishing">
-        <SitePublishingGatewaySection
-          data={siteGateway}
-          busy={siteGatewayBusy}
-          onAuthorize={authorizeSitePublishing}
-          onRunNow={runSitePublishingNow}
-          onRollback={rollbackSiteEntry}
-          onRemove={removeSiteEntry}
-          onRefresh={loadSitePublishing}
-        />
-      </section>
+        <section id={SECTION_IDS.growthMonitor} className="scroll-mt-24" data-testid="marketing-section-growth-monitor">
+          <GrowthAgentExecutiveSection
+            data={growthAgent}
+            busy={growthBusy}
+            onSync={syncGrowthAgent}
+            onRun={runGrowthAgent}
+          />
+        </section>
+      </AgentWorkspace>
 
-      <section id={SECTION_IDS.growthMonitor} className="scroll-mt-24" data-testid="marketing-section-growth-monitor">
-        <GrowthAgentExecutiveSection
-          data={growthAgent}
-          busy={growthBusy}
-          onSync={syncGrowthAgent}
-          onRun={runGrowthAgent}
-        />
-      </section>
-
-      <div className="mb-4 mt-10" data-testid="marketing-social-heading">
-        <p className="text-xs uppercase tracking-[0.2em] text-[#A78BFA]">Pista 2</p>
-        <h2 className="font-serif-lux text-3xl mt-2">Social Media Agent · Redes sociais</h2>
-      </div>
-
+      <AgentWorkspace
+        rootId={SECTION_IDS.socialAgentRoot}
+        testId="marketing-social-workspace"
+        tone="social"
+        eyebrow="Agente · Redes Sociais"
+        title="Social Media Agent separado para Facebook e Instagram"
+        description="Mantive toda a operação social, mas agora agrupada num único espaço: automação, Meta, conteúdo, campanhas, aprovação, calendário, fila, analytics e briefing."
+        countLabel={content ? "6 frentes sociais" : "social pronto a ativar"}
+        areas={socialAgentAreas}
+      >
       <section id={SECTION_IDS.socialAgent} className="scroll-mt-24" data-testid="marketing-section-social-agent">
         <SocialMediaAgentSection data={socialAgent} busy={socialAgentBusy} onRun={runSocialMediaAgent} onRefresh={loadSocialMediaAgent} />
       </section>
@@ -999,18 +1088,20 @@ function Marketing() {
       </section>
 
       {!content ? (
-        <div className="surface rounded-3xl p-8 md:p-12 text-center" data-testid="mkt-intro">
-          <div className="w-14 h-14 rounded-2xl bg-[#A78BFA]/18 flex items-center justify-center mx-auto mb-6">
-            <Megaphone className="w-7 h-7 text-[#A78BFA]" />
+        <section id={SECTION_IDS.socialGetStarted} className="scroll-mt-24" data-testid="marketing-section-social-get-started">
+          <div className="surface rounded-3xl p-8 md:p-12 text-center" data-testid="mkt-intro">
+            <div className="w-14 h-14 rounded-2xl bg-[#A78BFA]/18 flex items-center justify-center mx-auto mb-6">
+              <Megaphone className="w-7 h-7 text-[#A78BFA]" />
+            </div>
+            <h2 className="font-serif-lux text-2xl mb-2" data-testid="mkt-intro-title">O Diretor de Marketing está pronto</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto mb-8" data-testid="mkt-intro-description">
+              O Social Media Agent vai cruzar identidade da marca, CRM, memórias estratégicas e contexto ERP para criar campanhas, posts e um calendário editorial de 30 dias pronto a aprovar.
+            </p>
+            <Button data-testid="mkt-generate-btn" onClick={generate} disabled={gen} className="rounded-full bg-[#A78BFA] text-white hover:bg-[#9333EA] px-8 h-12 text-base">
+              {gen ? <><Loader2 className="w-5 h-5 animate-spin mr-2" /> A criar conteúdos…</> : <><Play className="w-5 h-5 mr-2" /> Gerar conteúdos</>}
+            </Button>
           </div>
-          <h2 className="font-serif-lux text-2xl mb-2" data-testid="mkt-intro-title">O Diretor de Marketing está pronto</h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto mb-8" data-testid="mkt-intro-description">
-            O Social Media Agent vai cruzar identidade da marca, CRM, memórias estratégicas e contexto ERP para criar campanhas, posts e um calendário editorial de 30 dias pronto a aprovar.
-          </p>
-          <Button data-testid="mkt-generate-btn" onClick={generate} disabled={gen} className="rounded-full bg-[#A78BFA] text-white hover:bg-[#9333EA] px-8 h-12 text-base">
-            {gen ? <><Loader2 className="w-5 h-5 animate-spin mr-2" /> A criar conteúdos…</> : <><Play className="w-5 h-5 mr-2" /> Gerar conteúdos</>}
-          </Button>
-        </div>
+        </section>
       ) : (
         <>
           <div className="grid md:grid-cols-3 gap-4 mb-8" data-testid="mkt-workflow-summary">
@@ -1313,6 +1404,7 @@ function Marketing() {
           </p>
         </>
       )}
+      </AgentWorkspace>
 
       <Dialog open={!!schedFor} onOpenChange={(open) => !open && setSchedFor(null)}>
         <DialogContent data-testid="mkt-schedule-dialog">

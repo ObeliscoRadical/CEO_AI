@@ -16,17 +16,27 @@ import { CEOTour } from "@/components/CEOTour";
 import { toast } from "sonner";
 
 const MARKETING_SUBNAV = [
-  { to: "/marketing#marketing-growth-site-strategy", hash: "#marketing-growth-site-strategy", label: "Growth Agent · Estratégia do Site", testid: "nav-marketing-growth-strategy" },
-  { to: "/marketing#marketing-growth-site-publishing", hash: "#marketing-growth-site-publishing", label: "Growth Agent · Gateway do Site", testid: "nav-marketing-growth-publishing" },
-  { to: "/marketing#marketing-growth-seo-monitor", hash: "#marketing-growth-seo-monitor", label: "Growth Agent · SEO / GA4 / GSC", testid: "nav-marketing-growth-monitor" },
-  { to: "/marketing#marketing-social-agent", hash: "#marketing-social-agent", label: "Social Media Agent · Automação", testid: "nav-marketing-social-agent", badge: "Novo" },
-  { to: "/marketing#marketing-social-connection", hash: "#marketing-social-connection", label: "Social Media Agent · Meta", testid: "nav-marketing-social-meta" },
-  { to: "/marketing#marketing-social-brand-identity", hash: "#marketing-social-brand-identity", label: "Social Media Agent · Marca & Conteúdo", testid: "nav-marketing-social-brand" },
-  { to: "/marketing#marketing-social-campaigns", hash: "#marketing-social-campaigns", label: "Social Media Agent · Campanhas", testid: "nav-marketing-social-campaigns" },
-  { to: "/marketing#marketing-social-approval", hash: "#marketing-social-approval", label: "Social Media Agent · Aprovação & Calendário", testid: "nav-marketing-social-approval" },
-  { to: "/marketing#marketing-social-execution", hash: "#marketing-social-execution", label: "Social Media Agent · Fila & Analytics", testid: "nav-marketing-social-execution" },
-  { to: "/marketing#marketing-social-briefing", hash: "#marketing-social-briefing", label: "Social Media Agent · Briefing", testid: "nav-marketing-social-briefing" },
+  { to: "/marketing#marketing-agent-site", hash: "#marketing-agent-site", label: "Agente · Site", testid: "nav-marketing-agent-site" },
+  { to: "/marketing#marketing-agent-social", hash: "#marketing-agent-social", label: "Agente · Redes Sociais", testid: "nav-marketing-agent-social" },
 ];
+
+const MARKETING_HASH_GROUPS = {
+  "#marketing-agent-site": "site",
+  "#marketing-growth-site-strategy": "site",
+  "#marketing-growth-site-publishing": "site",
+  "#marketing-growth-seo-monitor": "site",
+  "#marketing-agent-social": "social",
+  "#marketing-social-get-started": "social",
+  "#marketing-social-agent": "social",
+  "#marketing-social-connection": "social",
+  "#marketing-social-brand-identity": "social",
+  "#marketing-social-campaigns": "social",
+  "#marketing-social-execution": "social",
+  "#marketing-social-analytics": "social",
+  "#marketing-social-briefing": "social",
+  "#marketing-social-approval": "social",
+  "#marketing-social-calendar": "social",
+};
 
 const NAV = [
   { to: "/", label: "Painel do CEO", short: "Painel", icon: Home, end: true, testid: "nav-painel" },
@@ -215,8 +225,9 @@ export function AppLayout() {
   const isActive = (n) => (n.end ? location.pathname === n.to : location.pathname.startsWith(n.to));
   const isMarketingChildActive = (hash) => {
     if (location.pathname !== "/marketing") return false;
-    if (!location.hash && hash === MARKETING_SUBNAV[0].hash) return true;
-    return location.hash === hash;
+    const currentGroup = MARKETING_HASH_GROUPS[location.hash] || (!location.hash ? "site" : null);
+    const askedGroup = MARKETING_HASH_GROUPS[hash];
+    return Boolean(currentGroup && askedGroup && currentGroup === askedGroup);
   };
 
   const initials = (user?.name || user?.email || "?").trim().slice(0, 2).toUpperCase();

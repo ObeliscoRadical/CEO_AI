@@ -1,5 +1,20 @@
 # CHANGELOG — CEO AI
 
+## 2026-08-16 — Reorganização do módulo Marketing por agente
+- `frontend/src/components/AppLayout.jsx`
+  - submenu de Marketing simplificado para apenas 2 entradas:
+    - `Agente · Site`
+    - `Agente · Redes Sociais`
+  - active state por hash passou a agrupar secções antigas sob Site ou Redes Sociais
+- `frontend/src/pages/Marketing.jsx`
+  - página reorganizada em 2 workspaces grandes:
+    - `marketing-site-workspace`
+    - `marketing-social-workspace`
+  - **Agente · Site** passou a reunir as 3 frentes do Growth Agent
+  - **Agente · Redes Sociais** passou a reunir as 6 frentes sociais
+  - todas as secções antigas foram preservadas dentro do agente correto
+  - adicionados links internos por área para navegação sem poluir a sidebar
+
 ## 2026-08-16 — Hardening do readiness de insights Meta
 - `backend/routers/social.py`
   - parsing de scopes a partir de `granted_scopes` e `granular_scopes`

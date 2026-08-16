@@ -390,6 +390,18 @@ backend:
         agent: "testing"
         comment: "Tested 2026-08-13T17:27. Metrics snapshot correctly calculated from marketing_post_metrics (clicks + profile_visits for traffic), crm_leads count, and conversion rate (leads/traffic * 100). Metrics include traffic_label, leads, conversion_rate, converted_pipeline, published_posts, metrics_mocked flag, analytics_insights, recommended_actions, captured_at timestamp. All metrics present in agent payload and reports."
 
+  - task: "Marketing Module Backend Smoke Test - Post Visual Reorganization"
+    implemented: true
+    working: true
+    file: "/app/backend/routers/marketing.py, /app/backend/routers/social.py, /app/backend/routers/marketing_autonomous.py, /app/backend/routers/growth_agent.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Tested 2026-08-16T17:55. COMPREHENSIVE SMOKE TEST AFTER FRONTEND REORGANIZATION ✅. ALL 10 MAIN ENDPOINTS TESTED AND PASSING: (1) GET /api/marketing/content ✅ - Status 200, required field 'content' present, (2) GET /api/social/status ✅ - Status 200, required fields 'configured' and 'connection_state' present, (3) GET /api/social/media-agent ✅ - Status 200, (4) GET /api/marketing/organic-agent ✅ - Status 200, required fields 'agent', 'actions', 'reports' present, (5) GET /api/marketing/site-publishing/status ✅ - Status 200, (6) GET /api/marketing/growth-agent/status ✅ - Status 200, (7) GET /api/marketing/campaigns ✅ - Status 200, (8) GET /api/marketing/execution ✅ - Status 200, required fields 'summary', 'queued', 'history' present, (9) GET /api/marketing/analytics ✅ - Status 200, required fields 'mocked' and 'summary' present, (10) POST /api/marketing/briefing/generate {force:false,send_email:false} ✅ - Status 200, required fields 'headline' and 'summary' present. NO 500 ERRORS DETECTED. NO TIMEOUTS. NO REGRESSIONS. Authentication working correctly with adminceoai@gmail.com / 12345. CONCLUSION: Visual reorganization of Marketing module frontend did NOT introduce any backend regressions. All main endpoints used by the Marketing page remain stable and functional."
+
   - task: "Growth Agent - Google Integration (GA4 + GSC)"
     implemented: true
     working: true
@@ -637,12 +649,61 @@ frontend:
         agent: "testing"
         comment: "Tested 2026-08-11. No horizontal overflow detected. No invisible buttons. No broken layout elements with zero dimensions. Page renders correctly across all sections without layout issues."
 
+frontend:
+  - task: "Marketing Module Reorganization - Sidebar Navigation"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/components/AppLayout.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Tested 2026-08-16T17:52. SIDEBAR NAVIGATION VALIDATED ✅. Desktop sidebar: Marketing item expands correctly to show exactly 2 sub-entries with correct labels 'Agente · Site' (data-testid: nav-marketing-agent-site) and 'Agente · Redes Sociais' (data-testid: nav-marketing-agent-social). Mobile drawer: Marketing item expands correctly to show 2 sub-entries with -m suffix: 'Agente · Site' (data-testid: nav-marketing-agent-site-m) and 'Agente · Redes Sociais' (data-testid: nav-marketing-agent-social-m). All required data-testids present and functional. Navigation working correctly on both desktop and mobile."
+
+  - task: "Marketing Module Reorganization - Page Layout with 2 Blocks"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/Marketing.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Tested 2026-08-16T17:52. PAGE LAYOUT VALIDATED ✅. Boundary cards: Both cards present and visible - marketing-growth-boundary-card (content: 'Agente · Site - Tudo do Growth Agent num só bloco') and marketing-social-boundary-card (content: 'Agente · Redes Sociais - Facebook, Instagram e operação social'). Visual separation into 2 large blocks is clear and functional. Page content length: 1,128,582 characters - no blank screens detected. No error messages found on page."
+
+  - task: "Marketing Module Reorganization - Site Workspace"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/Marketing.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Tested 2026-08-16T17:52. SITE WORKSPACE VALIDATED ✅. Container: marketing-site-workspace visible and functional. Areas: marketing-site-workspace-areas visible with 3 area links as expected: (1) Estratégia do Site, (2) Gateway do Site, (3) SEO · GA4 · GSC. All old Site sections present (3/3): Growth strategy section (marketing-section-growth-strategy), Growth publishing section (marketing-section-growth-publishing), Growth monitor section (marketing-section-growth-monitor). No regressions detected."
+
+  - task: "Marketing Module Reorganization - Social Workspace"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/Marketing.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Tested 2026-08-16T17:52. SOCIAL WORKSPACE VALIDATED ✅. Container: marketing-social-workspace visible and functional. Areas: marketing-social-workspace-areas visible with 6 area links as expected: (1) Automação, (2) Meta, (3) Marca & Conteúdo, (4) Campanhas, (5) Aprovação & Calendário, (6) Operação & Resultados. All old Social sections present (9/9): Social agent (marketing-section-social-agent), Social connection/Meta (marketing-section-social-connection), Brand identity (marketing-section-social-brand-identity), Campaigns (marketing-section-social-campaign-studio), Execution (marketing-section-social-execution-queue), Analytics (marketing-section-social-analytics), Briefing (marketing-section-social-daily-briefing), Approval (marketing-section-social-approval-content), Calendar (marketing-section-social-editorial-calendar). No regressions detected."
+
 metadata:
   created_by: "testing_agent"
   version: "1.0"
-  test_sequence: 9
+  test_sequence: 11
   run_ui: false
-  last_tested: "2026-08-16T16:43:00Z"
+  last_tested: "2026-08-16T17:55:41Z"
 
 test_plan:
   current_focus: []
@@ -671,3 +732,7 @@ agent_communication:
     message: "Meta Connection Section - Permissions Fix Validation completed 2026-08-16T16:38 ✅. TESTED URL: https://marketing-split-test-1.preview.emergentagent.com/marketing with login adminceoai@gmail.com / 12345. CONTEXT: Recent fix to distinguish permissions between insights vs real Meta data. ALL REQUIRED ELEMENTS VALIDATED: (1) mkt-social ✅ - Container visible and rendered correctly, (2) mkt-meta-state ✅ - Shows 'PRECISA DE REVER' (degraded state - acceptable per user's request), (3) mkt-meta-mocked-badge ✅ - Shows 'Analytics MOCKED' (expected state), (4) mkt-meta-status-analytics ✅ - Shows coherent text 'Mantidos em modo MOCKED até a Meta validar permissões de insights' with last validation timestamp '16/08/2026, 16:38:33', (5) mkt-meta-status-analytics-detail - Not present (optional field), (6) mkt-meta-diagnostics-btn ✅ - Visible, enabled, and functional without crashes. CARD RENDERING: Both mkt-meta-checks-card and mkt-meta-status-card visible and properly rendered with 18 diagnostic checks displayed. VISUAL INTEGRITY: No horizontal overflow (body width 1920px = viewport 1920px), no blank screen (41,036 chars of content), only 1 zero-dimension element (minor SPAN - acceptable). ANALYTICS COHERENCE: ✅ Text matches badge type (mocked) - 'Mantidos em modo MOCKED até a Meta validar permissões de insights' correctly explains the state. DIAGNOSTICS BUTTON: Clicked successfully without errors or crashes. CONNECTION STATE: 'degraded/not_connected' and remains 'mocked' - this is exactly what user confirmed as acceptable. PERMISSIONS DISTINCTION: The recent fix is working correctly - UI clearly distinguishes between insights permissions and real Meta data with appropriate badges and explanatory text. MINOR OBSERVATIONS: 2 console errors with 401 status (likely external services - non-blocking). CONCLUSION: Meta Connection Section is working correctly after permissions fix. UI doesn't break, analytics state text is coherent, card renders correctly, no visual regressions, no blank screen. All requested validation criteria met."
   - agent: "testing"
     message: "Social/Meta Module Backend Testing completed 2026-08-16T16:43 ✅. TESTED IN PREVIEW: https://marketing-split-test-1.preview.emergentagent.com with credentials adminceoai@gmail.com / 12345. ALL 4 REQUESTED ENDPOINTS TESTED AND PASSING: (1) GET /api/social/status ✅ - All 6 new insights fields present and working correctly: insights_status='unverified', insights_permissions_ready=False, insights_last_checked_at='2026-08-16T16:38:38.195083+00:00', report_source='mock', metrics_mocked=True, live_metrics_ready=False. Field coherence validated (metrics_mocked=True and live_metrics_ready=False are coherent). No 500 errors. (2) POST /api/social/diagnostics ✅ - All 6 new insights fields present. Diagnostics correctly updates insights_last_checked_at timestamp (within last 5 minutes). Found 1 insights-related diagnostic check with clear detail message. No 500 errors. (3) POST /api/social/metrics/refresh ✅ - All required fields present (ready, refreshed, reason). Returns ready=False with CLEAR reason: 'Meta insights ainda não estão validados para esta ligação.' Reason field is descriptive and explains blocking state in Portuguese as requested. No 500 errors. (4) GET /api/marketing/analytics ✅ - All required fields present (mocked=True, summary with published_posts, reach, impressions, clicks, avg_engagement_rate). No 500 errors. VALIDATION SUMMARY: ✅ No 500 errors on any endpoint. ✅ All new insights fields (insights_status, insights_permissions_ready, insights_last_checked_at, report_source, metrics_mocked, live_metrics_ready) present in both /social/status and /social/diagnostics. ✅ Payload is coherent even in mocked/degraded state as requested. ✅ Reason from /social/metrics/refresh is clear and explains why not ready. ✅ It's acceptable that metrics remain mocked in preview without real Meta credentials. ALL TESTS PASSED (16/16). Backend implementation is stable and production-ready."
+  - agent: "testing"
+    message: "Marketing Module Reorganization Testing completed 2026-08-16T17:52 ✅. TESTED IN PREVIEW: https://marketing-split-test-1.preview.emergentagent.com with credentials adminceoai@gmail.com / 12345. ALL REQUESTED ELEMENTS VALIDATED: (1) DESKTOP SIDEBAR ✅ - Marketing item expands to show exactly 2 sub-entries: 'Agente · Site' (nav-marketing-agent-site) and 'Agente · Redes Sociais' (nav-marketing-agent-social). Labels are correct and match requirements. (2) MOBILE DRAWER ✅ - Marketing item expands to show 2 sub-entries with -m suffix: 'Agente · Site' (nav-marketing-agent-site-m) and 'Agente · Redes Sociais' (nav-marketing-agent-social-m). Mobile navigation working correctly. (3) BOUNDARY CARDS ✅ - Both cards present: marketing-growth-boundary-card ('Agente · Site - Tudo do Growth Agent num só bloco') and marketing-social-boundary-card ('Agente · Redes Sociais - Facebook, Instagram e operação social'). Visual separation into 2 large blocks is clear. (4) SITE WORKSPACE ✅ - marketing-site-workspace and marketing-site-workspace-areas visible with 3 area links: Estratégia do Site, Gateway do Site, SEO · GA4 · GSC. All 3 old Site sections present: growth strategy, publishing, monitor. (5) SOCIAL WORKSPACE ✅ - marketing-social-workspace and marketing-social-workspace-areas visible with 6 area links: Automação, Meta, Marca & Conteúdo, Campanhas, Aprovação & Calendário, Operação & Resultados. All 9 old Social sections present: agent, connection/meta, brand identity, campaigns, execution, analytics, briefing, approval, calendar. (6) NO BLANK SCREENS ✅ - Page content length: 1,128,582 characters. No error messages detected. (7) NO NAVIGATION REGRESSIONS ✅ - All sections accessible and functional. CONCLUSION: Marketing module reorganization is working perfectly. All required data-testids present, visual separation clear, old sections intact, no regressions detected."
+  - agent: "testing"
+    message: "Marketing Module Backend Smoke Test completed 2026-08-16T17:55 ✅. TESTED IN PREVIEW: https://marketing-split-test-1.preview.emergentagent.com with credentials adminceoai@gmail.com / 12345. OBJECTIVE: Validate that the visual reorganization of the Marketing module frontend did NOT introduce backend regressions. ALL 10 MAIN ENDPOINTS TESTED AND PASSING WITHOUT ANY 500 ERRORS: (1) GET /api/marketing/content ✅, (2) GET /api/social/status ✅, (3) GET /api/social/media-agent ✅, (4) GET /api/marketing/organic-agent ✅, (5) GET /api/marketing/site-publishing/status ✅, (6) GET /api/marketing/growth-agent/status ✅, (7) GET /api/marketing/campaigns ✅, (8) GET /api/marketing/execution ✅, (9) GET /api/marketing/analytics ✅, (10) POST /api/marketing/briefing/generate {force:false,send_email:false} ✅. All endpoints returned status 200 with required fields present. No timeouts, no crashes, no regressions detected. CONCLUSION: Backend is stable after frontend reorganization. All main endpoints used by the Marketing page continue to work correctly without any consumption regressions."

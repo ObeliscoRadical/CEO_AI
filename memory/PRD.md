@@ -38,6 +38,17 @@ Também pediu a configuração real da integração Meta para deixar de depender
 
 ## Estado funcional atual
 
+### 0. Organização visual do módulo Marketing
+Concluída neste fork.
+
+- no menu lateral de **Marketing** existem agora apenas 2 entradas:
+  - **Agente · Site**
+  - **Agente · Redes Sociais**
+- dentro de `/marketing`, a leitura também ficou separada em 2 blocos grandes:
+  - **Agente · Site** → agrega as 3 frentes do Growth Agent
+  - **Agente · Redes Sociais** → agrega as 6 frentes sociais
+- nenhuma funcionalidade foi removida; apenas reorganizada por agente
+
 ### 1. Separação de agentes
 Concluída.
 
@@ -139,6 +150,7 @@ Ver `/app/memory/test_credentials.md`
 - `auto_frontend_testing_agent` → **PASS**
 - `deep_testing_backend_v2` → **PASS**
 - `testing_agent` → `/app/test_reports/iteration_46.json` **PASS**
+- reorganização do Marketing validada em `/app/test_reports/iteration_47.json` → **PASS**
 
 ## Próximas prioridades
 - **P0:** validar em produção após redeploy se o estado Meta deixa de ficar preso em mocked quando o token tiver insights reais
