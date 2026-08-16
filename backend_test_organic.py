@@ -10,7 +10,7 @@ import time
 from datetime import datetime
 
 # Configuration
-BASE_URL = "https://seo-marketing-hub-12.preview.emergentagent.com/api"
+BASE_URL = "https://marketing-split-test-1.preview.emergentagent.com/api"
 TEST_EMAIL = "adminceoai@gmail.com"
 TEST_PASSWORD = "12345"
 TEST_DOMAIN = "example.com"

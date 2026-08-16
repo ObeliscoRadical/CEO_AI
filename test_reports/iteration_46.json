@@ -1,0 +1,93 @@
+{
+  "summary": "Verified Meta insights readiness fix with new permissions-vs-data distinction. All 12 backend tests passed (4 unit tests + 8 API integration tests). Frontend UI loads correctly with coherent badges and copy for the current mocked/degraded connection state.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_meta_metrics_readiness.py",
+    "/app/backend/tests/test_meta_insights_api.py",
+    "/app/test_reports/pytest/iter46_meta_insights.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_meta_insights_api.py"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "test_credentials": "Admin: adminceoai@gmail.com / 12345",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Meta insights readiness fix verified. The preview environment has a degraded Meta connection (connection_state=degraded) which is expected. The backend correctly returns all new fields: insights_status, insights_permissions_ready, insights_last_checked_at, insights_probe_detail, report_source, metrics_mocked, live_metrics_ready. The frontend correctly displays 'Analytics MOCKED' badge and appropriate status text. POST /api/social/metrics/refresh returns coherent ready/refreshed/reason payload without crashing.",
+  "features_verified": {
+    "backend_api_endpoints": {
+      "GET /api/social/status": {
+        "status": "PASS",
+        "new_fields_present": ["insights_status", "insights_permissions_ready", "insights_last_checked_at", "insights_probe_detail", "report_source", "metrics_mocked", "live_metrics_ready"],
+        "no_500_error": true
+      },
+      "POST /api/social/diagnostics": {
+        "status": "PASS",
+        "new_fields_present": ["insights_status", "insights_permissions_ready", "report_source", "metrics_mocked", "live_metrics_ready"],
+        "no_500_error": true
+      },
+      "POST /api/social/metrics/refresh": {
+        "status": "PASS",
+        "response_structure": ["ready", "refreshed", "reason"],
+        "no_500_error": true,
+        "coherent_payload": true
+      }
+    },
+    "unit_tests": {
+      "test_live_metrics_ready_when_insights_scopes_exist": "PASS",
+      "test_live_metrics_stay_mocked_without_insights_scopes": "PASS",
+      "test_granular_scopes_are_treated_as_valid_permissions": "PASS",
+      "test_permissions_can_be_ready_while_metrics_stay_mocked_without_data": "PASS"
+    },
+    "frontend_ui": {
+      "marketing_page_loads": "PASS - No blank screen",
+      "page_title": "PASS - 'Marketing · Growth Agent + Social Media Agent'",
+      "growth_boundary_card": "PASS - Shows Growth Agent responsibilities",
+      "social_boundary_card": "PASS - Shows Social Media Agent responsibilities",
+      "social_media_agent_section": "PASS - Found with correct content",
+      "meta_connection_section": "PASS - mkt-social found",
+      "mkt_meta_state_badge": "PASS - Shows 'Precisa de rever' (degraded)",
+      "mkt_meta_mocked_badge": "PASS - Shows 'Analytics MOCKED'",
+      "mkt_meta_checks_card": "PASS - Checklist visible",
+      "mkt_meta_status_card": "PASS - Shows Facebook/Instagram status",
+      "mkt_meta_status_analytics": "PASS - Shows 'Mantidos em modo MOCKED até a Meta validar permissões de insights'"
+    }
+  },
+  "permissions_vs_data_distinction": {
+    "verified": true,
+    "description": "The new logic correctly distinguishes permissions readiness from actual live data readiness. In mocked/degraded preview state, payloads remain coherent with insights_status showing the specific state (unverified, permission_ready, no_data, etc.)"
+  },
+  "mocked_apis": {
+    "meta_insights": "MOCKED - Preview environment has degraded Meta connection without validated insights scopes. This is expected behavior - metrics stay MOCKED until Meta validates insights permissions via OAuth reconnection."
+  },
+  "current_preview_state": {
+    "connection_state": "degraded",
+    "insights_status": "unverified",
+    "metrics_mocked": true,
+    "live_metrics_ready": false,
+    "report_source": "mock",
+    "configured": true,
+    "missing_config": []
+  },
+  "tests_executed": {
+    "unit_tests": 4,
+    "api_integration_tests": 8,
+    "ui_tests": 11,
+    "total_passed": 23,
+    "total_failed": 0
+  }
+}

@@ -33,10 +33,57 @@ SCOPES = [
 ]
 REQUIRED_PAGE_TASKS = {"CREATE_CONTENT", "MANAGE"}
 INSIGHTS_SCOPE_HINTS = {"instagram_manage_insights", "instagram_basic", "pages_read_engagement", "read_insights"}
+ACCOUNT_INSIGHTS_PROBES = [
+    {"metric": "reach,profile_views", "period": "day"},
+    {"metric": "impressions,reach,profile_views", "period": "day"},
+    {"metric": "accounts_reached,profile_views,website_clicks", "period": "day"},
+]
+MEDIA_INSIGHTS_PROBES = [
+    {"metric": "reach,saved,shares,total_interactions,views,impressions"},
+    {"metric": "reach,saved,shares,total_interactions,views"},
+    {"metric": "reach,saved,shares"},
+]
+AUTO_DIAGNOSTICS_TTL = timedelta(minutes=15)
+
+
+def _parse_iso(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+    except Exception:
+        return None
+
+
+def _granular_scope_name(item) -> str:
+    if isinstance(item, str):
+        return item.strip()
+    if not isinstance(item, dict):
+        return ""
+    return str(item.get("scope") or item.get("permission") or item.get("name") or "").strip()
+
+
+def _granular_scope_granted(item) -> bool:
+    if not isinstance(item, dict):
+        return bool(item)
+    if item.get("is_granted") is False:
+        return False
+    status = str(item.get("status") or item.get("state") or "").strip().lower()
+    if status and status not in {"granted", "live", "confirmed", "active"}:
+        return False
+    return True
 
 
 def _scope_set(conn: Optional[dict]) -> set[str]:
-    return set((conn or {}).get("granted_scopes") or [])
+    scopes = {str(item).strip() for item in ((conn or {}).get("granted_scopes") or []) if str(item).strip()}
+    for item in ((conn or {}).get("granular_scopes") or []):
+        scope_name = _granular_scope_name(item)
+        if scope_name and _granular_scope_granted(item):
+            scopes.add(scope_name)
+    return scopes
 
 
 def _missing_insights_scopes(conn: Optional[dict]) -> list[str]:
@@ -46,14 +93,113 @@ def _missing_insights_scopes(conn: Optional[dict]) -> list[str]:
     return sorted(item for item in INSIGHTS_SCOPE_HINTS if item not in scopes)
 
 
+def _meta_error_payload(error: Exception) -> dict:
+    detail = getattr(error, "detail", None)
+    if isinstance(detail, dict):
+        meta_error = detail.get("meta_error")
+        if isinstance(meta_error, dict):
+            return meta_error
+        if isinstance(meta_error, str):
+            return {"message": meta_error}
+        return detail
+    return {"message": str(detail or error)}
+
+
+def _meta_error_message(error: Exception) -> str:
+    payload = _meta_error_payload(error)
+    return str(payload.get("message") or payload).strip()
+
+
+def _meta_error_code(error: Exception) -> int:
+    payload = _meta_error_payload(error)
+    try:
+        return int(payload.get("code") or 0)
+    except Exception:
+        return 0
+
+
+def _meta_error_subcode(error: Exception) -> int:
+    payload = _meta_error_payload(error)
+    try:
+        return int(payload.get("error_subcode") or payload.get("error_subcode") or 0)
+    except Exception:
+        return 0
+
+
+def _is_token_error(error: Exception) -> bool:
+    code = _meta_error_code(error)
+    message = _meta_error_message(error).lower()
+    return code == 190 or "token" in message and any(word in message for word in ["expir", "invalid", "inválido"])
+
+
+def _is_invalid_metric_error(error: Exception) -> bool:
+    message = _meta_error_message(error).lower()
+    return "metric" in message and any(word in message for word in ["invalid", "not valid", "unsupported", "não é válido", "not supported"])
+
+
+def _is_permission_error(error: Exception) -> bool:
+    code = _meta_error_code(error)
+    subcode = _meta_error_subcode(error)
+    message = _meta_error_message(error).lower()
+    return (
+        code in {10, 200}
+        or subcode in {33, 2108006}
+        or "permission" in message
+        or "permissions" in message
+        or "not authorized" in message
+        or "requires the instagram_manage_insights permission" in message
+        or "requires read_insights permission" in message
+    )
+
+
+def _insights_payload_has_values(payload: dict) -> bool:
+    for item in (payload.get("data") or []):
+        values = item.get("values") or []
+        if values:
+            return True
+        if item.get("value") is not None:
+            return True
+    return False
+
+
+def _insights_permissions_ready(conn: Optional[dict]) -> bool:
+    if not (_conn_ready(conn) and conn and conn.get("ig_user_id")):
+        return False
+    status = str((conn or {}).get("insights_status") or "").strip().lower()
+    if status in {"ready", "no_data"}:
+        return True
+    checks = (((conn or {}).get("last_diagnostics") or {}).get("checks") or [])
+    insights_check = next((item for item in checks if item.get("id") == "meta_insights_permissions"), None)
+    if insights_check is not None and bool(insights_check.get("ok")):
+        return True
+    scopes = _scope_set(conn)
+    return bool(scopes and not _missing_insights_scopes(conn))
+
+
+def _derived_insights_status(conn: Optional[dict]) -> str:
+    status = str((conn or {}).get("insights_status") or "").strip().lower()
+    if status:
+        return status
+    if _live_metrics_ready(conn):
+        return "ready"
+    if _insights_permissions_ready(conn):
+        return "permission_ready"
+    if conn and conn.get("ig_user_id"):
+        return "unverified"
+    return "unavailable"
+
+
 def _live_metrics_ready(conn: Optional[dict]) -> bool:
     if not _conn_ready(conn) or not conn or not conn.get("ig_user_id"):
         return False
+    insights_status = str((conn or {}).get("insights_status") or "").strip().lower()
+    if insights_status:
+        return insights_status == "ready"
     last_checks = (((conn or {}).get("last_diagnostics") or {}).get("checks") or [])
-    insights_check = next((item for item in last_checks if item.get("id") == "meta_insights_permissions"), None)
-    if insights_check is not None:
-        return bool(insights_check.get("ok"))
-    return not _missing_insights_scopes(conn)
+    insights_probe_check = next((item for item in last_checks if item.get("id") == "meta_live_insights_probe"), None)
+    if insights_probe_check is not None:
+        return bool(insights_probe_check.get("ok")) and str((conn or {}).get("report_source") or "").strip().lower() == "real"
+    return False
 
 
 def _first_env(*names, default=""):
@@ -227,6 +373,8 @@ def _base_checks(aid: str, sec: str, conn: Optional[dict]):
     else:
         scopes = _scope_set(conn)
         missing_scopes = _missing_insights_scopes(conn)
+        insights_status = _derived_insights_status(conn)
+        insights_detail = (conn or {}).get("insights_probe_detail")
         checks.extend([
             {
                 "id": "meta_page_selected",
@@ -250,9 +398,19 @@ def _base_checks(aid: str, sec: str, conn: Optional[dict]):
         checks.append({
             "id": "meta_insights_permissions",
             "label": "Permissões para analytics",
-            "ok": bool(conn and conn.get("ig_user_id") and scopes and not missing_scopes),
+            "ok": _insights_permissions_ready(conn),
             "detail": (
-                "Permissões de analytics validadas. As métricas reais podem ser sincronizadas."
+                "Insights reais confirmados. O sistema já pode sincronizar métricas da Meta."
+                if insights_status == "ready" else
+                (insights_detail or "As permissões de insights já foram validadas, mas a Meta ainda não devolveu dados suficientes para trocar o relatório para real.")
+                if insights_status == "no_data" else
+                (insights_detail or "A Meta recusou a leitura de insights desta ligação. Reconecte a conta e aceite novamente as permissões de analytics.")
+                if insights_status == "permission_denied" else
+                (insights_detail or "O token Meta expirou e precisa de reconnect para voltar a ler insights reais.")
+                if insights_status == "expired" else
+                (insights_detail or "Ainda não foi possível confirmar a resposta de insights da Meta nesta ligação.")
+                if insights_status == "unavailable" else
+                (insights_detail or "Os scopes de analytics estão presentes. Falta confirmar uma resposta real da Meta para sair do modo MOCKED.")
                 if conn and conn.get("ig_user_id") and scopes and not missing_scopes else
                 ("Valide a ligação para confirmar os scopes de analytics reais."
                  if conn and conn.get("ig_user_id") and not scopes else
@@ -277,6 +435,8 @@ def _status_payload(conn: Optional[dict], aid: str, sec: str, checks: Optional[l
     connected = _conn_ready(conn)
     available_pages = [_candidate_public(item) for item in ((conn or {}).get("candidate_pages") or [])]
     live_ready = _live_metrics_ready(conn)
+    insights_status = _derived_insights_status(conn)
+    permissions_ready = _insights_permissions_ready(conn)
     return {
         "configured": bool(aid and sec),
         "missing_config": missing,
@@ -295,6 +455,11 @@ def _status_payload(conn: Optional[dict], aid: str, sec: str, checks: Optional[l
         "granular_scopes": (conn or {}).get("granular_scopes") or [],
         "token_expires_at": (conn or {}).get("token_expires_at"),
         "data_access_expires_at": (conn or {}).get("data_access_expires_at"),
+        "insights_status": insights_status,
+        "insights_permissions_ready": permissions_ready,
+        "insights_last_checked_at": (conn or {}).get("insights_last_checked_at") or (conn or {}).get("last_validated_at"),
+        "insights_probe_detail": (conn or {}).get("insights_probe_detail"),
+        "report_source": (conn or {}).get("report_source") or ("real" if live_ready else "mock"),
         "checks": checks or ((conn or {}).get("last_diagnostics") or {}).get("checks") or _base_checks(aid, sec, conn),
         "available_pages": available_pages,
         "metrics_mocked": not live_ready,
@@ -315,6 +480,183 @@ async def _fetch_token_debug(token: str) -> dict:
         "data_access_expires_at": _epoch_iso(info.get("data_access_expires_at")),
         "meta_user_id": info.get("user_id"),
         "token_is_valid": bool(info.get("is_valid")),
+    }
+
+
+def _should_auto_diagnose(conn: Optional[dict], force: bool = False) -> bool:
+    if force:
+        return True
+    if not _conn_ready(conn):
+        return False
+    if not conn:
+        return False
+    insights_status = str(conn.get("insights_status") or "").strip().lower()
+    if insights_status in {"", "unverified", "unknown", "permission_ready"}:
+        return True
+    checked_at = _parse_iso(conn.get("insights_last_checked_at") or conn.get("last_validated_at"))
+    if not checked_at:
+        return True
+    return datetime.now(timezone.utc) - checked_at >= AUTO_DIAGNOSTICS_TTL
+
+
+async def _probe_recent_media_insights(uid: str, cid: Optional[str], token: str) -> Optional[dict]:
+    posts = await db.social_posts.find(
+        {"user_id": uid, "company_id": cid, "results.instagram.id": {"$exists": True, "$ne": None}},
+        {"_id": 0, "results.instagram.id": 1},
+    ).sort("created_at", -1).to_list(8)
+    for social_post in posts:
+        media_id = (((social_post.get("results") or {}).get("instagram") or {}).get("id"))
+        if not media_id:
+            continue
+        empty_success = False
+        for params in MEDIA_INSIGHTS_PROBES:
+            try:
+                insights = await _graph_req("GET", _graph(f"{media_id}/insights"), params, token)
+                if _insights_payload_has_values(insights):
+                    return {
+                        "ready": True,
+                        "permissions_ready": True,
+                        "status": "ready",
+                        "detail": "A Meta respondeu com insights reais de media do Instagram.",
+                        "source": "instagram_media_insights_probe",
+                    }
+                empty_success = True
+                break
+            except Exception as error:
+                if _is_invalid_metric_error(error):
+                    continue
+                if _is_token_error(error):
+                    return {
+                        "ready": False,
+                        "permissions_ready": False,
+                        "status": "expired",
+                        "detail": _meta_error_message(error) or "O token Meta expirou e precisa de reconnect.",
+                        "source": "instagram_media_insights_probe",
+                    }
+                if _is_permission_error(error):
+                    return {
+                        "ready": False,
+                        "permissions_ready": False,
+                        "status": "permission_denied",
+                        "detail": _meta_error_message(error) or "A Meta recusou a leitura de insights deste media.",
+                        "source": "instagram_media_insights_probe",
+                    }
+                return {
+                    "ready": False,
+                    "permissions_ready": False,
+                    "status": "unavailable",
+                    "detail": _meta_error_message(error) or "A Meta não respondeu ao probe de media insights.",
+                    "source": "instagram_media_insights_probe",
+                }
+        if empty_success:
+            return {
+                "ready": False,
+                "permissions_ready": True,
+                "status": "no_data",
+                "detail": "As permissões de insights estão válidas, mas os media publicados ainda não devolveram dados utilizáveis.",
+                "source": "instagram_media_insights_probe",
+            }
+    return None
+
+
+async def _probe_live_insights(uid: str, cid: Optional[str], conn: Optional[dict]) -> dict:
+    checked_at = datetime.now(timezone.utc).isoformat()
+    if not _conn_ready(conn):
+        return {
+            "ready": False,
+            "permissions_ready": False,
+            "status": "unavailable",
+            "detail": "A ligação Meta ainda não está pronta para validar insights.",
+            "source": "unavailable",
+            "checked_at": checked_at,
+            "report_source": "mock",
+        }
+    ig_user_id = (conn or {}).get("ig_user_id")
+    token = (conn or {}).get("user_token") or (conn or {}).get("page_token")
+    if not ig_user_id or not token:
+        return {
+            "ready": False,
+            "permissions_ready": False,
+            "status": "unavailable",
+            "detail": "Falta o Instagram profissional ou o token necessário para validar insights.",
+            "source": "unavailable",
+            "checked_at": checked_at,
+            "report_source": "mock",
+        }
+
+    no_data_result = None
+    last_unavailable_error = None
+    for params in ACCOUNT_INSIGHTS_PROBES:
+        try:
+            insights = await _graph_req("GET", _graph(f"{ig_user_id}/insights"), params, token)
+            if _insights_payload_has_values(insights):
+                return {
+                    "ready": True,
+                    "permissions_ready": True,
+                    "status": "ready",
+                    "detail": "A Meta respondeu com insights reais da conta Instagram.",
+                    "source": "instagram_account_insights_probe",
+                    "checked_at": checked_at,
+                    "report_source": "real",
+                }
+            no_data_result = {
+                "ready": False,
+                "permissions_ready": True,
+                "status": "no_data",
+                "detail": "As permissões de insights estão válidas, mas a Meta ainda não devolveu dados suficientes nesta ligação.",
+                "source": "instagram_account_insights_probe",
+                "checked_at": checked_at,
+                "report_source": "mock",
+            }
+            break
+        except Exception as error:
+            if _is_invalid_metric_error(error):
+                continue
+            if _is_token_error(error):
+                return {
+                    "ready": False,
+                    "permissions_ready": False,
+                    "status": "expired",
+                    "detail": _meta_error_message(error) or "O token Meta expirou e precisa de reconnect.",
+                    "source": "instagram_account_insights_probe",
+                    "checked_at": checked_at,
+                    "report_source": "mock",
+                }
+            if _is_permission_error(error):
+                return {
+                    "ready": False,
+                    "permissions_ready": False,
+                    "status": "permission_denied",
+                    "detail": _meta_error_message(error) or "A Meta recusou a leitura de insights nesta ligação.",
+                    "source": "instagram_account_insights_probe",
+                    "checked_at": checked_at,
+                    "report_source": "mock",
+                }
+            last_unavailable_error = error
+
+    media_probe = await _probe_recent_media_insights(uid, cid, token)
+    if media_probe:
+        return {**media_probe, "checked_at": checked_at, "report_source": "real" if media_probe.get("ready") else "mock"}
+    if no_data_result:
+        return no_data_result
+    if last_unavailable_error is not None:
+        return {
+            "ready": False,
+            "permissions_ready": False,
+            "status": "unavailable",
+            "detail": _meta_error_message(last_unavailable_error) or "A Meta não respondeu ao probe de insights.",
+            "source": "instagram_account_insights_probe",
+            "checked_at": checked_at,
+            "report_source": "mock",
+        }
+    return {
+        "ready": False,
+        "permissions_ready": _insights_permissions_ready(conn),
+        "status": "unavailable",
+        "detail": "Não foi possível validar insights reais com a Meta nesta tentativa.",
+        "source": "instagram_account_insights_probe",
+        "checked_at": checked_at,
+        "report_source": "mock",
     }
 
 
@@ -356,15 +698,20 @@ async def _finalize_connection(uid: str, cid: Optional[str], current: Optional[d
             "granular_scopes": token_debug.get("granular_scopes") or (current or {}).get("granular_scopes") or [],
             "token_expires_at": token_debug.get("token_expires_at") or (current or {}).get("token_expires_at"),
             "data_access_expires_at": token_debug.get("data_access_expires_at") or (current or {}).get("data_access_expires_at"),
+            "insights_status": "unverified",
+            "report_source": "mock",
+            "insights_last_checked_at": None,
+            "insights_probe_source": None,
+            "insights_probe_detail": None,
             "candidate_pages": [],
-            "last_diagnostics": {"checks": _base_checks(*_cfg(), {**(current or {}), **chosen, **token_debug, "status": "connected"})},
+            "last_diagnostics": {"checks": _base_checks(*_cfg(), {**(current or {}), **chosen, **token_debug, "status": "connected", "insights_status": "unverified", "report_source": "mock"})},
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }},
         upsert=True,
     )
 
 
-async def _run_diagnostics(conn: Optional[dict], aid: str, sec: str):
+async def _run_diagnostics(uid: str, cid: Optional[str], conn: Optional[dict], aid: str, sec: str):
     if not (aid and sec) or not _conn_ready(conn):
         return _base_checks(aid, sec, conn), _conn_state(conn), {}
 
@@ -388,6 +735,8 @@ async def _run_diagnostics(conn: Optional[dict], aid: str, sec: str):
             "ok": bool(token_debug.get("token_is_valid")),
             "detail": f"Token válido até {token_debug.get('token_expires_at')}." if token_debug.get("token_is_valid") and token_debug.get("token_expires_at") else ("Token válido." if token_debug.get("token_is_valid") else "Não foi possível validar o token do utilizador Meta."),
         })
+        if token_debug.get("token_is_valid") is False:
+            state = "degraded"
 
     try:
         page = await _graph_req("GET", _graph(conn["page_id"]), {"fields": "id,name"}, conn["page_token"])
@@ -457,9 +806,44 @@ async def _run_diagnostics(conn: Optional[dict], aid: str, sec: str):
                 "ok": False,
                 "detail": "Não foi possível validar o Instagram profissional ligado à Página.",
             })
+    insights_probe = await _probe_live_insights(uid, cid, probe_conn)
+    patch.update({
+        "insights_status": insights_probe.get("status"),
+        "report_source": insights_probe.get("report_source"),
+        "insights_last_checked_at": insights_probe.get("checked_at"),
+        "insights_probe_source": insights_probe.get("source"),
+        "insights_probe_detail": insights_probe.get("detail"),
+    })
+    probe_conn.update({k: v for k, v in patch.items() if v is not None})
+    runtime_checks.append({
+        "id": "meta_live_insights_probe",
+        "label": "Probe de insights reais",
+        "ok": bool(insights_probe.get("ready") or insights_probe.get("permissions_ready")),
+        "detail": insights_probe.get("detail") or "A validação de insights reais não devolveu detalhe adicional.",
+    })
+    if insights_probe.get("status") == "expired":
+        state = "degraded"
     checks = _base_checks(aid, sec, probe_conn)
     checks.extend(runtime_checks)
     return checks, state, patch
+
+
+async def _refresh_connection_runtime_state(uid: str, cid: Optional[str], aid: str, sec: str,
+                                           conn: Optional[dict], force: bool = False):
+    if not conn or not _should_auto_diagnose(conn, force=force):
+        return conn
+    checks, state, patch = await _run_diagnostics(uid, cid, conn, aid, sec)
+    await db.social_connections.update_one(
+        {"user_id": uid, "company_id": cid},
+        {"$set": {
+            "status": state if state != "not_connected" else (conn.get("status") or "not_connected"),
+            **patch,
+            "last_diagnostics": {"checks": checks},
+            "last_validated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+    return await _find_connection(uid, cid)
 
 
 async def _migrate_legacy_jobs(uid: str, cid: Optional[str]):
@@ -581,9 +965,16 @@ async def _fetch_live_post_metrics(conn: Optional[dict], social_post_doc: dict) 
 
 
 async def refresh_social_live_metrics(uid: str, cid: Optional[str], limit: int = 12) -> dict:
+    aid, sec = _cfg()
     conn = await _find_connection(uid, cid)
+    conn = await _refresh_connection_runtime_state(uid, cid, aid, sec, conn, force=not _live_metrics_ready(conn))
     if not _live_metrics_ready(conn):
-        return {"ready": False, "refreshed": 0, "reason": "Meta insights ainda não estão validados para esta ligação."}
+        reason = (conn or {}).get("insights_probe_detail") or {
+            "permission_denied": "A Meta ainda não concedeu leitura de insights ao token desta ligação. Reconecte e aceite as permissões de analytics.",
+            "no_data": "As permissões estão válidas, mas a Meta ainda não devolveu dados suficientes para trocar o relatório para real.",
+            "expired": "O token Meta expirou. Reconecte a conta para renovar o acesso.",
+        }.get(str((conn or {}).get("insights_status") or "").strip().lower(), "Meta insights ainda não estão validados para esta ligação.")
+        return {"ready": False, "refreshed": 0, "reason": reason}
     posts = await db.social_posts.find({"user_id": uid, "company_id": cid}).sort("created_at", -1).to_list(limit)
     refreshed = 0
     for social_post_doc in posts:
@@ -798,6 +1189,7 @@ async def social_status(user: dict = Depends(premium_user)):
     aid, sec = _cfg()
     cid = await active_company_id(user["id"])
     conn = await _find_connection(user["id"], cid)
+    conn = await _refresh_connection_runtime_state(user["id"], cid, aid, sec, conn, force=False)
     return _status_payload(conn, aid, sec)
 
 
@@ -821,19 +1213,8 @@ async def social_diagnostics(user: dict = Depends(premium_user)):
     aid, sec = _cfg()
     cid = await active_company_id(user["id"])
     conn = await _find_connection(user["id"], cid)
-    checks, state, patch = await _run_diagnostics(conn, aid, sec)
-    if conn:
-        await db.social_connections.update_one(
-            {"user_id": user["id"], "company_id": cid},
-            {"$set": {
-                "status": state if state != "not_connected" else (conn.get("status") or "not_connected"),
-                **patch,
-                "last_diagnostics": {"checks": checks},
-                "last_validated_at": datetime.now(timezone.utc).isoformat(),
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }},
-        )
-        conn = await _find_connection(user["id"], cid)
+    conn = await _refresh_connection_runtime_state(user["id"], cid, aid, sec, conn, force=True)
+    checks = ((conn or {}).get("last_diagnostics") or {}).get("checks") or _base_checks(aid, sec, conn)
     return _status_payload(conn, aid, sec, checks)
 
 
@@ -898,6 +1279,8 @@ async def social_callback(code: Optional[str] = None, state: Optional[str] = Non
             candidates.append(await _hydrate_candidate(page))
         if len(candidates) == 1:
             await _finalize_connection(uid, cid, None, candidates[0], user_token, token_debug)
+            fresh = await _find_connection(uid, cid)
+            await _refresh_connection_runtime_state(uid, cid, aid, sec, fresh, force=True)
             return RedirectResponse(f"{base}/marketing?connected=1")
         await db.social_connections.update_one({"user_id": uid, "company_id": cid}, {"$set": {
             "user_id": uid,
@@ -916,7 +1299,12 @@ async def social_callback(code: Optional[str] = None, state: Optional[str] = Non
             "granular_scopes": token_debug.get("granular_scopes") or [],
             "token_expires_at": token_debug.get("token_expires_at"),
             "data_access_expires_at": token_debug.get("data_access_expires_at"),
-            "last_diagnostics": {"checks": _base_checks(aid, sec, {"status": "pending_selection", "candidate_pages": candidates})},
+            "insights_status": "unverified",
+            "report_source": "mock",
+            "insights_last_checked_at": None,
+            "insights_probe_source": None,
+            "insights_probe_detail": None,
+            "last_diagnostics": {"checks": _base_checks(aid, sec, {"status": "pending_selection", "candidate_pages": candidates, "insights_status": "unverified", "report_source": "mock"})},
             "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
         return RedirectResponse(f"{base}/marketing?social_pending=1")
     except Exception as e:
@@ -946,6 +1334,7 @@ async def social_select_page(inp: SelectPageIn, user: dict = Depends(premium_use
         "data_access_expires_at": conn.get("data_access_expires_at"),
     })
     fresh = await _find_connection(user["id"], cid)
+    fresh = await _refresh_connection_runtime_state(user["id"], cid, *_cfg(), fresh, force=True)
     return {"ok": True, "connection": _status_payload(fresh, *_cfg())}
 
 

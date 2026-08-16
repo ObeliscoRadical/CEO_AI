@@ -34,6 +34,18 @@ export const MetaConnectionSection = ({
   const data = social || { configured: false, connected: false, checks: [], available_pages: [], missing_config: [] };
   const state = data.connection_state || (data.connected ? "connected" : "not_connected");
   const meta = STATE_META[state] || STATE_META.not_connected;
+  const insightsStatus = data.insights_status || (data.live_metrics_ready ? "ready" : data.insights_permissions_ready ? "permission_ready" : "unverified");
+  const analyticsCopy = data.live_metrics_ready
+    ? { badge: "live", text: "Métricas reais prontas para sincronização a partir da Meta." }
+    : insightsStatus === "no_data"
+      ? { badge: "waiting-data", text: "Permissões de insights validadas, mas a Meta ainda não devolveu dados suficientes para trocar o painel para real." }
+      : insightsStatus === "permission_ready"
+        ? { badge: "waiting-probe", text: "Scopes de analytics presentes. Falta apenas a Meta devolver um probe real para sair do modo MOCKED." }
+        : insightsStatus === "permission_denied"
+          ? { badge: "mocked", text: "A conta está ligada, mas o token desta sessão ainda não tem leitura de insights validada pela Meta." }
+          : insightsStatus === "expired"
+            ? { badge: "mocked", text: "O token Meta expirou para leitura de insights. É preciso reconectar a conta." }
+            : { badge: "mocked", text: "Mantidos em modo MOCKED até a Meta validar permissões de insights." };
   const subtitle = data.connected
     ? `Ligado a ${data.page_name || "Página"}${data.ig_username ? ` · @${data.ig_username}` : " · sem Instagram profissional"}`
     : data.pending_selection
@@ -51,13 +63,17 @@ export const MetaConnectionSection = ({
             <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] ${meta.tone}`} data-testid="mkt-meta-state">
               {meta.label}
             </span>
-            {data.metrics_mocked ? (
-              <span className="text-[11px] px-3 py-1.5 rounded-full border border-amber-400/20 bg-amber-500/10 text-amber-300" data-testid="mkt-meta-mocked-badge">
-                Analytics <strong>MOCKED</strong>
-              </span>
-            ) : (
+            {analyticsCopy.badge === "live" ? (
               <span className="text-[11px] px-3 py-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/10 text-emerald-300" data-testid="mkt-meta-live-badge">
                 Analytics reais
+              </span>
+            ) : analyticsCopy.badge === "waiting-data" ? (
+              <span className="text-[11px] px-3 py-1.5 rounded-full border border-sky-400/20 bg-sky-500/10 text-sky-200" data-testid="mkt-meta-permission-badge">
+                Permissões OK · a aguardar dados
+              </span>
+            ) : (
+              <span className="text-[11px] px-3 py-1.5 rounded-full border border-amber-400/20 bg-amber-500/10 text-amber-300" data-testid="mkt-meta-mocked-badge">
+                Analytics <strong>MOCKED</strong>
               </span>
             )}
           </div>
@@ -128,7 +144,15 @@ export const MetaConnectionSection = ({
             </div>
             <div data-testid="mkt-meta-status-analytics">
               <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Analytics</p>
-              <p>{data.live_metrics_ready ? "Métricas reais prontas para sincronização a partir da Meta." : "Mantidos em modo MOCKED até a Meta validar permissões de insights."}</p>
+              <p>{analyticsCopy.text}</p>
+              {data.insights_probe_detail && (
+                <p className="text-xs text-muted-foreground mt-2" data-testid="mkt-meta-status-analytics-detail">{data.insights_probe_detail}</p>
+              )}
+              {data.insights_last_checked_at && (
+                <p className="text-[11px] text-muted-foreground mt-2" data-testid="mkt-meta-status-analytics-checked-at">
+                  Última validação: {new Date(data.insights_last_checked_at).toLocaleString("pt-PT")}
+                </p>
+              )}
             </div>
           </div>
 
