@@ -13,16 +13,28 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
+const DEFAULT_PUBLIC_COPY = {
+  headline: "O CEO que trabalha 24 horas pela sua empresa",
+  subtitle: "Não é um ERP nem um software de gestão. É o seu Diretor Executivo Digital — analisa a empresa consigo e decide, lado a lado, o que fazer hoje.",
+  primaryCtaLabel: "Entrar no painel",
+  primaryCtaUrl: "#login-auth-panel",
+  secondaryCtaLabel: "Ver planos",
+  secondaryCtaUrl: "/planos",
+  socialProofTitle: "Porque líderes usam o CEO AI",
+  socialProofItems: [
+    "Clareza executiva sem ruído",
+    "CRM, finanças e marketing no mesmo cockpit",
+    "Próximo passo sempre visível",
+  ],
+};
+
 export default function Login() {
   const { login, register, googleSession, user } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
-  const [publicCopy, setPublicCopy] = useState({
-    headline: "O CEO que trabalha 24 horas pela sua empresa",
-    subtitle: "Não é um ERP nem um software de gestão. É o seu Diretor Executivo Digital — analisa a empresa consigo e decide, lado a lado, o que fazer hoje.",
-  });
+  const [publicCopy, setPublicCopy] = useState(DEFAULT_PUBLIC_COPY);
 
   const routeAfter = async () => {
     try {
@@ -47,12 +59,10 @@ export default function Login() {
           .catch(() => { setLoading(false); toast.error("Falha no login Google"); });
       }
     }
-    // eslint-disable-next-line
   }, []);
 
   useEffect(() => {
     if (user) routeAfter();
-    // eslint-disable-next-line
   }, [user]);
 
   useEffect(() => {
@@ -65,15 +75,46 @@ export default function Login() {
   }, [publicCopy.subtitle]);
 
   useEffect(() => {
-    fetchPublicSections(["login.hero_headline", "login.hero_subtitle"])
+    fetchPublicSections([
+      "login.hero_headline",
+      "login.hero_subtitle",
+      "login.hero_primary_cta_label",
+      "login.hero_primary_cta_url",
+      "login.hero_secondary_cta_label",
+      "login.hero_secondary_cta_url",
+      "login.social_proof_title",
+      "login.social_proof_1",
+      "login.social_proof_2",
+      "login.social_proof_3",
+    ])
       .then((sections) => {
         setPublicCopy((current) => ({
           headline: sections["login.hero_headline"]?.value || current.headline,
           subtitle: sections["login.hero_subtitle"]?.value || current.subtitle,
+          primaryCtaLabel: sections["login.hero_primary_cta_label"]?.value || current.primaryCtaLabel,
+          primaryCtaUrl: sections["login.hero_primary_cta_url"]?.value || current.primaryCtaUrl,
+          secondaryCtaLabel: sections["login.hero_secondary_cta_label"]?.value || current.secondaryCtaLabel,
+          secondaryCtaUrl: sections["login.hero_secondary_cta_url"]?.value || current.secondaryCtaUrl,
+          socialProofTitle: sections["login.social_proof_title"]?.value || current.socialProofTitle,
+          socialProofItems: [
+            sections["login.social_proof_1"]?.value || current.socialProofItems[0],
+            sections["login.social_proof_2"]?.value || current.socialProofItems[1],
+            sections["login.social_proof_3"]?.value || current.socialProofItems[2],
+          ],
         }));
       })
       .catch(() => {});
   }, []);
+
+  const openHeroLink = (href) => {
+    const target = href || "#login-auth-panel";
+    if (target.startsWith("#")) {
+      const node = document.querySelector(target);
+      if (node) node.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    window.location.href = target;
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -109,15 +150,53 @@ export default function Login() {
         <p className="text-muted-foreground mt-6 max-w-md text-center" data-testid="login-public-subtitle">
           {publicCopy.subtitle}
         </p>
+        <div className="flex flex-wrap items-center justify-center gap-3 mt-6" data-testid="login-public-ctas">
+          <button onClick={() => openHeroLink(publicCopy.primaryCtaUrl)} className="rounded-full bg-[#3B82F6] px-5 py-3 text-sm font-medium text-white hover:bg-[#2563EB] transition-colors" data-testid="login-public-primary-cta">
+            {publicCopy.primaryCtaLabel}
+          </button>
+          <button onClick={() => openHeroLink(publicCopy.secondaryCtaUrl)} className="rounded-full border border-white/12 px-5 py-3 text-sm text-slate-200 hover:bg-white/[0.04] transition-colors" data-testid="login-public-secondary-cta">
+            {publicCopy.secondaryCtaLabel}
+          </button>
+        </div>
+        <div className="mt-8 w-full max-w-xl rounded-[24px] border border-white/10 bg-white/[0.04] p-5" data-testid="login-social-proof-block">
+          <p className="text-xs uppercase tracking-[0.18em] text-slate-400" data-testid="login-social-proof-title">{publicCopy.socialProofTitle}</p>
+          <div className="grid grid-cols-3 gap-3 mt-4" data-testid="login-social-proof-items">
+            {publicCopy.socialProofItems.map((item, index) => (
+              <div key={`${item}-${index}`} className="rounded-[18px] border border-white/10 bg-black/10 p-3 text-sm text-slate-200" data-testid={`login-social-proof-item-${index}`}>
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Right: form */}
       <div className="flex items-center justify-center p-8">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm">
+        <motion.div id="login-auth-panel" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm" data-testid="login-auth-panel">
           <div className="lg:hidden flex justify-center mb-8">
             <div className="relative flex items-center justify-center" style={{ width: 150, height: 150 }}>
               <div className="absolute inset-6 rounded-full" style={{ background: "radial-gradient(circle, rgba(59,130,246,0.4), transparent 70%)", filter: "blur(18px)" }} />
               <img src="/android_cut.png" alt="CEO AI" className="relative w-full h-full object-contain" style={{ filter: "drop-shadow(0 0 20px rgba(59,130,246,0.5))" }} />
+            </div>
+          </div>
+          <div className="lg:hidden rounded-[22px] border border-white/10 bg-white/[0.03] p-4 mb-6" data-testid="login-mobile-public-copy">
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Homepage</p>
+            <h1 className="font-serif-lux text-[28px] leading-tight mt-3" data-testid="login-mobile-public-headline">{publicCopy.headline}</h1>
+            <p className="text-sm text-muted-foreground mt-3" data-testid="login-mobile-public-subtitle">{publicCopy.subtitle}</p>
+            <div className="flex flex-wrap gap-2 mt-4" data-testid="login-mobile-public-ctas">
+              <button onClick={() => openHeroLink(publicCopy.primaryCtaUrl)} className="rounded-full bg-[#3B82F6] px-4 py-2.5 text-sm font-medium text-white" data-testid="login-mobile-public-primary-cta">
+                {publicCopy.primaryCtaLabel}
+              </button>
+              <button onClick={() => openHeroLink(publicCopy.secondaryCtaUrl)} className="rounded-full border border-white/12 px-4 py-2.5 text-sm text-slate-200" data-testid="login-mobile-public-secondary-cta">
+                {publicCopy.secondaryCtaLabel}
+              </button>
+            </div>
+            <div className="grid gap-2 mt-4" data-testid="login-mobile-social-proof-items">
+              {publicCopy.socialProofItems.map((item, index) => (
+                <div key={`${item}-mobile-${index}`} className="rounded-[16px] border border-white/10 bg-black/10 p-3 text-sm text-slate-200" data-testid={`login-mobile-social-proof-item-${index}`}>
+                  {item}
+                </div>
+              ))}
             </div>
           </div>
           <h2 className="font-serif-lux text-4xl mb-2">{mode === "login" ? "Bem-vindo de volta" : "Comece agora"}</h2>

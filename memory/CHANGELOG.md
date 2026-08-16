@@ -1,5 +1,38 @@
 # CHANGELOG — CEO AI
 
+## 2026-08-16 — Homepage gerida pelo Agente · Site + SEO técnico público
+- `backend/routers/site_publishing.py`
+  - novos slots seguros de homepage em `/login`:
+    - headline
+    - subtítulo
+    - CTA principal + URL
+    - CTA secundário + URL
+    - prova social (título + 3 itens)
+  - novo estado `homepage` em `GET /api/marketing/site-publishing/status`
+  - novas rotas:
+    - `POST /api/marketing/site-publishing/homepage/proposal`
+    - `POST /api/marketing/site-publishing/homepage/apply`
+  - `_get_settings()` passou a fazer merge com defaults para evitar docs parciais
+- `frontend/src/components/marketing/SiteHomepageManagerSection.jsx`
+  - novo gestor visual da homepage dentro do Gateway com preview Ao vivo vs Proposta do agente
+- `frontend/src/components/marketing/SitePublishingGatewaySection.jsx`
+  - integração do novo bloco da homepage
+- `frontend/src/pages/Marketing.jsx`
+  - handlers para gerar proposta e aplicar homepage
+- `frontend/src/pages/Login.jsx`
+  - homepage pública `/login` passou a consumir headline, subtítulo, CTAs e prova social via slots do gateway
+  - CTAs funcionais e versão compacta em mobile
+- `frontend/src/lib/seo.js`
+  - canonical, robots, Open Graph e Twitter metadata reforçados para páginas públicas
+- `frontend/public/index.html`
+  - `lang="pt-PT"`
+  - `robots noindex,nofollow` por defeito para a app privada
+- `backend/routers/growth_agent.py`
+  - sitemap.xml com `lastmod`
+- testes / validação:
+  - `backend/tests/test_site_homepage_management.py`
+  - `testing_agent`: `/app/test_reports/iteration_51.json` PASS
+
 ## 2026-08-16 — Comparação inline reforçada no painel de Alterações do Site
 - `frontend/src/components/marketing/SiteChangeHistorySection.jsx`
   - adicionado diff inline palavra-a-palavra com algoritmo LCS

@@ -659,7 +659,8 @@ async def public_sitemap_xml():
     urls = []
     for item in inventory:
         loc = item.get("canonical_url") or (f"{base}{item.get('public_url')}" if base else item.get("public_url"))
-        urls.append(f"<url><loc>{loc}</loc></url>")
+        lastmod = item.get("updated_at") or datetime.now(timezone.utc).date().isoformat()
+        urls.append(f"<url><loc>{loc}</loc><lastmod>{str(lastmod)[:10]}</lastmod></url>")
     body = "<?xml version='1.0' encoding='UTF-8'?>" + "<urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9'>" + "".join(urls) + "</urlset>"
     return Response(body, media_type="application/xml")
 

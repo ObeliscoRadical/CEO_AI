@@ -880,6 +880,32 @@ function Marketing() {
     }
   };
 
+  const generateHomepageProposal = async () => {
+    setSiteGatewayBusy("homepage-generate");
+    try {
+      const { data } = await api.post("/marketing/site-publishing/homepage/proposal", { use_ai: false });
+      setSiteGateway(data.status);
+      toast.success("Proposta da homepage gerada pelo Agente · Site.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setSiteGatewayBusy(null);
+    }
+  };
+
+  const applyHomepageProposal = async () => {
+    setSiteGatewayBusy("homepage-apply");
+    try {
+      const { data } = await api.post("/marketing/site-publishing/homepage/apply", {});
+      setSiteGateway(data.status);
+      toast.success("Homepage pública atualizada pelo Agente · Site.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setSiteGatewayBusy(null);
+    }
+  };
+
   const rollbackSiteEntry = async (entryId, versionId = null) => {
     setSiteGatewayBusy(`rollback-${entryId}`);
     try {
@@ -1034,6 +1060,8 @@ function Marketing() {
             busy={siteGatewayBusy}
             onAuthorize={authorizeSitePublishing}
             onRunNow={runSitePublishingNow}
+            onGenerateHomepageProposal={generateHomepageProposal}
+            onApplyHomepageProposal={applyHomepageProposal}
             onRollback={rollbackSiteEntry}
             onRemove={removeSiteEntry}
             onRefresh={loadSitePublishing}

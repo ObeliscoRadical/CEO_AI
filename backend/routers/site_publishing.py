@@ -26,11 +26,31 @@ router = APIRouter()
 SAFE_SECTION_SLOTS = {
     "login.hero_headline": {"route": "/login", "label": "Headline da página de login"},
     "login.hero_subtitle": {"route": "/login", "label": "Subheadline da página de login"},
+    "login.hero_primary_cta_label": {"route": "/login", "label": "CTA principal da homepage"},
+    "login.hero_primary_cta_url": {"route": "/login", "label": "URL do CTA principal da homepage"},
+    "login.hero_secondary_cta_label": {"route": "/login", "label": "CTA secundário da homepage"},
+    "login.hero_secondary_cta_url": {"route": "/login", "label": "URL do CTA secundário da homepage"},
+    "login.social_proof_title": {"route": "/login", "label": "Título da prova social da homepage"},
+    "login.social_proof_1": {"route": "/login", "label": "Prova social 1 da homepage"},
+    "login.social_proof_2": {"route": "/login", "label": "Prova social 2 da homepage"},
+    "login.social_proof_3": {"route": "/login", "label": "Prova social 3 da homepage"},
     "pricing.hero_headline": {"route": "/planos", "label": "Headline da página de planos"},
     "pricing.hero_subtitle": {"route": "/planos", "label": "Subheadline da página de planos"},
     "contact.hero_intro": {"route": "/contacto", "label": "Introdução da página de contacto"},
 }
 MANAGED_ROUTE_PREFIXES = ["/insights", "/site", "/login", "/planos", "/contacto"]
+HOMEPAGE_MANAGED_SLOTS = [
+    "login.hero_headline",
+    "login.hero_subtitle",
+    "login.hero_primary_cta_label",
+    "login.hero_primary_cta_url",
+    "login.hero_secondary_cta_label",
+    "login.hero_secondary_cta_url",
+    "login.social_proof_title",
+    "login.social_proof_1",
+    "login.social_proof_2",
+    "login.social_proof_3",
+]
 
 
 class SiteSectionBlockIn(BaseModel):
@@ -83,6 +103,21 @@ class SiteAgentRunIn(BaseModel):
     use_ai: bool = False
 
 
+class SiteHomepageProposalIn(BaseModel):
+    use_ai: bool = False
+
+
+class SiteHomepageApplyIn(BaseModel):
+    headline: str = ""
+    subtitle: str = ""
+    primary_cta_label: str = ""
+    primary_cta_url: str = ""
+    secondary_cta_label: str = ""
+    secondary_cta_url: str = ""
+    social_proof_title: str = ""
+    social_proof_items: list[str] = Field(default_factory=list)
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -122,6 +157,141 @@ def _safe_slot(slot_key: str):
     if slot_key not in SAFE_SECTION_SLOTS:
         raise HTTPException(400, "O slot pedido não faz parte da zona pública segura do gateway.")
     return SAFE_SECTION_SLOTS[slot_key]
+
+
+def _homepage_default_copy(ctx: Optional[dict] = None) -> dict:
+    ctx = ctx or {}
+    company = _short(ctx.get("name"), "A sua empresa")
+    sector = _short(ctx.get("sector"), "o seu setor").lower()
+    main_goal = _short(ctx.get("main_goal"), "crescer com clareza")
+    advantage = _short(ctx.get("advantage"), "decisão mais rápida e mais informada")
+    icp = ctx.get("icp") or {}
+    pain = _short(icp.get("dor"), "prioridades dispersas e pouca visibilidade")
+    return {
+        "headline": f"{company}: decisões executivas com mais clareza e menos ruído",
+        "subtitle": f"O CEO AI ajuda {company} a cruzar marketing, CRM, finanças e operação para decidir o próximo passo com confiança — especialmente em {sector} e com foco em {main_goal.lower()}.",
+        "primary_cta_label": "Entrar no painel",
+        "primary_cta_url": "#login-auth-panel",
+        "secondary_cta_label": "Ver planos",
+        "secondary_cta_url": "/planos",
+        "social_proof_title": "Porque é que esta homepage merece atenção",
+        "social_proof_items": [
+            f"Foco em {main_goal.lower()}",
+            f"Vantagem: {advantage}",
+            f"Resolve a dor: {pain}",
+        ],
+    }
+
+
+def _normalize_homepage_copy(payload: Optional[dict], ctx: Optional[dict] = None) -> dict:
+    defaults = _homepage_default_copy(ctx)
+    payload = payload or {}
+    proof_items = _str_list(payload.get("social_proof_items"), 6)[:3]
+    while len(proof_items) < 3:
+        proof_items.append(defaults["social_proof_items"][len(proof_items)])
+    return {
+        "headline": _short(payload.get("headline"), defaults["headline"]),
+        "subtitle": _short(payload.get("subtitle"), defaults["subtitle"]),
+        "primary_cta_label": _short(payload.get("primary_cta_label"), defaults["primary_cta_label"]),
+        "primary_cta_url": _short(payload.get("primary_cta_url"), defaults["primary_cta_url"]),
+        "secondary_cta_label": _short(payload.get("secondary_cta_label"), defaults["secondary_cta_label"]),
+        "secondary_cta_url": _short(payload.get("secondary_cta_url"), defaults["secondary_cta_url"]),
+        "social_proof_title": _short(payload.get("social_proof_title"), defaults["social_proof_title"]),
+        "social_proof_items": proof_items,
+    }
+
+
+def _homepage_slot_values(copy: dict) -> dict:
+    normalized = _normalize_homepage_copy(copy)
+    items = normalized.get("social_proof_items") or []
+    return {
+        "login.hero_headline": normalized["headline"],
+        "login.hero_subtitle": normalized["subtitle"],
+        "login.hero_primary_cta_label": normalized["primary_cta_label"],
+        "login.hero_primary_cta_url": normalized["primary_cta_url"],
+        "login.hero_secondary_cta_label": normalized["secondary_cta_label"],
+        "login.hero_secondary_cta_url": normalized["secondary_cta_url"],
+        "login.social_proof_title": normalized["social_proof_title"],
+        "login.social_proof_1": items[0] if len(items) > 0 else "",
+        "login.social_proof_2": items[1] if len(items) > 1 else "",
+        "login.social_proof_3": items[2] if len(items) > 2 else "",
+    }
+
+
+def _homepage_copy_from_slot_values(values: dict, ctx: Optional[dict] = None) -> dict:
+    defaults = _homepage_default_copy(ctx)
+    return _normalize_homepage_copy(
+        {
+            "headline": values.get("login.hero_headline") or defaults["headline"],
+            "subtitle": values.get("login.hero_subtitle") or defaults["subtitle"],
+            "primary_cta_label": values.get("login.hero_primary_cta_label") or defaults["primary_cta_label"],
+            "primary_cta_url": values.get("login.hero_primary_cta_url") or defaults["primary_cta_url"],
+            "secondary_cta_label": values.get("login.hero_secondary_cta_label") or defaults["secondary_cta_label"],
+            "secondary_cta_url": values.get("login.hero_secondary_cta_url") or defaults["secondary_cta_url"],
+            "social_proof_title": values.get("login.social_proof_title") or defaults["social_proof_title"],
+            "social_proof_items": [
+                values.get("login.social_proof_1") or defaults["social_proof_items"][0],
+                values.get("login.social_proof_2") or defaults["social_proof_items"][1],
+                values.get("login.social_proof_3") or defaults["social_proof_items"][2],
+            ],
+        },
+        ctx,
+    )
+
+
+async def _homepage_management_state(uid: str, cid: str, settings: Optional[dict] = None) -> dict:
+    settings = settings or await _get_settings(uid, cid)
+    ctx = await _ctx(uid, cid)
+    rows = await db.site_content_entries.find(
+        {
+            "user_id": uid,
+            "company_id": cid,
+            "kind": "section_override",
+            "slot_key": {"$in": HOMEPAGE_MANAGED_SLOTS},
+            "status": "published",
+        },
+        {"_id": 0, "id": 1, "slot_key": 1, "slot_value": 1, "updated_at": 1},
+    ).to_list(len(HOMEPAGE_MANAGED_SLOTS))
+    slot_values = {row.get("slot_key"): row.get("slot_value") for row in rows if row.get("slot_key")}
+    latest_update = max([row.get("updated_at") or "" for row in rows], default="") or None
+    proposal = _normalize_homepage_copy((settings or {}).get("homepage_last_proposal") or {}, ctx)
+    return {
+        "route": "/login",
+        "managed_slots": HOMEPAGE_MANAGED_SLOTS,
+        "live": _homepage_copy_from_slot_values(slot_values, ctx),
+        "proposal": proposal,
+        "live_slot_values": slot_values,
+        "managed": bool(rows),
+        "updated_at": latest_update,
+        "last_proposal_at": (settings or {}).get("homepage_last_proposal_at"),
+        "last_applied_at": (settings or {}).get("homepage_last_applied_at"),
+    }
+
+
+async def _generate_homepage_proposal(uid: str, cid: str, use_ai: bool = False) -> dict:
+    ctx = await _ctx(uid, cid)
+    fallback = _homepage_default_copy(ctx)
+    proposal = fallback
+    if use_ai:
+        try:
+            raw = await ai_json(
+                "És o Agente do Site do CEO AI. Respondes apenas com JSON em português europeu.",
+                (
+                    f"Contexto da empresa:\n{_prompt_context(ctx)}\n\n"
+                    "Quero otimizar parcialmente a homepage pública /login. "
+                    "Mantém o design atual e mexe só em copy de headline, subtítulo, CTAs e prova social. "
+                    "Devolve APENAS JSON válido com esta estrutura: "
+                    '{"headline":str,"subtitle":str,"primary_cta_label":str,"primary_cta_url":str,'
+                    '"secondary_cta_label":str,"secondary_cta_url":str,"social_proof_title":str,'
+                    '"social_proof_items":[str,str,str]}. '
+                    "Os CTAs devem ser seguros para a homepage atual: CTA principal para '#login-auth-panel' e CTA secundário para uma rota pública como '/planos', '/contacto' ou '/insights'."
+                ),
+            )
+            if isinstance(raw, dict):
+                proposal = _normalize_homepage_copy(raw, ctx)
+        except Exception as error:
+            logger.error(f"homepage proposal ai error: {error}")
+    return _normalize_homepage_copy(proposal, ctx)
 
 
 def _clean_section(section: dict) -> dict:
@@ -424,10 +594,7 @@ def _architecture_summary() -> dict:
 
 async def _get_settings(uid: str, cid: str) -> dict:
     company = await resolve_company(uid, cid) or {}
-    existing = await db.site_publication_settings.find_one({"user_id": uid, "company_id": cid}, {"_id": 0})
-    if existing:
-        return existing
-    return {
+    defaults = {
         "user_id": uid,
         "company_id": cid,
         "company_name": company.get("name") or "Empresa",
@@ -442,6 +609,10 @@ async def _get_settings(uid: str, cid: str) -> dict:
         "authorization_note": "Ainda não autorizado para escrita autónoma no site público.",
         "updated_at": _now_iso(),
     }
+    existing = await db.site_publication_settings.find_one({"user_id": uid, "company_id": cid}, {"_id": 0})
+    if existing:
+        return {**defaults, **existing}
+    return defaults
 
 
 async def _live_owner_company_id() -> Optional[str]:
@@ -711,6 +882,7 @@ async def get_site_publishing_status(uid: str, cid: str) -> dict:
         },
         "entries": [_serialize_entry(row) for row in entries],
         "logs": [_serialize_entry(row) for row in logs],
+        "homepage": await _homepage_management_state(uid, cid, settings=settings),
         "change_history": _build_site_change_history([_serialize_entry(row) for row in logs], version_lookup),
         "analytics": {
             "campaign_comparison": campaign_comparison,
@@ -905,6 +1077,53 @@ async def run_site_publication_now(inp: SiteAgentRunIn, user: dict = Depends(pre
         raise HTTPException(400, "A estratégia inicial do Growth Agent ainda não foi aprovada.")
     entry = await maybe_publish_autonomous_site_content(uid, cid, deepcopy(agent), use_ai=inp.use_ai)
     return {"published_entry": entry, "status": await get_site_publishing_status(uid, cid)}
+
+
+@router.post("/marketing/site-publishing/homepage/proposal")
+async def generate_homepage_proposal(inp: SiteHomepageProposalIn, user: dict = Depends(premium_user)):
+    uid = user["id"]
+    cid = await active_company_id(uid)
+    proposal = await _generate_homepage_proposal(uid, cid, use_ai=inp.use_ai)
+    await db.site_publication_settings.update_one(
+        {"user_id": uid, "company_id": cid},
+        {"$set": {"homepage_last_proposal": proposal, "homepage_last_proposal_at": _now_iso(), "updated_at": _now_iso()}},
+        upsert=True,
+    )
+    return {"proposal": proposal, "status": await get_site_publishing_status(uid, cid)}
+
+
+@router.post("/marketing/site-publishing/homepage/apply")
+async def apply_homepage_proposal(inp: SiteHomepageApplyIn, user: dict = Depends(premium_user)):
+    uid = user["id"]
+    cid = await active_company_id(uid)
+    settings = await _get_settings(uid, cid)
+    ctx = await _ctx(uid, cid)
+    incoming = inp.model_dump()
+    proposal_source = incoming if any([incoming.get("headline"), incoming.get("subtitle"), incoming.get("primary_cta_label"), incoming.get("secondary_cta_label"), incoming.get("social_proof_title"), incoming.get("social_proof_items")]) else ((settings or {}).get("homepage_last_proposal") or _homepage_default_copy(ctx))
+    proposal = _normalize_homepage_copy(proposal_source, ctx)
+    slot_values = _homepage_slot_values(proposal)
+    for slot_key, slot_value in slot_values.items():
+        await upsert_site_content(
+            uid,
+            cid,
+            SiteContentUpsertIn(
+                kind="section_override",
+                slot_key=slot_key,
+                slot_value=slot_value,
+                publish_now=True,
+                auto_generate_hero_image=False,
+                strategy_reason="Atualização da homepage pública gerida pelo Agente · Site.",
+                objective="homepage",
+                campaign_label="Homepage Agent",
+            ),
+            actor="homepage_agent",
+        )
+    await db.site_publication_settings.update_one(
+        {"user_id": uid, "company_id": cid},
+        {"$set": {"homepage_last_proposal": proposal, "homepage_last_applied_at": _now_iso(), "updated_at": _now_iso()}},
+        upsert=True,
+    )
+    return {"homepage": await _homepage_management_state(uid, cid), "status": await get_site_publishing_status(uid, cid)}
 
 
 @router.get("/public/site/entries")

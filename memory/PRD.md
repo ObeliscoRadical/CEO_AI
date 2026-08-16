@@ -78,6 +78,39 @@ Concluído neste fork.
   - texto adicionado destacado no bloco **Depois**
   - convivência com o diff clássico por campo, sem perder a leitura executiva
 
+### 0.2 Homepage gerida pelo Agente · Site
+Concluído neste fork.
+
+- dentro de **Agente · Site > Gateway** existe agora um bloco **Homepage gerida pelo agente**
+- a primeira versão controlada pelo agente inclui:
+  - **headline**
+  - **subtítulo**
+  - **CTA principal**
+  - **CTA secundário**
+  - **prova social**
+- o gestor mostra:
+  - preview **Ao vivo**
+  - preview **Proposta do agente**
+  - ação **Gerar proposta**
+  - ação **Aplicar na homepage**
+  - link para abrir a homepage pública
+- a homepage pública desta fase é a rota **`/login`**
+- os valores são publicados como `section_override` seguros no gateway
+
+### 0.3 SEO técnico das páginas públicas
+Concluído nesta fase inicial.
+
+- `applyPublicSeo()` foi reforçado para aplicar:
+  - **canonical**
+  - **robots index/follow** nas páginas públicas
+  - **Open Graph** (`og:title`, `og:description`, `og:url`, `og:type`, `og:site_name`)
+  - **Twitter Card** (`summary_large_image`)
+- `frontend/public/index.html` ficou com **robots noindex/nofollow por defeito**
+  - isto protege páginas privadas da app
+  - as páginas públicas fazem override para index/follow
+- `GET /api/public/sitemap.xml` agora inclui **`<lastmod>`**
+- a consistência SEO foi validada em `/login` e no sitemap
+
 ### 1. Separação de agentes
 Concluída.
 
@@ -138,6 +171,9 @@ Foi implementado:
 - `POST /api/social/schedule`
 - `GET /api/marketing/analytics`
 - `GET /api/marketing/site-publishing/status`
+- `POST /api/marketing/site-publishing/homepage/proposal`
+- `POST /api/marketing/site-publishing/homepage/apply`
+- `GET /api/public/sitemap.xml`
 
 ## Dados / coleções relevantes
 - `social_connections`
@@ -168,12 +204,18 @@ Mesmo com permissões ativadas na app Meta, o token/oauth em produção pode ain
 - `/app/backend/routers/social.py`
 - `/app/backend/routers/marketing.py`
 - `/app/backend/routers/site_publishing.py`
+- `/app/backend/routers/growth_agent.py`
 - `/app/frontend/src/pages/Marketing.jsx`
+- `/app/frontend/src/pages/Login.jsx`
+- `/app/frontend/src/lib/seo.js`
+- `/app/frontend/public/index.html`
 - `/app/frontend/src/components/marketing/MetaConnectionSection.jsx`
 - `/app/frontend/src/components/marketing/SiteChangeHistorySection.jsx`
+- `/app/frontend/src/components/marketing/SiteHomepageManagerSection.jsx`
 - `/app/backend/tests/test_meta_metrics_readiness.py`
 - `/app/backend/tests/test_meta_insights_api.py`
 - `/app/backend/tests/test_site_change_history.py`
+- `/app/backend/tests/test_site_homepage_management.py`
 
 ## Credenciais de teste
 Ver `/app/memory/test_credentials.md`
@@ -187,11 +229,12 @@ Ver `/app/memory/test_credentials.md`
 - simplificação visual compacta do Marketing validada em `/app/test_reports/iteration_48.json` → **PASS**
 - painel visual de Alterações do Site validado em `/app/test_reports/iteration_49.json` → **PASS**
 - comparação inline do diff visual validada em `/app/test_reports/iteration_50.json` → **PASS**
+- homepage gerida + SEO técnico validados em `/app/test_reports/iteration_51.json` → **PASS**
 
 ## Próximas prioridades
 - **P0:** validar em produção após redeploy se o estado Meta deixa de ficar preso em mocked quando o token tiver insights reais
-- **P1:** homepage parcialmente gerida pelo Site Publishing Gateway
-- **P1:** consistência SEO (canonical, sitemap, base URL alinhados ao domínio `www`)
+- **P1:** expandir a homepage gerida para mais blocos públicos (hero complementar, prova social rica, secções de valor, FAQ)
+- **P1:** aprofundar SEO técnico (base URL canónica final do domínio, schema markup por página, cobertura mais ampla nas rotas públicas)
 - **P2:** geração automática de criativos
 - **P2:** scoring de campanhas
 - **P2:** UX da integração ERP

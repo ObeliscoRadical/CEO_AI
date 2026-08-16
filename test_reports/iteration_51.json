@@ -1,0 +1,93 @@
+{
+  "summary": "Completed end-to-end testing of Homepage Management + SEO features for iteration 51. All backend APIs (7/7 tests passed) and frontend UI components working correctly. Homepage manager section in Marketing > Agente · Site > Gateway displays live vs proposal previews, generate/apply buttons work, and SEO metadata (canonical, robots index/follow) is correctly applied on public /login page.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_homepage_seo_iteration51.py",
+    "/app/test_reports/pytest/iter51_homepage_seo.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_homepage_seo_iteration51.py"
+  ],
+  "success_rate": {
+    "backend": "100% (7/7 tests passed)",
+    "frontend": "100% (all testids found, flows working)"
+  },
+  "test_credentials": "Admin: adminceoai@gmail.com / 12345",
+  "seed_data_creation": "Used existing homepage overrides from previous apply operations",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Homepage management feature fully tested. The SiteHomepageManagerSection component displays live vs proposal previews with all testids working. The generate/apply flow updates the gateway state and shows success toast. SEO metadata (canonical, robots, og:url, twitter:card) is correctly applied via applyPublicSeo() in Login.jsx. Sitemap.xml includes <lastmod> tags.",
+  "features_verified": {
+    "public_homepage_content": {
+      "login-public-headline": "PASS - Shows managed headline from gateway",
+      "login-public-subtitle": "PASS - Shows managed subtitle",
+      "login-public-primary-cta": "PASS - Shows 'Entrar no painel'",
+      "login-public-secondary-cta": "PASS - Shows 'Ver planos'",
+      "login-social-proof-title": "PASS - Shows social proof title",
+      "login-social-proof-item-0": "PASS - First social proof item",
+      "login-social-proof-item-1": "PASS - Second social proof item",
+      "login-social-proof-item-2": "PASS - Third social proof item"
+    },
+    "seo_metadata": {
+      "canonical": "PASS - https://marketing-split-test-1.preview.emergentagent.com/login",
+      "robots": "PASS - index, follow, max-image-preview:large",
+      "og:url": "PASS - Matches canonical",
+      "twitter:card": "PASS - summary_large_image"
+    },
+    "homepage_manager_section": {
+      "site-homepage-manager-section": "PASS - Section container found",
+      "site-homepage-generate-btn": "PASS - Generate proposal button",
+      "site-homepage-apply-btn": "PASS - Apply proposal button",
+      "site-homepage-open-link": "PASS - Opens /login",
+      "site-homepage-live-headline": "PASS - Shows live headline",
+      "site-homepage-proposal-headline": "PASS - Shows proposal headline",
+      "site-homepage-manager-note": "PASS - Shows authorization note"
+    },
+    "homepage_flow": {
+      "generate_proposal": "PASS - POST /api/marketing/site-publishing/homepage/proposal returns 200",
+      "apply_proposal": "PASS - POST /api/marketing/site-publishing/homepage/apply returns 200",
+      "success_toast": "PASS - Shows 'Homepage pública atualizada pelo Agente · Site'"
+    },
+    "sitemap_xml": {
+      "endpoint": "PASS - GET /api/public/sitemap.xml returns 200",
+      "lastmod_tags": "PASS - Contains <lastmod>YYYY-MM-DD</lastmod> format"
+    },
+    "gateway_regression": {
+      "site-publishing-gateway-section": "PASS",
+      "site-publishing-stats-grid": "PASS",
+      "site-publishing-stat-authorized": "PASS - Shows 'Ativa'",
+      "site-publishing-stat-published": "PASS - Shows '10'",
+      "site-publishing-architecture-card": "PASS",
+      "site-publishing-analytics-card": "PASS",
+      "site-publishing-entries-card": "PASS",
+      "site-publishing-logs-card": "PASS"
+    },
+    "change_history": {
+      "alteracoes_do_site_section": "PASS - Shows 30 alterações, 30 updates",
+      "filters": "PASS - Página, Tipo, Data dropdowns present",
+      "change_cards": "PASS - Shows before/after preview with rollback button"
+    }
+  },
+  "backend_tests_executed": {
+    "test_site_publishing_status_returns_homepage_fields": "PASS",
+    "test_site_publishing_status_live_has_homepage_copy_fields": "PASS",
+    "test_homepage_proposal_generation": "PASS",
+    "test_homepage_apply_updates_live_content": "PASS",
+    "test_sitemap_returns_xml_with_lastmod": "PASS",
+    "test_public_sections_returns_homepage_slots": "PASS",
+    "test_gateway_authorization_status": "PASS"
+  },
+  "mocked_apis": {
+    "meta_insights": "MOCKED - Preview environment has degraded Meta connection. This is expected behavior per task notes."
+  }
+}
