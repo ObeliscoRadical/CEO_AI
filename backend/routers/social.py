@@ -21,10 +21,39 @@ from routers.marketing import apply_post_status, record_marketing_metrics
 
 router = APIRouter()
 
-SCOPES = ["instagram_basic", "instagram_content_publish", "pages_show_list",
-          "pages_read_engagement", "pages_manage_posts", "business_management"]
+SCOPES = [
+    "instagram_basic",
+    "instagram_content_publish",
+    "instagram_manage_insights",
+    "pages_show_list",
+    "pages_read_engagement",
+    "pages_manage_posts",
+    "read_insights",
+    "business_management",
+]
 REQUIRED_PAGE_TASKS = {"CREATE_CONTENT", "MANAGE"}
-INSIGHTS_SCOPE_HINTS = {"instagram_manage_insights", "pages_read_engagement"}
+INSIGHTS_SCOPE_HINTS = {"instagram_manage_insights", "instagram_basic", "pages_read_engagement", "read_insights"}
+
+
+def _scope_set(conn: Optional[dict]) -> set[str]:
+    return set((conn or {}).get("granted_scopes") or [])
+
+
+def _missing_insights_scopes(conn: Optional[dict]) -> list[str]:
+    scopes = _scope_set(conn)
+    if not scopes:
+        return []
+    return sorted(item for item in INSIGHTS_SCOPE_HINTS if item not in scopes)
+
+
+def _live_metrics_ready(conn: Optional[dict]) -> bool:
+    if not _conn_ready(conn) or not conn or not conn.get("ig_user_id"):
+        return False
+    last_checks = (((conn or {}).get("last_diagnostics") or {}).get("checks") or [])
+    insights_check = next((item for item in last_checks if item.get("id") == "meta_insights_permissions"), None)
+    if insights_check is not None:
+        return bool(insights_check.get("ok"))
+    return not _missing_insights_scopes(conn)
 
 
 def _first_env(*names, default=""):
@@ -196,6 +225,8 @@ def _base_checks(aid: str, sec: str, conn: Optional[dict]):
             "detail": "OAuth concluído. Falta escolher qual Página de Facebook/Instagram deve ficar ligada.",
         })
     else:
+        scopes = _scope_set(conn)
+        missing_scopes = _missing_insights_scopes(conn)
         checks.extend([
             {
                 "id": "meta_page_selected",
@@ -216,18 +247,19 @@ def _base_checks(aid: str, sec: str, conn: Optional[dict]):
                 "detail": f"@{conn.get('ig_username')}" if conn and conn.get("ig_username") else "Sem conta Instagram profissional ligada à Página.",
             },
         ])
-        scopes = set((conn or {}).get("granted_scopes") or [])
-        missing_scopes = sorted(item for item in [
-            "pages_show_list",
-            "pages_manage_posts",
-            "instagram_basic",
-            "instagram_content_publish",
-        ] if scopes and item not in scopes)
         checks.append({
             "id": "meta_insights_permissions",
             "label": "Permissões para analytics",
-            "ok": bool(conn and conn.get("ig_user_id") and (not scopes or INSIGHTS_SCOPE_HINTS.issubset(scopes))),
-            "detail": "Pronto para ligar métricas reais quando as credenciais forem validadas." if conn and conn.get("ig_user_id") and not missing_scopes else (f"Scopes em falta: {', '.join(missing_scopes)}." if missing_scopes else "As métricas continuam MOCKED até haver ligação Meta válida."),
+            "ok": bool(conn and conn.get("ig_user_id") and scopes and not missing_scopes),
+            "detail": (
+                "Permissões de analytics validadas. As métricas reais podem ser sincronizadas."
+                if conn and conn.get("ig_user_id") and scopes and not missing_scopes else
+                ("Valide a ligação para confirmar os scopes de analytics reais."
+                 if conn and conn.get("ig_user_id") and not scopes else
+                 (f"Scopes em falta: {', '.join(missing_scopes)}. Reconecte a Meta para conceder leitura de insights."
+                  if missing_scopes else
+                  "As métricas continuam MOCKED até existir um Instagram profissional ligado e validado."))
+            ),
         })
     if recommended:
         checks.append({
@@ -244,6 +276,7 @@ def _status_payload(conn: Optional[dict], aid: str, sec: str, checks: Optional[l
     state = _conn_state(conn)
     connected = _conn_ready(conn)
     available_pages = [_candidate_public(item) for item in ((conn or {}).get("candidate_pages") or [])]
+    live_ready = _live_metrics_ready(conn)
     return {
         "configured": bool(aid and sec),
         "missing_config": missing,
@@ -264,8 +297,8 @@ def _status_payload(conn: Optional[dict], aid: str, sec: str, checks: Optional[l
         "data_access_expires_at": (conn or {}).get("data_access_expires_at"),
         "checks": checks or ((conn or {}).get("last_diagnostics") or {}).get("checks") or _base_checks(aid, sec, conn),
         "available_pages": available_pages,
-        "metrics_mocked": True,
-        "live_metrics_ready": bool(conn and conn.get("ig_user_id") and connected),
+        "metrics_mocked": not live_ready,
+        "live_metrics_ready": live_ready,
         "publish_ready_facebook": bool(connected and _has_publish_task((conn or {}).get("tasks") or [])),
         "publish_ready_instagram": bool(connected and conn and conn.get("ig_user_id")),
     }
@@ -332,12 +365,13 @@ async def _finalize_connection(uid: str, cid: Optional[str], current: Optional[d
 
 
 async def _run_diagnostics(conn: Optional[dict], aid: str, sec: str):
-    checks = _base_checks(aid, sec, conn)
     if not (aid and sec) or not _conn_ready(conn):
-        return checks, _conn_state(conn), {}
+        return _base_checks(aid, sec, conn), _conn_state(conn), {}
 
     state = "connected"
     patch = {}
+    runtime_checks = []
+    probe_conn = {**(conn or {})}
     token_debug = await _fetch_token_debug(conn.get("user_token"))
     if token_debug:
         patch.update({
@@ -347,7 +381,8 @@ async def _run_diagnostics(conn: Optional[dict], aid: str, sec: str):
             "token_expires_at": token_debug.get("token_expires_at"),
             "data_access_expires_at": token_debug.get("data_access_expires_at"),
         })
-        checks.append({
+        probe_conn.update(patch)
+        runtime_checks.append({
             "id": "meta_user_token",
             "label": "Token do utilizador Meta",
             "ok": bool(token_debug.get("token_is_valid")),
@@ -356,7 +391,7 @@ async def _run_diagnostics(conn: Optional[dict], aid: str, sec: str):
 
     try:
         page = await _graph_req("GET", _graph(conn["page_id"]), {"fields": "id,name"}, conn["page_token"])
-        checks.append({
+        runtime_checks.append({
             "id": "meta_page_api",
             "label": "API da Página",
             "ok": True,
@@ -364,7 +399,7 @@ async def _run_diagnostics(conn: Optional[dict], aid: str, sec: str):
         })
     except Exception:
         state = "degraded"
-        checks.append({
+        runtime_checks.append({
             "id": "meta_page_api",
             "label": "API da Página",
             "ok": False,
@@ -377,7 +412,8 @@ async def _run_diagnostics(conn: Optional[dict], aid: str, sec: str):
         if selected:
             patch["tasks"] = selected.get("tasks") or []
             patch["ig_user_id"] = ((selected.get("instagram_business_account") or {}).get("id")) or conn.get("ig_user_id")
-            checks.append({
+            probe_conn.update({k: v for k, v in patch.items() if v is not None})
+            runtime_checks.append({
                 "id": "meta_selected_page",
                 "label": "Página selecionada na sessão Meta",
                 "ok": True,
@@ -385,7 +421,7 @@ async def _run_diagnostics(conn: Optional[dict], aid: str, sec: str):
             })
         else:
             state = "degraded"
-            checks.append({
+            runtime_checks.append({
                 "id": "meta_selected_page",
                 "label": "Página selecionada na sessão Meta",
                 "ok": False,
@@ -393,7 +429,7 @@ async def _run_diagnostics(conn: Optional[dict], aid: str, sec: str):
             })
     except Exception:
         state = "degraded"
-        checks.append({
+        runtime_checks.append({
             "id": "meta_selected_page",
             "label": "Página selecionada na sessão Meta",
             "ok": False,
@@ -406,7 +442,8 @@ async def _run_diagnostics(conn: Optional[dict], aid: str, sec: str):
             token = conn.get("page_token") or conn.get("user_token")
             ig = await _graph_req("GET", _graph(ig_user_id), {"fields": "id,username"}, token)
             patch["ig_username"] = ig.get("username") or conn.get("ig_username")
-            checks.append({
+            probe_conn.update({k: v for k, v in patch.items() if v is not None})
+            runtime_checks.append({
                 "id": "meta_ig_api",
                 "label": "API do Instagram",
                 "ok": True,
@@ -414,12 +451,14 @@ async def _run_diagnostics(conn: Optional[dict], aid: str, sec: str):
             })
         except Exception:
             state = "degraded"
-            checks.append({
+            runtime_checks.append({
                 "id": "meta_ig_api",
                 "label": "API do Instagram",
                 "ok": False,
                 "detail": "Não foi possível validar o Instagram profissional ligado à Página.",
             })
+    checks = _base_checks(aid, sec, probe_conn)
+    checks.extend(runtime_checks)
     return checks, state, patch
 
 
@@ -462,6 +501,99 @@ async def _marketing_post_meta(uid: str, cid: Optional[str], post_id: Optional[s
                 "status": post.get("status"),
             }
     return {}
+
+
+def _metric_number(value) -> int:
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, dict):
+        numeric = [int(v) for v in value.values() if isinstance(v, (int, float))]
+        return sum(numeric) if numeric else 0
+    return 0
+
+
+def _metric_from_insights(payload: dict, name: str) -> int:
+    for item in (payload.get("data") or []):
+        if item.get("name") != name:
+            continue
+        values = item.get("values") or []
+        if not values:
+            return 0
+        return _metric_number((values[0] or {}).get("value"))
+    return 0
+
+
+async def _fetch_live_post_metrics(conn: Optional[dict], social_post_doc: dict) -> Optional[dict]:
+    if not _live_metrics_ready(conn):
+        return None
+    ig_result = ((social_post_doc.get("results") or {}).get("instagram") or {})
+    media_id = ig_result.get("id")
+    if not media_id:
+        return None
+    token = (conn or {}).get("user_token") or (conn or {}).get("page_token")
+    if not token:
+        return None
+    try:
+        media = await _graph_req("GET", _graph(media_id), {"fields": "id,like_count,comments_count,media_product_type,permalink,timestamp"}, token)
+        insights = None
+        for metric_set in [
+            "reach,saved,shares,total_interactions,views,impressions",
+            "reach,saved,shares,total_interactions,views",
+            "reach,saved,shares",
+        ]:
+            try:
+                insights = await _graph_req("GET", _graph(f"{media_id}/insights"), {"metric": metric_set}, token)
+                break
+            except Exception:
+                continue
+        if insights is None:
+            return None
+
+        likes = int(media.get("like_count") or 0)
+        comments = int(media.get("comments_count") or 0)
+        shares = _metric_from_insights(insights, "shares")
+        saves = _metric_from_insights(insights, "saved")
+        reach = _metric_from_insights(insights, "reach")
+        impressions = _metric_from_insights(insights, "impressions") or _metric_from_insights(insights, "views") or reach
+        total_interactions = _metric_from_insights(insights, "total_interactions")
+        engagement = total_interactions or (likes + comments + shares + saves)
+        metrics = {
+            "impressions": impressions,
+            "reach": reach,
+            "likes": likes,
+            "comments": comments,
+            "shares": shares,
+            "saves": saves,
+            "clicks": 0,
+            "profile_visits": 0,
+            "engagement_rate": round((engagement / max(reach, 1)) * 100, 2) if reach else 0,
+        }
+        metrics["top_signal"] = "gerou sinais reais do Instagram" if engagement else "ainda a acumular sinais reais"
+        return {
+            "metrics": metrics,
+            "source": "instagram_media_insights",
+            "captured_at": datetime.now(timezone.utc).isoformat(),
+            "media_id": media_id,
+        }
+    except Exception as e:
+        logger.error(f"live metrics fetch error {media_id}: {e}")
+        return None
+
+
+async def refresh_social_live_metrics(uid: str, cid: Optional[str], limit: int = 12) -> dict:
+    conn = await _find_connection(uid, cid)
+    if not _live_metrics_ready(conn):
+        return {"ready": False, "refreshed": 0, "reason": "Meta insights ainda não estão validados para esta ligação."}
+    posts = await db.social_posts.find({"user_id": uid, "company_id": cid}).sort("created_at", -1).to_list(limit)
+    refreshed = 0
+    for social_post_doc in posts:
+        live_metrics = await _fetch_live_post_metrics(conn, social_post_doc)
+        if not live_metrics:
+            continue
+        post_meta = await _marketing_post_meta(uid, cid, social_post_doc.get("post_id"))
+        await record_marketing_metrics(uid, cid, social_post_doc, post_meta, live_metrics=live_metrics)
+        refreshed += 1
+    return {"ready": True, "refreshed": refreshed, "reason": None}
 
 
 def _social_caption(post: dict) -> str:
@@ -913,7 +1045,8 @@ async def _publish_core(uid: str, cid: Optional[str], payload: dict) -> dict:
         "created_at": now_iso,
     }
     await db.social_posts.insert_one(social_post_doc)
-    await record_marketing_metrics(uid, cid, social_post_doc, post_meta)
+    live_metrics = await _fetch_live_post_metrics(conn, social_post_doc)
+    await record_marketing_metrics(uid, cid, social_post_doc, post_meta, live_metrics=live_metrics)
     if post_id:
         await _sync_marketing_post(uid, cid, post_id, "approved", published_at=now_iso)
     return results
@@ -967,6 +1100,12 @@ async def social_media_agent_status(user: dict = Depends(premium_user)):
 async def social_media_agent_run(user: dict = Depends(premium_user)):
     cid = await active_company_id(user["id"])
     return await run_social_media_agent_cycle(user["id"], cid)
+
+
+@router.post("/social/metrics/refresh")
+async def social_metrics_refresh(user: dict = Depends(premium_user)):
+    cid = await active_company_id(user["id"])
+    return await refresh_social_live_metrics(user["id"], cid)
 
 
 @router.delete("/social/jobs/{jid}")

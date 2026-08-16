@@ -579,13 +579,14 @@ def build_mock_metrics(post: dict, published_at: str, channels: list[str]):
     return metrics
 
 
-async def record_marketing_metrics(uid: str, cid: str, social_post_doc: dict, post: Optional[dict] = None):
+async def record_marketing_metrics(uid: str, cid: str, social_post_doc: dict, post: Optional[dict] = None, live_metrics: Optional[dict] = None):
     if not (uid and cid and social_post_doc):
         return None
     post = post or {}
     channels = [channel for channel, result in (social_post_doc.get("results") or {}).items() if result.get("ok")]
     published_at = social_post_doc.get("created_at") or datetime.now(timezone.utc).isoformat()
-    metrics = build_mock_metrics(post, published_at, channels)
+    metrics = ((live_metrics or {}).get("metrics") or build_mock_metrics(post, published_at, channels))
+    mocked = not bool(live_metrics and (live_metrics.get("metrics") or {}))
     doc = {
         "user_id": uid,
         "company_id": cid,
@@ -596,7 +597,9 @@ async def record_marketing_metrics(uid: str, cid: str, social_post_doc: dict, po
         "theme": social_post_doc.get("theme") or post.get("tema") or "Marca",
         "channels": channels,
         "metrics": metrics,
-        "mocked": True,
+        "mocked": mocked,
+        "metrics_source": (live_metrics or {}).get("source") if not mocked else "mocked_generator",
+        "captured_at": (live_metrics or {}).get("captured_at") or datetime.now(timezone.utc).isoformat(),
         "published_at": published_at,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -643,6 +646,7 @@ async def summarize_marketing_analytics(uid: str, cid: str):
         }
 
     totals = {"published_posts": len(rows), "reach": 0, "impressions": 0, "clicks": 0, "engagement_rate_sum": 0.0}
+    mocked = all(row.get("mocked", True) for row in rows)
     top_posts = []
     weekday_rows = []
     for row in rows:
@@ -694,7 +698,7 @@ async def summarize_marketing_analytics(uid: str, cid: str):
         recommended_actions.append("Continuar a publicar para construir histórico suficiente para otimização.")
 
     return {
-        "mocked": True,
+        "mocked": mocked,
         "summary": {
             "published_posts": totals["published_posts"],
             "reach": totals["reach"],
@@ -717,7 +721,7 @@ def _fallback_marketing_briefing(user_name: str, company_name: str, analytics: d
         "wins": analytics.get("insights", [])[:2],
         "risks": [
             "Evitar que conteúdos aprovados fiquem sem horário definido.",
-            "Sem Meta ligada, as métricas continuam simuladas e servem apenas para treino interno.",
+            "Sem ligação Meta validada para insights, as métricas continuam simuladas e servem apenas para treino interno." if analytics.get("mocked", True) else "As métricas reais podem demorar algumas horas a consolidar após a publicação.",
         ],
         "actions": analytics.get("recommended_actions", [])[:3],
         "experiments": [
@@ -753,7 +757,7 @@ def build_marketing_briefing_html(name: str, company_name: str, data: dict, app_
           <h3 style='margin:0 0 10px 0;color:#111827;'>Experiências sugeridas</h3>
           <ul style='padding-left:18px;margin:0 0 24px 0'>{_list(data.get('experiments', []))}</ul>
           <div style='padding:16px 18px;border-radius:16px;background:#eff6ff;color:#1e3a8a;font-size:13px;line-height:1.6;'>
-            As métricas deste módulo estão <strong>MOCKED</strong> até a Meta estar ligada. Servem para treino editorial interno e não substituem analytics reais.
+            {"As métricas deste módulo estão <strong>MOCKED</strong> até a Meta validar permissões de insights. Servem para treino editorial interno e não substituem analytics reais." if data.get('mocked_metrics', True) else "As métricas deste módulo já estão a usar sinais reais da Meta sempre que disponíveis. Alguns indicadores podem demorar a consolidar após a publicação."}
           </div>
           <div style='text-align:center;margin-top:24px;'><a href='{app_url}/marketing' style='display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:13px 24px;border-radius:999px;font-weight:700;'>Abrir o Marketing</a></div>
         </td></tr>
@@ -784,7 +788,7 @@ async def generate_marketing_briefing(uid: str, cid: str, user_name: str, user_e
         f"Workflow: {workflow}\n"
         f"Fila agendada: {[{'run_at': j.get('run_at'), 'caption': ((j.get('payload') or {}).get('caption') or '')[:80]} for j in queued]}\n"
         f"Leads prioritários: {leads}\n"
-        f"Analytics (MOCKED até ligar Meta): {analytics}\n\n"
+        f"Analytics ({'MOCKED até validar insights da Meta' if analytics.get('mocked', True) else 'com sinais reais da Meta sempre que disponíveis'}): {analytics}\n\n"
         "Devolve APENAS JSON válido com esta estrutura: "
         '{"headline":str,"summary":str,"wins":[str],"risks":[str],"actions":[str],"experiments":[str],"email_subject":str}. '
         "Quero 2-3 wins, 2-3 risks, 3 ações prioritárias e 2 experiências. Se as métricas forem simuladas, assume isso explicitamente nas recomendações."

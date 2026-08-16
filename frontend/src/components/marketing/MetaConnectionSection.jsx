@@ -51,9 +51,15 @@ export const MetaConnectionSection = ({
             <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] ${meta.tone}`} data-testid="mkt-meta-state">
               {meta.label}
             </span>
-            <span className="text-[11px] px-3 py-1.5 rounded-full border border-amber-400/20 bg-amber-500/10 text-amber-300" data-testid="mkt-meta-mocked-badge">
-              Analytics <strong>MOCKED</strong>
-            </span>
+            {data.metrics_mocked ? (
+              <span className="text-[11px] px-3 py-1.5 rounded-full border border-amber-400/20 bg-amber-500/10 text-amber-300" data-testid="mkt-meta-mocked-badge">
+                Analytics <strong>MOCKED</strong>
+              </span>
+            ) : (
+              <span className="text-[11px] px-3 py-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/10 text-emerald-300" data-testid="mkt-meta-live-badge">
+                Analytics reais
+              </span>
+            )}
           </div>
           <p className="text-sm text-muted-foreground" data-testid={data.connected ? "mkt-social-connected" : data.configured ? "mkt-social-hint" : "mkt-social-notconfigured"}>{subtitle}</p>
           {!data.connected && (
@@ -122,7 +128,7 @@ export const MetaConnectionSection = ({
             </div>
             <div data-testid="mkt-meta-status-analytics">
               <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Analytics</p>
-              <p>{data.live_metrics_ready ? "Ligação pronta para futura validação de métricas reais." : "Mantidos em modo MOCKED até a Meta ficar validada."}</p>
+              <p>{data.live_metrics_ready ? "Métricas reais prontas para sincronização a partir da Meta." : "Mantidos em modo MOCKED até a Meta validar permissões de insights."}</p>
             </div>
           </div>
 

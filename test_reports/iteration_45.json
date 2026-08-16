@@ -1,0 +1,99 @@
+{
+  "summary": "Verified Meta metrics readiness fix for Social Media Agent. All 10 backend tests passed. Frontend UI correctly displays MOCKED badges and status when insights scopes are not validated. The POST /api/social/metrics/refresh endpoint works correctly and returns clear responses.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_meta_metrics_readiness.py",
+    "/app/backend/tests/test_meta_credentials.py",
+    "/app/backend/tests/test_meta_metrics_refresh.py",
+    "/app/test_reports/pytest/iter45_meta_metrics.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_meta_credentials.py",
+    "/app/backend/tests/test_meta_metrics_refresh.py"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "test_credentials": "Admin: adminceoai@gmail.com / 12345",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Meta metrics readiness fix verified. The preview environment has a degraded Meta connection (connection_state=degraded, granted_scopes=[]) which is expected. The backend correctly: (1) recognizes insights scopes (instagram_manage_insights, read_insights, etc.), (2) marks 'Permissões para analytics' check as NOT OK when scopes missing, (3) returns metrics_mocked=true and live_metrics_ready=false in /api/social/status, (4) POST /api/social/metrics/refresh returns {ready: false, refreshed: 0, reason: 'Meta insights ainda não estão validados...'} when insights not ready. Frontend correctly shows 'Analytics MOCKED' badges and appropriate status text.",
+  "features_verified": {
+    "backend_scopes_recognition": {
+      "SCOPES_list_includes_insights": "PASS - instagram_manage_insights, read_insights in SCOPES",
+      "INSIGHTS_SCOPE_HINTS_defined": "PASS - instagram_manage_insights, instagram_basic, pages_read_engagement, read_insights",
+      "_missing_insights_scopes_function": "PASS - correctly identifies missing scopes",
+      "_live_metrics_ready_function": "PASS - returns false when scopes missing"
+    },
+    "diagnostics_check": {
+      "meta_insights_permissions_check_exists": "PASS - Check ID 'meta_insights_permissions' present in diagnostics",
+      "check_shows_not_ok_when_scopes_missing": "PASS - ok=false with detail about validating scopes",
+      "check_shows_ok_when_scopes_present": "PASS - Unit test confirms ok=true with valid scopes"
+    },
+    "api_status_fields": {
+      "metrics_mocked_field": "PASS - Present in /api/social/status response",
+      "live_metrics_ready_field": "PASS - Present in /api/social/status response",
+      "fields_are_opposite": "PASS - metrics_mocked=true when live_metrics_ready=false"
+    },
+    "metrics_refresh_endpoint": {
+      "endpoint_exists": "PASS - POST /api/social/metrics/refresh responds",
+      "no_500_error": "PASS - Returns 200 even when insights not ready",
+      "response_structure": "PASS - Contains ready, refreshed, reason fields",
+      "clear_reason_when_not_ready": "PASS - Returns 'Meta insights ainda não estão validados...'"
+    },
+    "frontend_ui": {
+      "marketing_page_loads": "PASS - No blank screen",
+      "mkt_meta_mocked_badge": "PASS - Shows 'Analytics MOCKED' badge",
+      "mkt_meta_status_analytics": "PASS - Shows 'Mantidos em modo MOCKED até a Meta validar permissões de insights'",
+      "mkt_analytics_mocked": "PASS - Analytics section shows 'Métricas MOCKED'",
+      "checklist_insights_check": "PASS - 'Permissões para analytics' check visible with appropriate detail"
+    }
+  },
+  "tests_executed": {
+    "unit_tests": [
+      "test_live_metrics_ready_when_insights_scopes_exist - PASSED",
+      "test_live_metrics_stay_mocked_without_insights_scopes - PASSED"
+    ],
+    "integration_tests": [
+      "test_social_status_shows_configured_true - PASSED",
+      "test_social_diagnostics_confirms_credentials - PASSED",
+      "test_social_requirements_shows_no_missing_credentials - PASSED",
+      "test_social_connect_returns_auth_url - PASSED",
+      "test_metrics_refresh_endpoint_exists_and_responds - PASSED",
+      "test_metrics_refresh_returns_not_ready_when_insights_missing - PASSED",
+      "test_social_status_includes_metrics_fields - PASSED",
+      "test_diagnostics_includes_insights_permissions_check - PASSED"
+    ],
+    "ui_tests": [
+      "Marketing page loads without blank screen - PASSED",
+      "Meta connection section displays correctly - PASSED",
+      "Analytics MOCKED badge visible - PASSED",
+      "Analytics status text correct - PASSED",
+      "Checklist items display correctly - PASSED",
+      "Analytics section shows MOCKED indicator - PASSED"
+    ]
+  },
+  "mocked_apis": {
+    "meta_insights": "MOCKED - Preview environment has degraded Meta connection without validated insights scopes. This is expected behavior per the bug fix - metrics stay MOCKED until Meta validates insights permissions via OAuth reconnection."
+  },
+  "current_preview_state": {
+    "connection_state": "degraded",
+    "granted_scopes": "[]",
+    "metrics_mocked": true,
+    "live_metrics_ready": false,
+    "configured": true,
+    "missing_config": "[]"
+  }
+}

@@ -210,8 +210,17 @@ function Marketing() {
     }
   };
 
+  const refreshLiveSocialMetrics = async () => {
+    try {
+      await api.post("/social/metrics/refresh");
+    } catch {
+      // noop: fallback to mocked metrics when live insights are not ready yet
+    }
+  };
+
   const loadExecution = async () => {
     try {
+      await refreshLiveSocialMetrics();
       const { data } = await api.get("/marketing/execution");
       setExecution(data);
     } catch {
@@ -221,6 +230,7 @@ function Marketing() {
 
   const loadAnalytics = async () => {
     try {
+      await refreshLiveSocialMetrics();
       const { data } = await api.get("/marketing/analytics");
       setAnalytics(data);
     } catch {

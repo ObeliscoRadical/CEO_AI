@@ -6,7 +6,8 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL') or os.environ.get('FRONTEND_URL', 'https://seo-marketing-hub-12.preview.emergentagent.com')
+BASE_URL = BASE_URL.rstrip('/')
 
 class TestMetaCredentialsConfiguration:
     """Tests to verify Meta credentials are properly configured in the preview environment."""

@@ -1,5 +1,36 @@
 # CEO AI — O Executivo Digital
 
+## CEO AI V2 — Meta metrics readiness no preview para redeploy em produção (2026-08-16)
+- ✅ Corrigida no **preview** a lógica de readiness das métricas Meta do **Social Media Agent**, sem quebrar publicação/OAuth existente.
+- ✅ Ajustes aplicados:
+  - `backend/routers/social.py`
+    - `SCOPES` passou a incluir `instagram_manage_insights` e `read_insights`
+    - corrigida a verificação de `meta_insights_permissions`
+    - `metrics_mocked` / `live_metrics_ready` agora refletem readiness real de insights
+    - adicionado `POST /api/social/metrics/refresh`
+    - adicionado fetch de métricas reais via Instagram media insights quando a ligação estiver pronta
+  - `backend/routers/marketing.py`
+    - `record_marketing_metrics(..., live_metrics=...)` agora aceita métricas reais
+    - `summarize_marketing_analytics` deixou de assumir sempre `mocked=True`
+    - briefing/email passaram a distinguir métricas MOCKED vs reais
+  - `frontend/src/pages/Marketing.jsx`
+    - refresh automático de métricas via `/social/metrics/refresh` antes de carregar analytics/histórico
+  - `MetaConnectionSection.jsx` e `AnalyticsSection.jsx`
+    - badges/textos agora mostram corretamente estado live vs mocked
+- ✅ Testes/validação:
+  - `pytest -n 0 backend/tests/test_meta_metrics_readiness.py backend/tests/test_meta_credentials.py` → **6 passed**
+  - `testing_agent` iteration_45 → **backend 100% / frontend 100% PASS**
+- ℹ️ Estado atual do preview após a correção:
+  - `configured=true`
+  - `connection_state=degraded`
+  - `granted_scopes=[]`
+  - `metrics_mocked=true`
+  - `live_metrics_ready=false`
+  - isto está correto para o preview atual porque a ligação Meta guardada ali não tem scopes de insights validados
+- 📌 Implicação para produção:
+  - a correção de código já está pronta no preview
+  - depois do deploy, a produção deverá fazer **reconnect OAuth da Meta** para o token novo incluir os scopes de insights e então sair de MOCKED para métricas reais
+
 ## CEO AI V2 — Meta credentials ativadas no PREVIEW sem alterar código (2026-08-16)
 - ✅ Atualizadas **apenas no preview** as variáveis de ambiente Meta no `backend/.env`, sem qualquer alteração de código:
   - `META_APP_ID=2623447624739815`
