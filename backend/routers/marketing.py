@@ -15,6 +15,7 @@ from core import (
     composite_logo,
     db,
     generate_marketing_image,
+    generate_marketing_images,
     get_erp_financial_context,
     logger,
     premium_user,
@@ -97,6 +98,65 @@ def _workflow_summary(posts):
         counts[status] += 1
     counts["total"] = len(posts or [])
     return counts
+
+
+def _clean_image_variants(value) -> list[str]:
+    variants = []
+    items = value if isinstance(value, list) else []
+    for item in items[:3]:
+        if isinstance(item, dict):
+            url = str(item.get("url") or "").strip()
+        else:
+            url = str(item or "").strip()
+        if url:
+            variants.append(url)
+    return variants
+
+
+def _apply_post_media_defaults(post: dict) -> bool:
+    changed = False
+    variants = _clean_image_variants(post.get("image_variants"))
+    image_url = str(post.get("image_url") or "").strip()
+    if not variants and image_url:
+        variants = [image_url]
+        changed = True
+    if variants and image_url and image_url not in variants:
+        variants = [image_url, *[item for item in variants if item != image_url]][:3]
+        changed = True
+    selected_index = post.get("selected_image_index")
+    if variants:
+        if not isinstance(selected_index, int) or selected_index < 0 or selected_index >= len(variants):
+            selected_index = variants.index(image_url) if image_url in variants else 0
+            changed = True
+        selected_url = variants[selected_index]
+        if post.get("image_url") != selected_url:
+            post["image_url"] = selected_url
+            changed = True
+    else:
+        if post.get("image_url") is not None:
+            post["image_url"] = None
+            changed = True
+        if selected_index is not None:
+            selected_index = None
+            changed = True
+    if post.get("image_variants") != variants:
+        post["image_variants"] = variants
+        changed = True
+    if post.get("selected_image_index") != selected_index:
+        post["selected_image_index"] = selected_index
+        changed = True
+    return changed
+
+
+def _ensure_marketing_post_media(content: dict) -> bool:
+    changed = False
+    for post in (content.get("posts") or []):
+        changed = _apply_post_media_defaults(post) or changed
+    return changed
+
+
+def _find_post_by_id(content: dict, post_id: str) -> Optional[dict]:
+    return next((post for post in (content.get("posts") or []) if post.get("id") == post_id), None)
 
 
 def apply_post_status(content: dict, post_id: str, status: str, scheduled_at: Optional[str] = None,
@@ -183,6 +243,9 @@ def _fallback_posts(ctx: dict, brand: dict):
             "approved_at": None,
             "scheduled_at": None,
             "published_at": None,
+            "image_url": None,
+            "image_variants": [],
+            "selected_image_index": None,
         })
     return posts
 
@@ -228,8 +291,13 @@ def _normalize_posts(raw_posts, brand: dict, ctx: dict):
             "approved_at": None,
             "scheduled_at": None,
             "published_at": None,
+            "image_url": str(item.get("image_url") or "").strip() or None,
+            "image_variants": _clean_image_variants(item.get("image_variants")),
+            "selected_image_index": item.get("selected_image_index") if isinstance(item.get("selected_image_index"), int) else None,
         })
-    return out or _fallback_posts(ctx, brand)
+    normalized = out or _fallback_posts(ctx, brand)
+    _ensure_marketing_post_media({"posts": normalized})
+    return normalized
 
 
 def _normalize_library(raw_library, posts, brand):
@@ -853,6 +921,10 @@ class ImageIn(BaseModel):
     index: int
 
 
+class ImageSelectIn(BaseModel):
+    variant_index: int
+
+
 class PostStatusIn(BaseModel):
     status: str
 
@@ -875,6 +947,12 @@ async def get_content(user: dict = Depends(premium_user)):
     uid = user["id"]
     cid = await active_company_id(uid)
     doc = await db.marketing_content.find_one({"user_id": uid, "company_id": cid})
+    if doc and doc.get("content") and _ensure_marketing_post_media(doc.get("content") or {}):
+        await db.marketing_content.update_one(
+            {"user_id": uid, "company_id": cid},
+            {"$set": {"content": doc.get("content"), "updated_at": datetime.now(timezone.utc).isoformat()}},
+        )
+        doc = await db.marketing_content.find_one({"user_id": uid, "company_id": cid})
     return {"content": _serialize(doc)}
 
 
@@ -1055,6 +1133,7 @@ async def update_post_status(post_id: str, inp: PostStatusIn, user: dict = Depen
     if not doc or not doc.get("content"):
         raise HTTPException(404, "Gere os conteúdos primeiro.")
     content = doc.get("content") or {}
+    _ensure_marketing_post_media(content)
     if not apply_post_status(content, post_id, inp.status):
         raise HTTPException(404, "Post não encontrado.")
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -1068,13 +1147,14 @@ async def update_post_status(post_id: str, inp: PostStatusIn, user: dict = Depen
 
 @router.post("/marketing/image")
 async def gen_post_image(inp: ImageIn, user: dict = Depends(premium_user)):
-    """Gera (sob pedido) a imagem de UM post, com o logo da empresa aplicado, e guarda-a (cache)."""
+    """Gera 3 variações de imagem para UM post, com o logo da empresa aplicado, e guarda-as."""
     uid = user["id"]
     cid = await active_company_id(uid)
     doc = await db.marketing_content.find_one({"user_id": uid, "company_id": cid})
     if not doc or not doc.get("content"):
         raise HTTPException(404, "Gere os conteúdos primeiro.")
     content = doc.get("content") or {}
+    _ensure_marketing_post_media(content)
     posts = content.get("posts") or []
     if inp.index < 0 or inp.index >= len(posts):
         raise HTTPException(404, "Post não encontrado.")
@@ -1084,20 +1164,59 @@ async def gen_post_image(inp: ImageIn, user: dict = Depends(premium_user)):
     prompt = (
         f"Cena visual conceptual para uma publicação de marketing de '{ctx['name']}' "
         f"(setor: {ctx['sector']}, região: {ctx['region']}). Ideia: {post.get('titulo', '')}. "
-        f"Tema: {post.get('tema', '')}. Tom visual: {brand.get('tom', 'profissional e moderno')}."
+        f"Tema: {post.get('tema', '')}. Tom visual: {brand.get('tom', 'profissional e moderno')}. "
+        f"Formato: {post.get('formato', 'Post')}. Criar 3 variações distintas da mesma ideia para escolha editorial."
     )
-    img = await generate_marketing_image(prompt)
+    images = await generate_marketing_images(prompt, number_of_images=3)
     logo = await db.brand_assets.find_one({"user_id": uid, "company_id": cid})
-    if logo and logo.get("logo_data"):
-        try:
-            img = composite_logo(img, base64.b64decode(logo["logo_data"]))
-        except Exception as e:
-            logger.error(f"logo composite (marketing): {e}")
-    url = await store_public_media(uid, img)
-    posts[inp.index]["image_url"] = url
+    urls = []
+    for img in images:
+        final_img = img
+        if logo and logo.get("logo_data"):
+            try:
+                final_img = composite_logo(final_img, base64.b64decode(logo["logo_data"]))
+            except Exception as e:
+                logger.error(f"logo composite (marketing): {e}")
+        urls.append(await store_public_media(uid, final_img))
+    posts[inp.index]["image_variants"] = urls
+    posts[inp.index]["selected_image_index"] = 0 if urls else None
+    posts[inp.index]["image_url"] = urls[0] if urls else None
     now_iso = datetime.now(timezone.utc).isoformat()
     await db.marketing_content.update_one(
         {"user_id": uid, "company_id": cid},
         {"$set": {"content": content, "updated_at": now_iso}},
     )
-    return {"image_url": url}
+    return {"image_url": posts[inp.index]["image_url"], "image_variants": urls, "selected_image_index": posts[inp.index]["selected_image_index"]}
+
+
+@router.post("/marketing/posts/{post_id}/image/select")
+async def select_post_image_variant(post_id: str, inp: ImageSelectIn, user: dict = Depends(premium_user)):
+    uid = user["id"]
+    cid = await active_company_id(uid)
+    doc = await db.marketing_content.find_one({"user_id": uid, "company_id": cid})
+    if not doc or not doc.get("content"):
+        raise HTTPException(404, "Gere os conteúdos primeiro.")
+    content = doc.get("content") or {}
+    _ensure_marketing_post_media(content)
+    post = _find_post_by_id(content, post_id)
+    if not post:
+        raise HTTPException(404, "Post não encontrado.")
+    variants = post.get("image_variants") or []
+    if not variants:
+        raise HTTPException(400, "Este post ainda não tem imagens geradas.")
+    if inp.variant_index < 0 or inp.variant_index >= len(variants):
+        raise HTTPException(400, "Variação de imagem inválida.")
+    post["selected_image_index"] = inp.variant_index
+    post["image_url"] = variants[inp.variant_index]
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.marketing_content.update_one(
+        {"user_id": uid, "company_id": cid},
+        {"$set": {"content": content, "updated_at": now_iso}},
+    )
+    return {
+        "ok": True,
+        "post_id": post_id,
+        "selected_image_index": inp.variant_index,
+        "image_url": post["image_url"],
+        "image_variants": variants,
+    }

@@ -111,6 +111,24 @@ Concluído nesta fase inicial.
 - `GET /api/public/sitemap.xml` agora inclui **`<lastmod>`**
 - a consistência SEO foi validada em `/login` e no sitemap
 
+### 0.4 Imagens sociais com 3 variações por post
+Concluído neste fork.
+
+- no bloco **Marketing > Agente · Redes Sociais > Conteúdos para aprovação**, cada pedido de imagem agora gera **3 variações de uma vez**
+- o utilizador pode:
+  - ver a imagem selecionada atual
+  - ver as **3 miniaturas**
+  - clicar para **ampliar preview**
+  - escolher qual das 3 fica selecionada para o post
+  - usar **Gerar novas imagens** para substituir as 3 atuais por 3 novas
+- funciona em:
+  - **posts novos**
+  - **posts antigos** (retrocompatibilidade com `image_url` antiga)
+- o post guarda agora:
+  - `image_variants`
+  - `selected_image_index`
+  - `image_url` sempre alinhado com a variante escolhida
+
 ### 1. Separação de agentes
 Concluída.
 
@@ -174,6 +192,8 @@ Foi implementado:
 - `POST /api/marketing/site-publishing/homepage/proposal`
 - `POST /api/marketing/site-publishing/homepage/apply`
 - `GET /api/public/sitemap.xml`
+- `POST /api/marketing/image`
+- `POST /api/marketing/posts/{post_id}/image/select`
 
 ## Dados / coleções relevantes
 - `social_connections`
@@ -212,10 +232,12 @@ Mesmo com permissões ativadas na app Meta, o token/oauth em produção pode ain
 - `/app/frontend/src/components/marketing/MetaConnectionSection.jsx`
 - `/app/frontend/src/components/marketing/SiteChangeHistorySection.jsx`
 - `/app/frontend/src/components/marketing/SiteHomepageManagerSection.jsx`
+- `/app/frontend/src/components/marketing/PostImageVariantSelector.jsx`
 - `/app/backend/tests/test_meta_metrics_readiness.py`
 - `/app/backend/tests/test_meta_insights_api.py`
 - `/app/backend/tests/test_site_change_history.py`
 - `/app/backend/tests/test_site_homepage_management.py`
+- `/app/backend/tests/test_marketing_image_variants.py`
 
 ## Credenciais de teste
 Ver `/app/memory/test_credentials.md`
@@ -230,11 +252,13 @@ Ver `/app/memory/test_credentials.md`
 - painel visual de Alterações do Site validado em `/app/test_reports/iteration_49.json` → **PASS**
 - comparação inline do diff visual validada em `/app/test_reports/iteration_50.json` → **PASS**
 - homepage gerida + SEO técnico validados em `/app/test_reports/iteration_51.json` → **PASS**
+- fluxo de 3 imagens por post validado em `/app/test_reports/iteration_52.json` → **PASS**
 
 ## Próximas prioridades
 - **P0:** validar em produção após redeploy se o estado Meta deixa de ficar preso em mocked quando o token tiver insights reais
 - **P1:** expandir a homepage gerida para mais blocos públicos (hero complementar, prova social rica, secções de valor, FAQ)
 - **P1:** aprofundar SEO técnico (base URL canónica final do domínio, schema markup por página, cobertura mais ampla nas rotas públicas)
+- **P1:** melhorar ainda mais a curadoria visual dos posts (ex.: favoritos, notas rápidas, score visual por variante)
 - **P2:** geração automática de criativos
 - **P2:** scoring de campanhas
 - **P2:** UX da integração ERP

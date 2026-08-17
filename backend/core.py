@@ -129,16 +129,22 @@ def put_object(path: str, data: bytes, content_type: str) -> dict:
     resp.raise_for_status()
     return resp.json()
 
-async def generate_marketing_image(prompt: str) -> bytes:
-    """Gera 1 imagem de marketing (GPT Image 1 via chave Emergent) e devolve os bytes PNG."""
+async def generate_marketing_images(prompt: str, number_of_images: int = 1) -> list[bytes]:
+    """Gera 1..N imagens de marketing (GPT Image 1 via chave Emergent) e devolve os bytes PNG."""
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
     gen = OpenAIImageGeneration(api_key=EMERGENT_KEY)
     imgs = await gen.generate_images(
         prompt=f"{prompt}. NÃO incluir qualquer texto, palavras, letras, números ou logótipos na imagem. "
                "Composição limpa e profissional, fotografia/ilustração publicitária de alta qualidade.",
-        model="gpt-image-1", number_of_images=1)
+        model="gpt-image-1", number_of_images=max(1, min(int(number_of_images or 1), 4)))
     if not imgs:
         raise RuntimeError("Nenhuma imagem gerada")
+    return imgs
+
+
+async def generate_marketing_image(prompt: str) -> bytes:
+    """Compat wrapper para chamadas que ainda pedem só 1 imagem."""
+    imgs = await generate_marketing_images(prompt, number_of_images=1)
     return imgs[0]
 
 def prepare_logo(data: bytes) -> bytes:

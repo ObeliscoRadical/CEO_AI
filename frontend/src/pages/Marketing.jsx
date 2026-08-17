@@ -12,6 +12,7 @@ import { OrganicGrowthAgentSection } from "@/components/marketing/OrganicGrowthA
 import { SitePublishingGatewaySection } from "@/components/marketing/SitePublishingGatewaySection";
 import { GrowthAgentExecutiveSection } from "@/components/marketing/GrowthAgentExecutiveSection";
 import { SocialMediaAgentSection } from "@/components/marketing/SocialMediaAgentSection";
+import { PostImageVariantSelector } from "@/components/marketing/PostImageVariantSelector";
 import { motion } from "framer-motion";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
@@ -829,15 +830,45 @@ function Marketing() {
   };
 
   const genImage = async (index) => {
-    setImgBusy(index);
+    setImgBusy(`generate-${index}`);
     try {
       const { data } = await api.post("/marketing/image", { index });
       setContent((current) => {
         const posts = [...(current?.posts || [])];
-        posts[index] = { ...posts[index], image_url: data.image_url };
+        posts[index] = {
+          ...posts[index],
+          image_url: data.image_url,
+          image_variants: data.image_variants || [],
+          selected_image_index: data.selected_image_index,
+        };
         return { ...current, posts };
       });
-      toast.success("Imagem criada com o seu logo!");
+      toast.success("3 imagens criadas com o seu logo.");
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    } finally {
+      setImgBusy(null);
+    }
+  };
+
+  const selectImageVariant = async (postId, variantIndex) => {
+    setImgBusy(`select-${postId}-${variantIndex}`);
+    try {
+      const { data } = await api.post(`/marketing/posts/${postId}/image/select`, { variant_index: variantIndex });
+      setContent((current) => {
+        const posts = [...(current?.posts || [])];
+        const index = posts.findIndex((item) => item.id === postId);
+        if (index >= 0) {
+          posts[index] = {
+            ...posts[index],
+            image_url: data.image_url,
+            image_variants: data.image_variants || posts[index].image_variants || [],
+            selected_image_index: data.selected_image_index,
+          };
+        }
+        return { ...current, posts };
+      });
+      toast.success(`Imagem ${variantIndex + 1} selecionada para este post.`);
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
     } finally {
@@ -1272,28 +1303,14 @@ function Marketing() {
             <div className="grid md:grid-cols-2 gap-4 mb-8" data-testid="mkt-posts">
               {(content.posts || []).map((post, index) => (
                 <motion.div key={post.id || index} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }} className="surface rounded-[22px] p-5 flex flex-col" data-testid={`mkt-post-${index}`}>
-                {post.image_url ? (
-                  <img src={post.image_url} alt={post.titulo} className="w-full aspect-square object-cover rounded-2xl mb-4" data-testid={`mkt-img-${index}`} />
-                ) : (
-                  <button
-                    onClick={() => genImage(index)}
-                    disabled={imgBusy === index}
-                    data-testid={`mkt-genimg-${index}`}
-                    className="w-full aspect-square rounded-2xl border border-dashed border-white/15 flex flex-col items-center justify-center gap-2 mb-4 hover:bg-white/[0.03] transition-colors disabled:opacity-60"
-                  >
-                    {imgBusy === index ? (
-                      <>
-                        <Loader2 className="w-6 h-6 animate-spin text-[#A78BFA]" />
-                        <span className="text-xs text-muted-foreground">A criar imagem (~30s)…</span>
-                      </>
-                    ) : (
-                      <>
-                        <ImageIcon className="w-6 h-6 text-[#A78BFA]" />
-                        <span className="text-xs text-muted-foreground">Gerar imagem (com o seu logo)</span>
-                      </>
-                    )}
-                  </button>
-                )}
+                <PostImageVariantSelector
+                  post={post}
+                  index={index}
+                  busyKey={imgBusy}
+                  onGenerate={genImage}
+                  onSelectVariant={selectImageVariant}
+                  onDownloadSelected={downloadImage}
+                />
 
                 <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -1360,14 +1377,6 @@ function Marketing() {
                       Para retirar do calendário, cancele o agendamento abaixo.
                     </span>
                   )}
-
-                  {post.image_url && (
-                    <Button data-testid={`mkt-download-${index}`} onClick={() => downloadImage(post.image_url, index)} size="sm" className="rounded-full bg-[#A78BFA] text-white hover:bg-[#9333EA]">
-                      <Download className="w-3.5 h-3.5 mr-1.5" />
-                      Guardar imagem
-                    </Button>
-                  )}
-
                   {social?.connected && post.status === "approved" && (
                     <>
                       <Button data-testid={`mkt-publish-${index}`} onClick={() => publishNow(post, index)} disabled={busy === index} size="sm" className="rounded-full bg-[#3B82F6] text-white hover:bg-[#2563EB]">
@@ -1419,7 +1428,7 @@ function Marketing() {
           )}
 
           <p className="text-[11px] text-muted-foreground mt-8" data-testid="mkt-footer-note">
-            Fluxo recomendado do Social Media Agent: <b>aprovar</b> → <b>agendar/publicar</b>. Sem ligação às redes, use <b>Gerar imagem</b> → <b>Guardar imagem</b> e <b>Copiar texto</b> para publicação manual.
+            Fluxo recomendado do Social Media Agent: <b>gerar 3 imagens</b> → <b>ampliar e escolher 1</b> → <b>aprovar</b> → <b>agendar/publicar</b>. Sem ligação às redes, use <b>Guardar imagem</b> e <b>Copiar texto</b> para publicação manual.
           </p>
         </>
       )}

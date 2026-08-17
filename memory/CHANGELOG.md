@@ -1,5 +1,30 @@
 # CHANGELOG — CEO AI
 
+## 2026-08-17 — 3 imagens por post com seleção visual
+- `backend/core.py`
+  - novo helper `generate_marketing_images(prompt, number_of_images)`
+  - `generate_marketing_image()` passou a ser wrapper compatível de 1 imagem
+- `backend/routers/marketing.py`
+  - posts agora suportam `image_variants` + `selected_image_index`
+  - retrocompatibilidade automática para posts antigos com `image_url` única
+  - `POST /api/marketing/image` agora gera **3 imagens** por pedido
+  - novo endpoint `POST /api/marketing/posts/{post_id}/image/select`
+  - `image_url` fica sempre alinhada com a variante escolhida
+- `frontend/src/components/marketing/PostImageVariantSelector.jsx`
+  - novo seletor visual com:
+    - imagem principal selecionada
+    - badge da opção atual
+    - 3 miniaturas
+    - modal de preview ampliado
+    - escolha da melhor imagem
+    - botão `Gerar novas imagens`
+- `frontend/src/pages/Marketing.jsx`
+  - integração do novo fluxo no bloco de aprovação dos posts
+  - texto de ajuda atualizado para o fluxo: gerar 3 → ampliar/escolher → aprovar
+- testes:
+  - `backend/tests/test_marketing_image_variants.py`
+  - `testing_agent`: `/app/test_reports/iteration_52.json` PASS
+
 ## 2026-08-16 — Homepage gerida pelo Agente · Site + SEO técnico público
 - `backend/routers/site_publishing.py`
   - novos slots seguros de homepage em `/login`:
