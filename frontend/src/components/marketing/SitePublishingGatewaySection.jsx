@@ -1,7 +1,6 @@
 import { Globe, Loader2, RefreshCw, RotateCcw, ShieldCheck, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SiteChangeHistorySection } from "@/components/marketing/SiteChangeHistorySection";
-import { SiteHomepageManagerSection } from "@/components/marketing/SiteHomepageManagerSection";
 
 const StatCard = ({ label, value, helper, testId }) => (
   <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4" data-testid={testId}>
@@ -11,15 +10,51 @@ const StatCard = ({ label, value, helper, testId }) => (
   </div>
 );
 
-export const SitePublishingGatewaySection = ({ data, busy, onAuthorize, onRunNow, onRollback, onRemove, onRefresh, onGenerateHomepageProposal, onApplyHomepageProposal }) => {
+const isHomepageOverride = (item) => item?.kind === "section_override" && item?.public_url === "/login";
+
+const isHomepageLog = (item) => item?.kind === "section_override" && item?.url === "/login";
+
+const buildVisibleChangeHistory = (history) => {
+  if (!history) return null;
+  const items = (history.items || []).filter((item) => !(item?.kind === "section_override" && item?.url === "/login"));
+  const actionCounts = items.reduce((acc, item) => {
+    const action = item?.action || "update";
+    acc[action] = (acc[action] || 0) + 1;
+    return acc;
+  }, { create: 0, update: 0, delete: 0, rollback: 0 });
+  const pages = new Map();
+  const dates = new Set();
+  items.forEach((item) => {
+    if (item?.page_value && item?.page_label) pages.set(item.page_value, item.page_label);
+    if (item?.date_key) dates.add(item.date_key);
+  });
+  return {
+    ...history,
+    summary: {
+      total: items.length,
+      create: actionCounts.create || 0,
+      update: actionCounts.update || 0,
+      delete: actionCounts.delete || 0,
+      rollback: actionCounts.rollback || 0,
+    },
+    filters: {
+      ...history.filters,
+      pages: Array.from(pages.entries()).map(([value, label]) => ({ value, label })),
+      dates: Array.from(dates).sort().reverse(),
+    },
+    items,
+  };
+};
+
+export const SitePublishingGatewaySection = ({ data, busy, onAuthorize, onRunNow, onRollback, onRemove, onRefresh }) => {
   const settings = data?.settings || {};
   const summary = data?.summary || {};
   const architecture = data?.architecture || {};
-  const entries = data?.entries || [];
-  const logs = data?.logs || [];
+  const entries = (data?.entries || []).filter((item) => !isHomepageOverride(item));
+  const logs = (data?.logs || []).filter((item) => !isHomepageLog(item));
   const analytics = data?.analytics || {};
-  const changeHistory = data?.change_history || null;
-  const homepage = data?.homepage || null;
+  const changeHistory = buildVisibleChangeHistory(data?.change_history || null);
+  const visiblePublishedEntries = entries.filter((item) => item?.status === "published").length;
 
   return (
     <section className="surface rounded-[22px] p-5 md:p-6 mb-5" data-testid="site-publishing-gateway-section">
@@ -47,7 +82,7 @@ export const SitePublishingGatewaySection = ({ data, busy, onAuthorize, onRunNow
 
       <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-5" data-testid="site-publishing-stats-grid">
         <StatCard label="Autorização" value={settings.authorized ? "Ativa" : "Pendente"} helper={settings.authorization_note} testId="site-publishing-stat-authorized" />
-        <StatCard label="Entradas publicadas" value={summary.published_entries || 0} helper="Artigos, páginas e overrides ativos" testId="site-publishing-stat-published" />
+        <StatCard label="Entradas publicadas" value={visiblePublishedEntries} helper="Artigos, páginas e overrides ativos" testId="site-publishing-stat-published" />
         <StatCard label="Falhas monitorizadas" value={summary.failures || 0} helper="Registadas no log interno" testId="site-publishing-stat-failures" />
         <StatCard label="Rollbacks" value={summary.rollbacks || 0} helper="Reversões executadas com histórico" testId="site-publishing-stat-rollbacks" />
       </div>
@@ -90,14 +125,6 @@ export const SitePublishingGatewaySection = ({ data, busy, onAuthorize, onRunNow
           </div>
         </div>
       </div>
-
-      <SiteHomepageManagerSection
-        homepage={homepage}
-        busy={busy}
-        authorized={!!settings.authorized}
-        onGenerateProposal={onGenerateHomepageProposal}
-        onApplyProposal={onApplyHomepageProposal}
-      />
 
       <SiteChangeHistorySection changeHistory={changeHistory} busy={busy} onRollback={onRollback} />
 

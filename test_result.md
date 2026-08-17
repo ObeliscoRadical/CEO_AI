@@ -798,9 +798,9 @@ frontend:
 metadata:
   created_by: "testing_agent"
   version: "1.0"
-  test_sequence: 18
+  test_sequence: 19
   run_ui: false
-  last_tested: "2026-08-16T23:00:00Z"
+  last_tested: "2026-08-17T07:27:00Z"
 
 test_plan:
   current_focus: []
@@ -808,7 +808,34 @@ test_plan:
   test_all: false
   test_priority: "high_first"
 
+frontend:
+  - task: "Homepage/Login Reversion - Clean Visual with Only Headline and Subtitle"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/Login.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Tested 2026-08-17T07:27. HOMEPAGE REVERSION TO CLEAN VISUAL VALIDATED ✅. TESTED URL: https://marketing-split-test-1.preview.emergentagent.com/login. ALL VALIDATION CRITERIA FROM PORTUGUESE REVIEW REQUEST PASSED: (1) REQUIRED ELEMENTS PRESENT ✅ - login-public-headline present showing 'O CEO que trabalha 24 horas pela sua empresa', login-public-subtitle present showing 'Não é um ERP nem um software de gestão. É o seu Diretor Executivo Digital — analisa a empresa consig...'. (2) REMOVED ELEMENTS NOT PRESENT ✅ - All 15 managed homepage elements successfully removed: login-public-primary-cta (False), login-public-secondary-cta (False), login-social-proof-block (False), login-social-proof-title (False), login-social-proof-item-0/1/2 (all False), login-mobile-public-copy (False), login-mobile-public-headline (False), login-mobile-public-subtitle (False), login-mobile-public-primary-cta (False), login-mobile-public-secondary-cta (False), login-mobile-social-proof-item-0/1/2 (all False). (3) SEO METADATA PRESENT ✅ - Canonical link: https://marketing-split-test-1.preview.emergentagent.com/login, Robots meta: 'index, follow, max-image-preview:large' (contains both 'index' and 'follow' as required). CONCLUSION: Homepage/login successfully reverted to clean visual with only headline and subtitle. All managed homepage elements removed. SEO metadata intact. Clean visual reversion complete and working correctly."
+
+  - task: "Gateway Section - Homepage Manager Block Removal"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/Marketing.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Tested 2026-08-17T07:27. GATEWAY HOMEPAGE MANAGER REMOVAL VALIDATED ✅. TESTED URL: https://marketing-split-test-1.preview.emergentagent.com/marketing#marketing-growth-site-publishing with credentials adminceoai@gmail.com / 12345. ALL VALIDATION CRITERIA FROM PORTUGUESE REVIEW REQUEST PASSED: (1) HOMEPAGE MANAGER SECTION REMOVED ✅ - site-homepage-manager-section NOT present (False as expected), all 6 related elements removed: site-homepage-generate-btn (False), site-homepage-apply-btn (False), site-homepage-open-link (False), site-homepage-live-headline (False), site-homepage-proposal-headline (False), site-homepage-manager-note (False). (2) GATEWAY SECTION STABLE ✅ - site-publishing-gateway-section present and functional, site-changes-section (change history) present and functional, Gateway stats/content present showing 'Alterações do site' section with filters and timeline. VISUAL VERIFICATION: Screenshots confirm Gateway section displays correctly with authorization status 'Ativa', stats grid (0 published entries, 0 monitored failures, 0 rollbacks), architecture card, learning card, and change history section with summary grid (0 alterações, 0 updates, 0 criações, 0 rollbacks). CONCLUSION: Homepage manager block successfully removed from Gateway section. Gateway remains stable with change history and all other cards functioning correctly. No regressions detected."
+
 agent_communication:
+  - agent: "testing"
+    message: "Homepage/Login Reversion + Gateway Homepage Manager Removal testing completed 2026-08-17T07:27 ✅. TESTED IN PREVIEW: https://marketing-split-test-1.preview.emergentagent.com with credentials adminceoai@gmail.com / 12345. VALIDATION OF PORTUGUESE REVIEW REQUEST: 'Reversão da homepage/login para o visual limpo anterior'. ALL REQUESTED CRITERIA VALIDATED: (1) /LOGIN CLEAN VISUAL ✅ - Only 2 required elements present: login-public-headline ('O CEO que trabalha 24 horas pela sua empresa') and login-public-subtitle ('Não é um ERP nem um software de gestão...'). All 15 managed homepage elements successfully removed: login-public-primary-cta, login-public-secondary-cta, login-social-proof-block, login-social-proof-title, login-social-proof-item-0/1/2, login-mobile-public-copy, login-mobile-public-headline, login-mobile-public-subtitle, login-mobile-public-primary-cta, login-mobile-public-secondary-cta, login-mobile-social-proof-item-0/1/2 (all False). (2) SEO METADATA INTACT ✅ - Canonical link present (https://marketing-split-test-1.preview.emergentagent.com/login), Robots meta present ('index, follow, max-image-preview:large') with both 'index' and 'follow' as required. (3) GATEWAY HOMEPAGE MANAGER REMOVED ✅ - site-homepage-manager-section NOT present in /marketing#marketing-growth-site-publishing, all 6 related elements removed (generate btn, apply btn, open link, live headline, proposal headline, manager note). (4) GATEWAY STABLE ✅ - site-publishing-gateway-section present and functional, site-changes-section (change history) present with filters and timeline working correctly. CONCLUSION: Reversion to clean visual complete and successful. Homepage/login now shows only headline and subtitle as requested. All managed homepage elements removed. Gateway no longer shows homepage manager block. SEO metadata intact. System stable with no regressions."
   - agent: "testing"
     message: "Public Homepage /login + Site Homepage Manager testing completed 2026-08-16T22:56 ✅. TESTED IN PREVIEW: https://marketing-split-test-1.preview.emergentagent.com with credentials adminceoai@gmail.com / 12345. TWO MAIN AREAS VALIDATED: (1) PUBLIC HOMEPAGE /LOGIN - All 8 desktop elements (headline, subtitle, primary CTA, secondary CTA, social proof title, 3 social proof items) ✅ working and visible. All 8 mobile elements (mobile compact copy container, headline, subtitle, CTAs, 3 social proof items) ✅ working and visible. SEO metadata present: canonical link (https://marketing-split-test-1.preview.emergentagent.com/login) ✅ and robots meta tag ('index, follow, max-image-preview:large') ✅. CTAs functional using onClick handlers for smooth scroll. Content is being fetched from backend via fetchPublicSections API and displayed correctly. (2) SITE HOMEPAGE MANAGER SECTION IN GATEWAY - All 7 required elements ✅ present and functional: manager section, generate button (enabled), apply button (enabled), open link, live headline, proposal headline, manager note. Gateway is AUTHORIZED ✅ (apply button enabled). Generate Proposal button clicked successfully without errors ✅. Apply to Homepage button clicked successfully without errors ✅. Both live and proposal preview columns visible with complete content. Coexistence with change history confirmed ✅ (both sections exist in DOM). NO CRITICAL ISSUES: No page breaks, no error messages, UI remains stable after all interactions. VISUAL QUALITY: Screenshots confirm beautiful desktop and mobile layouts with proper spacing and responsive design. CONCLUSION: Both public homepage /login and site homepage manager section are fully functional and production-ready. All requested validation criteria from Portuguese review request met successfully."
   - agent: "testing"
